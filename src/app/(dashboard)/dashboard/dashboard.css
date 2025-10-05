@@ -1,0 +1,97 @@
+body {
+  /* background: url("https://static.lexilexi.ai/dashboard/background.svg"); */
+  color: #121212;
+  background-color: #f4f4f4;
+  background-size: cover;
+  max-width: 1280px;
+  margin-inline: auto;
+}
+* {
+  color: #121212;
+}
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+}
+h1,
+h2,
+h3 {
+  font-weight: 600;
+}
+.primary_btn,
+button {
+  color: #fff;
+  background: #1570ee;
+}
+
+.primary_btn span,
+button span {
+  color: #fff;
+}
+
+.slider_budget .modern-slider .ant-slider-handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #1570ee;
+  background: white;
+  -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  -moz-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  margin-top: -2.5px;
+}
+
+.dashboard_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 24px;
+  max-width: 1280px;
+  margin-inline: auto;
+}
+.menu_right .create_button {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 32px;
+  gap: 3px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  height: 40px;
+  background: #7a3ff3;
+  border-radius: 100px;
+  flex: none;
+  order: 0;
+  flex-grow: 0;
+}
+.profile_right {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 8px 16px;
+  gap: 8px;
+  isolation: isolate;
+  height: 40px;
+  border-radius: 100px;
+  flex: none;
+  order: 2;
+  flex-grow: 0;
+  border: 1px solid #7e35e5;
+}
+.menu_right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stepper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-block: 60px 40px;
+}

@@ -1,0 +1,38 @@
+.tabs {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 4px;
+  width: max-content;
+  margin-inline: auto;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 100px;
+  height: max-content;
+  box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+  margin-bottom: 40px;
+  min-width: 320px;
+}
+.tabs button {
+  background: transparent;
+  color: #343438;
+  font-size: 14px;
+  height: 45px;
+  flex: 0 0 50%;
+}
+.tabs .data-\[state\=active\]\:bg-background[data-state='active'] {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 32px;
+  gap: 10px;
+  width: 156px;
+  height: 45px;
+  background: #7a3ff3;
+  border-radius: 100px;
+  flex: none;
+  order: 0;
+  flex-grow: 1;
+}

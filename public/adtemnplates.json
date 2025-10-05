@@ -1,0 +1,304 @@
+[
+    // ======================
+    // FOOD & BEVERAGE
+    // ======================
+    {
+      "niche": "food",
+      "headline": "🍱 {product_name} – Healthy Homemade Meals Delivered Nationwide",
+      "body": "Join {customer_count}+ happy customers enjoying fresh, preservative-free meals every day. {selling_point_1}.",
+      "cta": "Order Now"
+    },
+    {
+      "niche": "food",
+      "headline": "Miss Mom's Cooking? We Deliver It to You",
+      "body": "{selling_point_2}. Now available in {locations}. Limited spots for this week's meal plan!",
+      "cta": "Subscribe Today"
+    },
+    {
+      "niche": "food",
+      "headline": "🥗 Eat Better, Feel Better",
+      "body": "Our {product_name} is packed with nutrition and flavor. {selling_point_3}.",
+      "cta": "Start Your Plan"
+    },
+    {
+      "niche": "food",
+      "headline": "🍔 Cravings? Satisfied in Minutes",
+      "body": "Hot & fresh {product_category} delivered right to your door. {selling_point_4}.",
+      "cta": "Order Now"
+    },
+    {
+      "niche": "food",
+      "headline": "Nationwide Delivery of {cuisine_type} Meals",
+      "body": "Authentic {cuisine_type} taste made fresh daily. {selling_point_5}.",
+      "cta": "Try Today"
+    },
+  
+    // ======================
+    // E-COMMERCE / D2C
+    // ======================
+    {
+      "niche": "ecommerce",
+      "headline": "🛍️ {brand_name} – Shop {product_category} Loved by {customer_count}+ Customers",
+      "body": "{selling_point_1}. Free shipping on all orders this week!",
+      "cta": "Shop Now"
+    },
+    {
+      "niche": "ecommerce",
+      "headline": "Upgrade Your Style with {product_name}",
+      "body": "{selling_point_2}. Limited stock – grab yours today.",
+      "cta": "Get Yours"
+    },
+    {
+      "niche": "ecommerce",
+      "headline": "✨ Handpicked {product_category} Just for You",
+      "body": "From {location} to your doorstep. {selling_point_3}.",
+      "cta": "Explore Collection"
+    },
+    {
+      "niche": "ecommerce",
+      "headline": "Exclusive Flash Sale – Up to {discount} Off!",
+      "body": "Shop before {end_date}. {selling_point_4}.",
+      "cta": "Shop Sale"
+    },
+    {
+      "niche": "ecommerce",
+      "headline": "🎁 Perfect Gift Alert",
+      "body": "{product_name} is trending this season. {selling_point_5}.",
+      "cta": "Buy Now"
+    },
+  
+    // ======================
+    // SAAS / TECH
+    // ======================
+    {
+      "niche": "saas",
+      "headline": "🚀 Simplify Your Workflow with {product_name}",
+      "body": "Used by {customer_count}+ teams worldwide. {selling_point_1}.",
+      "cta": "Start Free Trial"
+    },
+    {
+      "niche": "saas",
+      "headline": "Automate {pain_point} in Just 3 Clicks",
+      "body": "{selling_point_2}. No credit card required.",
+      "cta": "Try for Free"
+    },
+    {
+      "niche": "saas",
+      "headline": "📊 Get More Done in Less Time",
+      "body": "{product_name} helps you {benefit}. {selling_point_3}.",
+      "cta": "Sign Up Today"
+    },
+    {
+      "niche": "saas",
+      "headline": "👨‍💻 Collaborate Better with {product_name}",
+      "body": "{selling_point_4}. Works seamlessly with your favorite tools.",
+      "cta": "Get Started"
+    },
+    {
+      "niche": "saas",
+      "headline": "Your Team’s Productivity Hub",
+      "body": "{selling_point_5}. Save hours every week.",
+      "cta": "Start Free Demo"
+    },
+  
+    // ======================
+    // FITNESS & WELLNESS
+    // ======================
+    {
+      "niche": "fitness",
+      "headline": "💪 Transform Your Body in {timeframe}",
+      "body": "Join {customer_count}+ members crushing goals with {product_name}. {selling_point_1}.",
+      "cta": "Start Free Trial"
+    },
+    {
+      "niche": "fitness",
+      "headline": "Your Personalized Fitness Plan Awaits",
+      "body": "{selling_point_2}. 7-day free access for first-time users!",
+      "cta": "Join Today"
+    },
+    {
+      "niche": "fitness",
+      "headline": "🏋️ Ready to Get Fit?",
+      "body": "Our trainers + your effort = unstoppable results. {selling_point_3}.",
+      "cta": "Get Started"
+    },
+    {
+      "niche": "fitness",
+      "headline": "Burn Fat. Build Strength.",
+      "body": "{selling_point_4}. Suitable for beginners & pros.",
+      "cta": "Book Your Session"
+    },
+    {
+      "niche": "fitness",
+      "headline": "🧘 Balance Mind & Body",
+      "body": "Join our {program_type} for a healthier lifestyle. {selling_point_5}.",
+      "cta": "Sign Up"
+    },
+  
+    // ======================
+    // EDUCATION & COURSES
+    // ======================
+    {
+      "niche": "education",
+      "headline": "📚 Learn {skill_name} in {timeframe}",
+      "body": "Trusted by {customer_count}+ learners. {selling_point_1}.",
+      "cta": "Enroll Now"
+    },
+    {
+      "niche": "education",
+      "headline": "Your Future in {skill_name} Starts Today",
+      "body": "Live classes, projects, and mentorship. {selling_point_2}.",
+      "cta": "Start Learning"
+    },
+    {
+      "niche": "education",
+      "headline": "🚀 Upgrade Your Career with {course_name}",
+      "body": "Get certified by industry experts. {selling_point_3}.",
+      "cta": "Apply Today"
+    },
+    {
+      "niche": "education",
+      "headline": "Learn Anytime, Anywhere",
+      "body": "{selling_point_4}. Mobile-friendly platform.",
+      "cta": "Join Free"
+    },
+    {
+      "niche": "education",
+      "headline": "👩‍🎓 Become Job-Ready in {timeframe}",
+      "body": "Master {skill_name} with hands-on projects. {selling_point_5}.",
+      "cta": "Get Started"
+    },
+  
+    // ======================
+    // PARENTING / BABY
+    // ======================
+    {
+      "niche": "parenting",
+      "headline": "👶 Make Parenting Easier",
+      "body": "Our {product_name} keeps your little one happy & healthy. {selling_point_1}.",
+      "cta": "Shop Now"
+    },
+    {
+      "niche": "parenting",
+      "headline": "Safe, Gentle, Loved by Parents",
+      "body": "{selling_point_2}. Trusted by {customer_count}+ families.",
+      "cta": "Learn More"
+    },
+    {
+      "niche": "parenting",
+      "headline": "👩‍👩‍👧 Essentials for New Parents",
+      "body": "From diapers to baby food, we’ve got you covered. {selling_point_3}.",
+      "cta": "Start Shopping"
+    },
+  
+    // ======================
+    // GAMING
+    // ======================
+    {
+      "niche": "gaming",
+      "headline": "🎮 Level Up Your Setup",
+      "body": "Upgrade with {product_name}. {selling_point_1}.",
+      "cta": "Shop Now"
+    },
+    {
+      "niche": "gaming",
+      "headline": "Join the Battle",
+      "body": "{selling_point_2}. Play like a pro!",
+      "cta": "Download Now"
+    },
+    {
+      "niche": "gaming",
+      "headline": "🕹️ The Game You’ve Been Waiting For",
+      "body": "Experience {game_feature}. {selling_point_3}.",
+      "cta": "Play Free"
+    },
+  
+    // ======================
+    // PETS
+    // ======================
+    {
+      "niche": "pets",
+      "headline": "🐾 Happy Pets, Happy Owners",
+      "body": "Our {product_name} keeps tails wagging. {selling_point_1}.",
+      "cta": "Order Now"
+    },
+    {
+      "niche": "pets",
+      "headline": "Vet-Approved Pet Nutrition",
+      "body": "{selling_point_2}. Delivered to your doorstep.",
+      "cta": "Subscribe"
+    },
+    {
+      "niche": "pets",
+      "headline": "🐶 Toys, Treats & More",
+      "body": "Spoil your furry friend today. {selling_point_3}.",
+      "cta": "Shop Collection"
+    },
+  
+    // ======================
+    // AUTOMOBILES
+    // ======================
+    {
+      "niche": "automobile",
+      "headline": "🚗 Drive the Future with {car_model}",
+      "body": "{selling_point_1}. Book your test drive today!",
+      "cta": "Book Now"
+    },
+    {
+      "niche": "automobile",
+      "headline": "New {car_model} Launch Offer",
+      "body": "{selling_point_2}. Limited period only.",
+      "cta": "Get Details"
+    },
+    {
+      "niche": "automobile",
+      "headline": "⚡ Go Electric with {brand_name}",
+      "body": "Save money & the planet. {selling_point_3}.",
+      "cta": "Explore Models"
+    },
+  
+    // ======================
+    // FINANCE
+    // ======================
+    {
+      "niche": "finance",
+      "headline": "📈 Grow Your Wealth with {product_name}",
+      "body": "{selling_point_1}. Trusted by {customer_count}+ investors.",
+      "cta": "Start Investing"
+    },
+    {
+      "niche": "finance",
+      "headline": "Smart Loans for Smart People",
+      "body": "Get approved in minutes. {selling_point_2}.",
+      "cta": "Apply Now"
+    },
+    {
+      "niche": "finance",
+      "headline": "💳 Take Control of Your Credit",
+      "body": "{selling_point_3}. No hidden fees.",
+      "cta": "Get Started"
+    },
+  
+    // ======================
+    // EVENTS / ENTERTAINMENT
+    // ======================
+    {
+      "niche": "events",
+      "headline": "🎶 {event_name} is Coming to {location}",
+      "body": "{selling_point_1}. Early bird tickets available now!",
+      "cta": "Book Tickets"
+    },
+    {
+      "niche": "events",
+      "headline": "Don’t Miss the {event_type} of the Year",
+      "body": "{selling_point_2}. Seats filling fast.",
+      "cta": "Reserve Now"
+    },
+    {
+      "niche": "events",
+      "headline": "🎤 Experience {artist_name} Live",
+      "body": "One night only in {city}! {selling_point_3}.",
+      "cta": "Get Passes"
+    }
+  ]
+  

@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+build
+dist
+*.min.js
+*.min.css
+public
+.env*
+*.log
+coverage
+.nyc_output
+.cache
+.vscode
+.idea
+*.tsbuildinfo
