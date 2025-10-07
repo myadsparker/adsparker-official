@@ -87,7 +87,7 @@
     "react-select": "^5.10.2",
     "recharts": "latest",
     "replicate": "^1.2.0",
-    "sharp": "^0.34.3",
+    "sharp": "^0.34.4",
     "snoowrap": "^1.23.0",
     "sonner": "latest",
     "stripe": "^18.5.0",
