@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Initialize OpenAI
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY!,
 });
 
 const supabase = createClient(
