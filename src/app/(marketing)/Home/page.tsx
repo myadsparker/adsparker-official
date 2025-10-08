@@ -244,24 +244,6 @@ export default function HomePage() {
             </motion.div>
           ))}
         </motion.div>
-
-        {/* Social links */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 1.4 }}
-          className='flex gap-6'
-        >
-          {['Twitter', 'LinkedIn', 'Facebook'].map(social => (
-            <a
-              key={social}
-              href='#'
-              className='text-gray-400 hover:text-white transition-colors duration-300'
-            >
-              <span className='text-sm uppercase tracking-wider'>{social}</span>
-            </a>
-          ))}
-        </motion.div>
       </div>
 
       <style jsx global>{`
