@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   description:
     'Launch and optimize Meta Ads to boost sales and maximize ROI with AI-powered automation.',
   generator: 'v0.dev',
+  verification: {
+    other: {
+      'facebook-domain-verification': 'tls4d3ui2iuer4kz3dbj88q1hw3an8',
+    },
+  },
 };
 
 export default function RootLayout({
