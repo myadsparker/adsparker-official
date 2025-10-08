@@ -7,13 +7,26 @@ if (!process.env.OPENAI_API_KEY) {
   console.error('⚠️ OPENAI_API_KEY is not set in environment variables');
 }
 
+// Check for Supabase environment variables
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  console.error(
+    '⚠️ NEXT_PUBLIC_SUPABASE_URL is not set in environment variables'
+  );
+}
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error(
+    '⚠️ SUPABASE_SERVICE_ROLE_KEY is not set in environment variables'
+  );
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
 interface AdCopyResult {
@@ -604,15 +617,29 @@ function calculateAudienceSize(personaName: string, businessAnalysis: any) {
 
 export async function POST(req: Request) {
   try {
-    // Check for OpenAI API key first
+    // Check for required environment variables
+    const missingVars = [];
+
     if (!process.env.OPENAI_API_KEY) {
-      console.error('❌ OPENAI_API_KEY is missing');
+      missingVars.push('OPENAI_API_KEY');
+    }
+
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      missingVars.push('NEXT_PUBLIC_SUPABASE_URL');
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      missingVars.push('SUPABASE_SERVICE_ROLE_KEY');
+    }
+
+    if (missingVars.length > 0) {
+      console.error('❌ Missing environment variables:', missingVars);
       return NextResponse.json(
         {
           error: 'Server configuration error',
-          message:
-            'OpenAI API key is not configured. Please add OPENAI_API_KEY to your .env.local file.',
-          hint: 'Create a .env.local file in the root directory and add: OPENAI_API_KEY=your_api_key_here',
+          message: `Missing required environment variables: ${missingVars.join(', ')}`,
+          missingVariables: missingVars,
+          hint: 'For local development: Create a .env.local file with these variables. For Vercel: Add these variables in Project Settings > Environment Variables',
         },
         { status: 500 }
       );
