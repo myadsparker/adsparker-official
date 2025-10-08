@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize OpenAI
+// Initialize OpenAI with error checking
+if (!process.env.OPENAI_API_KEY) {
+  console.error('⚠️ OPENAI_API_KEY is not set in environment variables');
+}
+
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || '',
 });
 
 const supabase = createClient(
@@ -600,6 +604,20 @@ function calculateAudienceSize(personaName: string, businessAnalysis: any) {
 
 export async function POST(req: Request) {
   try {
+    // Check for OpenAI API key first
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ OPENAI_API_KEY is missing');
+      return NextResponse.json(
+        {
+          error: 'Server configuration error',
+          message:
+            'OpenAI API key is not configured. Please add OPENAI_API_KEY to your .env.local file.',
+          hint: 'Create a .env.local file in the root directory and add: OPENAI_API_KEY=your_api_key_here',
+        },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json();
     console.log('📥 Received request body:', body);
 
