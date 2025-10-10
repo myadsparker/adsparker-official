@@ -21,6 +21,9 @@ export const metadata: Metadata = {
       'facebook-domain-verification': 'tls4d3ui2iuer4kz3dbj88q1hw3an8',
     },
   },
+  other: {
+    'fb:app_id': '1125992358956545',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_US',
