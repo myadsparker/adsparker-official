@@ -69,7 +69,7 @@ export default function RootLayout({
   return (
     <html lang='en' suppressHydrationWarning>
       <head>
-        <meta property='fb:app_id' content='1125992358956545' />
+        <meta property='fb:app_id' content='762075266617741' />
       </head>
       <body className={outfit.className}>
         <ThemeProvider
