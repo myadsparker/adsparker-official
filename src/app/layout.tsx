@@ -21,9 +21,6 @@ export const metadata: Metadata = {
       'facebook-domain-verification': 'tls4d3ui2iuer4kz3dbj88q1hw3an8',
     },
   },
-  other: {
-    'fb:app_id': '1125992358956545',
-  },
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -71,6 +68,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang='en' suppressHydrationWarning>
+      <head>
+        <meta property='fb:app_id' content='1125992358956545' />
+      </head>
       <body className={outfit.className}>
         <ThemeProvider
           attribute='class'
