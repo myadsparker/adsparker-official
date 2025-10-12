@@ -71,7 +71,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang='en' suppressHydrationWarning>
-      <body className={`${outfit.className} flex flex-col min-h-screen`}>
+      <body
+        className={`${outfit.className} flex flex-col h-screen overflow-hidden`}
+      >
         <ThemeProvider
           attribute='class'
           defaultTheme='dark'
@@ -79,13 +81,13 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Toaster position='top-right' /> {/* Required */}
-          <div className='flex-1'>{children}</div>
-          <footer className='bg-black border-t border-gray-800 py-6 px-4 relative z-50'>
+          <div className='flex-1 overflow-auto'>{children}</div>
+          <footer className='bg-black border-t border-gray-800 py-3 px-4 relative z-50 flex-shrink-0'>
             <div className='max-w-7xl mx-auto text-center'>
-              <p className='text-gray-400 text-sm mb-2'>
+              <p className='text-gray-400 text-[14px] mb-1'>
                 © 2025 AdSparker LLC. All rights reserved.
               </p>
-              <p className='text-gray-500 text-xs'>
+              <p className='text-gray-500 text-[14px]'>
                 AdSparker LLC is a Delaware-registered company based in the
                 United States
               </p>
