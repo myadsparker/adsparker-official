@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Freepik Seedream v4 Test</title>
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: 900px;
+        margin: 50px auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+      .container {
+        background: white;
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        color: #2c3e50;
+        margin-bottom: 10px;
+      }
+      .subtitle {
+        color: #7f8c8d;
+        margin-bottom: 30px;
+      }
+      .form-group {
+        margin-bottom: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #34495e;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #e0e0e0;
+        border-radius: 5px;
+        font-size: 14px;
+        transition: border-color 0.3s;
+        box-sizing: border-box;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+      textarea {
+        min-height: 100px;
+        resize: vertical;
+      }
+      .slider-group {
+        margin-bottom: 20px;
+      }
+      .slider-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      input[type='range'] {
+        width: 100%;
+        padding: 0;
+      }
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .checkbox-group input[type='checkbox'] {
+        width: auto;
+      }
+      button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        width: 100%;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+      button:disabled {
+        background: #bdc3c7;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .status {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-left: 4px solid #667eea;
+        border-radius: 5px;
+      }
+      .status.success {
+        border-left-color: #27ae60;
+        background: #d5f4e6;
+      }
+      .status.error {
+        border-left-color: #e74c3c;
+        background: #fadbd8;
+      }
+      .image-result {
+        margin-top: 20px;
+      }
+      .image-result img {
+        width: 100%;
+        border-radius: 10px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        margin-top: 10px;
+      }
+      .log {
+        margin-top: 20px;
+        padding: 15px;
+        background: #2c3e50;
+        color: #ecf0f1;
+        border-radius: 5px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .log-item {
+        margin: 3px 0;
+        padding: 2px;
+      }
+      .log-item.info {
+        color: #3498db;
+      }
+      .log-item.success {
+        color: #2ecc71;
+      }
+      .log-item.error {
+        color: #e74c3c;
+      }
+      .log-item.warning {
+        color: #f39c12;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎨 Freepik Seedream v4 Image Generator</h1>
+      <p class="subtitle">
+        Test the Seedream v4 API with customizable parameters
+      </p>
+
+      <form id="generateForm">
+        <!-- Prompt -->
+        <div class="form-group">
+          <label for="prompt">Prompt *</label>
+          <textarea
+            id="prompt"
+            placeholder="Describe the image you want to generate..."
+            required
+          >
+a magical forest with glowing mushrooms under moonlight</textarea
+          >
+        </div>
+
+        <!-- Aspect Ratio -->
+        <div class="form-group">
+          <label for="aspectRatio">Aspect Ratio</label>
+          <select id="aspectRatio">
+            <option value="square_1_1">Square (1:1)</option>
+            <option value="widescreen_16_9">Widescreen (16:9)</option>
+            <option value="social_story_9_16">Social Story (9:16)</option>
+            <option value="portrait_2_3">Portrait (2:3)</option>
+            <option value="traditional_3_4">Traditional (3:4)</option>
+            <option value="standard_3_2">Standard (3:2)</option>
+            <option value="classic_4_3">Classic (4:3)</option>
+          </select>
+        </div>
+
+        <!-- Guidance Scale -->
+        <div class="slider-group">
+          <div class="slider-label">
+            <label for="guidanceScale">Guidance Scale</label>
+            <span id="guidanceScaleValue">2.5</span>
+          </div>
+          <input
+            type="range"
+            id="guidanceScale"
+            min="0"
+            max="20"
+            step="0.5"
+            value="2.5"
+          />
+          <small style="color: #7f8c8d"
+            >Controls prompt adherence (0=creative, 20=strict)</small
+          >
+        </div>
+
+        <!-- Use Seed Checkbox -->
+        <div class="form-group">
+          <div class="checkbox-group">
+            <input type="checkbox" id="useSeed" />
+            <label for="useSeed" style="margin: 0"
+              >Use Custom Seed (for reproducibility)</label
+            >
+          </div>
+        </div>
+
+        <!-- Seed Input -->
+        <div class="form-group" id="seedGroup" style="display: none">
+          <label for="seed">Seed (0-2147483647)</label>
+          <input
+            type="number"
+            id="seed"
+            placeholder="Enter a seed value"
+            min="0"
+            max="2147483647"
+          />
+        </div>
+
+        <!-- Generate Button -->
+        <button type="submit" id="generateBtn">Generate Image</button>
+      </form>
+
+      <!-- Status Display -->
+      <div id="statusDisplay" style="display: none"></div>
+
+      <!-- Image Result -->
+      <div id="imageResult" style="display: none"></div>
+
+      <!-- Logs -->
+      <div class="log" id="logContainer"></div>
+    </div>
+
+    <script>
+      const form = document.getElementById('generateForm');
+      const generateBtn = document.getElementById('generateBtn');
+      const statusDisplay = document.getElementById('statusDisplay');
+      const imageResult = document.getElementById('imageResult');
+      const logContainer = document.getElementById('logContainer');
+      const guidanceScaleInput = document.getElementById('guidanceScale');
+      const guidanceScaleValue = document.getElementById('guidanceScaleValue');
+      const useSeedCheckbox = document.getElementById('useSeed');
+      const seedGroup = document.getElementById('seedGroup');
+
+      let pollInterval = null;
+
+      // Update guidance scale value display
+      guidanceScaleInput.addEventListener('input', e => {
+        guidanceScaleValue.textContent = e.target.value;
+      });
+
+      // Toggle seed input visibility
+      useSeedCheckbox.addEventListener('change', e => {
+        seedGroup.style.display = e.target.checked ? 'block' : 'none';
+      });
+
+      // Log function
+      function log(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const logItem = document.createElement('div');
+        logItem.className = `log-item ${type}`;
+        logItem.textContent = `[${timestamp}] ${message}`;
+        logContainer.appendChild(logItem);
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+
+      // Show status
+      function showStatus(message, type = 'info') {
+        statusDisplay.style.display = 'block';
+        statusDisplay.className = `status ${type}`;
+        statusDisplay.innerHTML = message;
+      }
+
+      // Form submission
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+
+        const prompt = document.getElementById('prompt').value;
+        const aspectRatio = document.getElementById('aspectRatio').value;
+        const guidanceScale = parseFloat(guidanceScaleInput.value);
+        const useSeed = useSeedCheckbox.checked;
+        const seed = useSeed
+          ? parseInt(document.getElementById('seed').value)
+          : undefined;
+
+        // Clear previous results
+        imageResult.style.display = 'none';
+        imageResult.innerHTML = '';
+        logContainer.innerHTML = '';
+
+        // Disable button
+        generateBtn.disabled = true;
+        generateBtn.textContent = 'Generating...';
+
+        log('Starting image generation...', 'info');
+        log(`Prompt: ${prompt}`, 'info');
+        log(`Aspect Ratio: ${aspectRatio}`, 'info');
+        log(`Guidance Scale: ${guidanceScale}`, 'info');
+        if (useSeed) {
+          log(`Seed: ${seed}`, 'info');
+        }
+
+        try {
+          // Build request body
+          const requestBody = {
+            prompt,
+            aspect_ratio: aspectRatio,
+            guidance_scale: guidanceScale,
+          };
+
+          if (useSeed && seed !== undefined) {
+            requestBody.seed = seed;
+          }
+
+          log('Sending POST request to /api/freepik-image-gen...', 'info');
+
+          // POST request
+          const response = await fetch('/api/freepik-image-gen', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to generate image');
+          }
+
+          const taskId = data.data.task_id;
+          log(`✓ Task created! Task ID: ${taskId}`, 'success');
+          log(`Status: ${data.data.status}`, 'info');
+          showStatus(
+            `<strong>Task ID:</strong> ${taskId}<br><strong>Status:</strong> ${data.data.status}<br>Waiting for image generation...`
+          );
+
+          // Start polling
+          startPolling(taskId);
+        } catch (error) {
+          log(`✗ Error: ${error.message}`, 'error');
+          showStatus(`<strong>Error:</strong> ${error.message}`, 'error');
+          generateBtn.disabled = false;
+          generateBtn.textContent = 'Generate Image';
+        }
+      });
+
+      // Polling function
+      function startPolling(taskId) {
+        log('Starting to poll for results (every 3 seconds)...', 'info');
+
+        pollInterval = setInterval(async () => {
+          try {
+            log(`Checking status...`, 'info');
+
+            const response = await fetch(
+              `/api/freepik-image-gen?task_id=${taskId}`
+            );
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(data.error || 'Failed to check status');
+            }
+
+            const status = data.data.status;
+            log(`Status: ${status}`, 'warning');
+
+            if (status === 'COMPLETED') {
+              clearInterval(pollInterval);
+              log('✓ Image generation completed!', 'success');
+
+              const images = data.data.generated;
+              log(`Generated ${images.length} image(s)`, 'success');
+
+              showStatus(
+                `<strong>✓ Generation Complete!</strong><br>Generated ${images.length} image(s)`,
+                'success'
+              );
+
+              // Display images
+              imageResult.style.display = 'block';
+              imageResult.innerHTML = '<h3>Generated Image:</h3>';
+              images.forEach((url, index) => {
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = `Generated image ${index + 1}`;
+                imageResult.appendChild(img);
+
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = '_blank';
+                link.textContent = 'Open image in new tab';
+                link.style.display = 'block';
+                link.style.marginTop = '10px';
+                link.style.color = '#667eea';
+                imageResult.appendChild(link);
+              });
+
+              generateBtn.disabled = false;
+              generateBtn.textContent = 'Generate Image';
+            } else if (status === 'FAILED') {
+              clearInterval(pollInterval);
+              log('✗ Image generation failed!', 'error');
+              showStatus('<strong>Generation Failed</strong>', 'error');
+              generateBtn.disabled = false;
+              generateBtn.textContent = 'Generate Image';
+            }
+            // Continue polling if IN_PROGRESS or CREATED
+          } catch (error) {
+            clearInterval(pollInterval);
+            log(`✗ Polling error: ${error.message}`, 'error');
+            showStatus(
+              `<strong>Polling Error:</strong> ${error.message}`,
+              'error'
+            );
+            generateBtn.disabled = false;
+            generateBtn.textContent = 'Generate Image';
+          }
+        }, 3000);
+      }
+
+      // Initial log
+      log('Seedream v4 Test Page Ready', 'success');
+      log('Fill in the form and click "Generate Image" to start', 'info');
+    </script>
+  </body>
+</html>

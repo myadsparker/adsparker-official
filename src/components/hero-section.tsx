@@ -266,7 +266,6 @@ export function HeroSection() {
               <video
                 className='w-full h-full object-cover opacity-0'
                 poster='/adsparkr-demo-thumbnail.png'
-                controls
                 preload='metadata'
               >
                 <source src='/demo-video.mp4' type='video/mp4' />

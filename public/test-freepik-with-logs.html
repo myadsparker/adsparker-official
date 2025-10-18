@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freepik API Test with Detailed Logs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            margin-bottom: 30px;
+            font-size: 32px;
+        }
+        .input-section {
+            background: #2a2a2a;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #60a5fa;
+        }
+        textarea {
+            width: 100%;
+            padding: 12px;
+            background: #1a1a1a;
+            border: 2px solid #404040;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        button {
+            background: #60a5fa;
+            color: #000;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        button:hover {
+            background: #3b82f6;
+        }
+        button:disabled {
+            background: #404040;
+            cursor: not-allowed;
+        }
+        .console {
+            background: #0a0a0a;
+            border: 2px solid #404040;
+            border-radius: 10px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 500px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        .console-line {
+            padding: 4px 0;
+            border-left: 3px solid transparent;
+            padding-left: 12px;
+            margin: 2px 0;
+        }
+        .console-line.step { border-color: #60a5fa; color: #60a5fa; }
+        .console-line.success { border-color: #10b981; color: #10b981; }
+        .console-line.error { border-color: #ef4444; color: #ef4444; }
+        .console-line.warning { border-color: #f59e0b; color: #f59e0b; }
+        .console-line.info { border-color: #8b5cf6; color: #c4b5fd; }
+        .result-section {
+            background: #2a2a2a;
+            padding: 25px;
+            border-radius: 10px;
+        }
+        .result-section img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 5px 0;
+        }
+        .status-created { background: #f59e0b; color: #000; }
+        .status-progress { background: #3b82f6; color: #fff; }
+        .status-completed { background: #10b981; color: #000; }
+        .status-failed { background: #ef4444; color: #fff; }
+        .timeline {
+            margin: 20px 0;
+            padding-left: 30px;
+            border-left: 3px solid #404040;
+        }
+        .timeline-item {
+            position: relative;
+            padding: 15px 0 15px 30px;
+        }
+        .timeline-item::before {
+            content: '●';
+            position: absolute;
+            left: -17px;
+            font-size: 24px;
+            color: #404040;
+        }
+        .timeline-item.active::before {
+            color: #60a5fa;
+            animation: pulse 1.5s infinite;
+        }
+        .timeline-item.completed::before {
+            color: #10b981;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Freepik API Test - Detailed Logging</h1>
+        
+        <div class="input-section">
+            <label for="prompt">Enter your prompt:</label>
+            <textarea id="prompt" rows="4" placeholder="Example: A professional product photography of a modern smartphone on a wooden desk, natural lighting, minimal background">A professional product photography of a modern smartphone on a wooden desk, natural lighting, minimal background, high resolution, commercial style</textarea>
+            <button onclick="testFreepikAPI()">🚀 Generate Image</button>
+        </div>
+
+        <h2 style="margin-bottom: 15px;">📋 Console Logs</h2>
+        <div class="console" id="console"></div>
+
+        <h2 style="margin-bottom: 15px;">⏱️ Process Timeline</h2>
+        <div class="timeline" id="timeline">
+            <div class="timeline-item" id="step-1">
+                <strong>Step 1:</strong> Send generation request
+            </div>
+            <div class="timeline-item" id="step-2">
+                <strong>Step 2:</strong> Task created (status: CREATED)
+            </div>
+            <div class="timeline-item" id="step-3">
+                <strong>Step 3:</strong> Processing (status: IN_PROGRESS)
+            </div>
+            <div class="timeline-item" id="step-4">
+                <strong>Step 4:</strong> Generation complete (status: COMPLETED)
+            </div>
+        </div>
+
+        <div class="result-section" id="result" style="display: none;">
+            <h2>✅ Generated Image</h2>
+            <div id="imageContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let consoleEl = document.getElementById('console');
+        let resultEl = document.getElementById('result');
+        let imageContainer = document.getElementById('imageContainer');
+
+        function log(message, type = 'info') {
+            const line = document.createElement('div');
+            line.className = `console-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+            
+            // Also log to browser console
+            console.log(message);
+        }
+
+        function updateStep(stepId, active = false, completed = false) {
+            const step = document.getElementById(stepId);
+            step.className = 'timeline-item';
+            if (active) step.classList.add('active');
+            if (completed) step.classList.add('completed');
+        }
+
+        async function testFreepikAPI() {
+            const prompt = document.getElementById('prompt').value;
+            
+            if (!prompt.trim()) {
+                log('❌ Please enter a prompt!', 'error');
+                return;
+            }
+
+            // Reset
+            consoleEl.innerHTML = '';
+            resultEl.style.display = 'none';
+            imageContainer.innerHTML = '';
+            
+            // Reset timeline
+            ['step-1', 'step-2', 'step-3', 'step-4'].forEach(id => {
+                document.getElementById(id).className = 'timeline-item';
+            });
+
+            try {
+                // STEP 1: Create generation task
+                updateStep('step-1', true);
+                log('════════════════════════════════════════════════', 'step');
+                log('🚀 STEP 1: Sending generation request...', 'step');
+                log('════════════════════════════════════════════════', 'step');
+                log(`📝 Prompt: ${prompt.substring(0, 60)}...`, 'info');
+                
+                const response = await fetch('/api/freepik-image-gen', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        resolution: '2k',
+                        aspect_ratio: 'square_1_1',
+                        model: 'realism',
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to start generation');
+                }
+
+                updateStep('step-1', false, true);
+                updateStep('step-2', true);
+                
+                log('✅ Request successful!', 'success');
+                log(`🎫 Task ID: ${data.data.task_id}`, 'success');
+                log(`📊 Initial Status: ${data.data.status}`, 'info');
+                log('', 'info');
+                log('⚠️  IMPORTANT:', 'warning');
+                log('⚠️  Status "CREATED" means Freepik accepted your request', 'warning');
+                log('⚠️  The image is NOT ready yet - it needs to be generated', 'warning');
+                log('⚠️  Now polling every 3 seconds until complete...', 'warning');
+                log('', 'info');
+
+                // STEP 2: Poll for completion
+                const taskId = data.data.task_id;
+                let attempts = 0;
+                const maxAttempts = 60;
+                let lastStatus = 'CREATED';
+
+                updateStep('step-2', false, true);
+                updateStep('step-3', true);
+
+                log('════════════════════════════════════════════════', 'step');
+                log('🔄 STEP 2: Polling for completion...', 'step');
+                log('════════════════════════════════════════════════', 'step');
+
+                while (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    attempts++;
+
+                    log(`🔍 Poll attempt ${attempts}/${maxAttempts}...`, 'info');
+
+                    const statusResponse = await fetch(`/api/freepik-image-gen?task_id=${taskId}`);
+                    const statusData = await statusResponse.json();
+
+                    if (!statusResponse.ok) {
+                        throw new Error(statusData.error || 'Failed to check status');
+                    }
+
+                    const currentStatus = statusData.data.status;
+                    
+                    if (currentStatus !== lastStatus) {
+                        log(`📊 Status changed: ${lastStatus} → ${currentStatus}`, 'warning');
+                        lastStatus = currentStatus;
+                    } else {
+                        log(`📊 Status: ${currentStatus}`, 'info');
+                    }
+
+                    if (currentStatus === 'COMPLETED') {
+                        updateStep('step-3', false, true);
+                        updateStep('step-4', true);
+                        
+                        log('', 'info');
+                        log('════════════════════════════════════════════════', 'success');
+                        log('🎉 GENERATION COMPLETED!', 'success');
+                        log('════════════════════════════════════════════════', 'success');
+                        log(`✅ Total time: ${attempts * 3} seconds`, 'success');
+                        log(`🖼️  Images generated: ${statusData.data.generated.length}`, 'success');
+                        
+                        updateStep('step-4', false, true);
+
+                        // Display images
+                        statusData.data.generated.forEach((imageUrl, index) => {
+                            log(`🔗 Image ${index + 1}: ${imageUrl}`, 'success');
+                            
+                            const img = document.createElement('img');
+                            img.src = imageUrl;
+                            img.alt = `Generated image ${index + 1}`;
+                            imageContainer.appendChild(img);
+                        });
+
+                        resultEl.style.display = 'block';
+                        return;
+                    }
+
+                    if (currentStatus === 'FAILED') {
+                        throw new Error('Image generation failed on Freepik\'s side');
+                    }
+
+                    if (currentStatus === 'IN_PROGRESS') {
+                        log('💡 Status explanation: AI is actively generating your image', 'info');
+                    } else if (currentStatus === 'CREATED') {
+                        log('💡 Status explanation: Request queued, waiting to start', 'info');
+                    }
+                }
+
+                throw new Error('Timeout: Image generation took too long');
+
+            } catch (error) {
+                log('', 'error');
+                log('════════════════════════════════════════════════', 'error');
+                log('❌ ERROR OCCURRED', 'error');
+                log('════════════════════════════════════════════════', 'error');
+                log(`📄 ${error.message}`, 'error');
+                
+                // Mark all remaining steps as inactive
+                ['step-1', 'step-2', 'step-3', 'step-4'].forEach(id => {
+                    const step = document.getElementById(id);
+                    if (!step.classList.contains('completed')) {
+                        step.classList.remove('active');
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
+
