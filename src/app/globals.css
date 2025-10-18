@@ -19,6 +19,55 @@ html {
   will-change: transform, opacity;
 }
 
+/* Word animation styles */
+.word-animate {
+  display: inline-block;
+  transform-origin: center;
+  backface-visibility: hidden;
+}
+
+/* Text reveal animation styles */
+[data-reveal] {
+  will-change: transform, opacity;
+}
+
+[data-typewriter] {
+  will-change: contents;
+}
+
+[data-parallax-text] {
+  will-change: transform;
+}
+
+/* Smooth text animations */
+.text-animate {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* Enhanced scroll animations */
+.scroll-reveal {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* Stagger animation delays */
+.stagger-1 {
+  animation-delay: 0.1s;
+}
+.stagger-2 {
+  animation-delay: 0.2s;
+}
+.stagger-3 {
+  animation-delay: 0.3s;
+}
+.stagger-4 {
+  animation-delay: 0.4s;
+}
+.stagger-5 {
+  animation-delay: 0.5s;
+}
+
 /* GSAP ScrollSmoother optimizations */
 #smooth-wrapper {
   overflow: hidden;
@@ -1327,7 +1376,6 @@ header .nav .sign_in:hover {
   height: 100%;
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
 }
 
 .step-image {

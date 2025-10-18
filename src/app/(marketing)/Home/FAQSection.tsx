@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -171,59 +172,56 @@ export default function FAQSection() {
 
         <div className='faq_items'>
           {faqData.map((item, index) => (
-            <div
+            <motion.div
               key={item.id}
               ref={el => {
                 faqItemsRef.current[index] = el;
               }}
               className={`faq_item ${openItem === item.id ? 'open' : ''}`}
               onClick={() => toggleFAQ(item.id)}
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             >
               <div className='faq_question'>
                 <h3>{item.question}</h3>
-                <div className='faq_icon'>
-                  {openItem === item.id ? (
-                    <svg
-                      width='20'
-                      height='20'
-                      viewBox='0 0 20 20'
-                      fill='none'
-                      xmlns='http://www.w3.org/2000/svg'
-                    >
-                      <path
-                        d='M5 12L10 7L15 12'
-                        stroke='#E0E0E0'
-                        strokeWidth='2'
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      width='20'
-                      height='20'
-                      viewBox='0 0 20 20'
-                      fill='none'
-                      xmlns='http://www.w3.org/2000/svg'
-                    >
-                      <path
-                        d='M7 8L10 11L13 8'
-                        stroke='#E0E0E0'
-                        strokeWidth='2'
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                      />
-                    </svg>
-                  )}
-                </div>
+                <motion.div
+                  className='faq_icon'
+                  animate={{ rotate: openItem === item.id ? 180 : 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                >
+                  <svg
+                    width='20'
+                    height='20'
+                    viewBox='0 0 20 20'
+                    fill='none'
+                    xmlns='http://www.w3.org/2000/svg'
+                  >
+                    <path
+                      d='M7 8L10 11L13 8'
+                      stroke='#E0E0E0'
+                      strokeWidth='2'
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                    />
+                  </svg>
+                </motion.div>
               </div>
 
-              {openItem === item.id && (
-                <div className='faq_answer'>
-                  <p>{item.answer}</p>
-                </div>
-              )}
-            </div>
+              <AnimatePresence>
+                {openItem === item.id && (
+                  <motion.div
+                    className='faq_answer'
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  >
+                    <p>{item.answer}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           ))}
         </div>
       </div>
