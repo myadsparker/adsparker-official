@@ -58,29 +58,43 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔹 First call: analyze snapshot into structured JSON
+    // 🔹 First call: analyze snapshot into structured JSON with comprehensive business analysis
     const analysisPrompt: OpenAI.Chat.ChatCompletionMessageParam[] = [
       {
         role: 'system',
         content:
-          'You are a senior brand designer + creative strategist. Analyze landing page screenshots carefully.',
+          'You are a senior brand designer + creative strategist + business analyst. Analyze landing page screenshots carefully and provide comprehensive business insights.',
       },
       {
         role: 'user',
         content: [
           {
             type: 'text',
-            text: `Analyze this landing page screenshot and return strict JSON with:
+            text: `Analyze this landing page screenshot and return strict JSON with comprehensive business analysis:
+
 {
   "source_image": "<url>",
   "colors": { "dominant": [hex], "accent": [hex] },
   "logo": { "found": true/false, "bounding_box": [x,y,w,h] },
-  "ocr_text": { "hero_headline": "...", "cta": "...", "promo": "..." },
+  "ocr_text": { "hero_headline": "...", "cta": "...", "promo": "...", "product_names": ["..."], "pricing_info": "..." },
   "layout": { "hero": {"y0":..,"y1":..}, "product_grid": {"y0":..,"y1":..} },
   "image_styles": ["..."],
   "inferred_brand_tone": "...",
-  "inferred_audience": { "gender": "...", "age_range": [..,..], "interests": ["..."] }
-}`,
+  "inferred_audience": { "gender": "...", "age_range": [..,..], "interests": ["..."] },
+  "business_analysis": {
+    "businessType": "specific business type based on visual content",
+    "productsServices": ["specific product 1", "specific service 2"],
+    "targetMarket": "specific target market description",
+    "uniqueValueProposition": "what makes this business unique",
+    "businessModel": "how this business operates",
+    "keyFeatures": ["feature 1", "feature 2"],
+    "pricingModel": "how they charge customers",
+    "geographicFocus": "where they operate",
+    "culturalFactors": "any cultural or demographic factors"
+  }
+}
+
+Focus on being SPECIFIC and ACCURATE based on the actual visual content.`,
           },
           { type: 'image_url', image_url: { url: screenshotUrl } },
         ],
@@ -106,7 +120,8 @@ export async function POST(req: Request) {
       parsed = {};
     }
 
-    // Derive brand tone dynamically from analysis JSON
+    // Extract business analysis and brand tone from analysis JSON
+    const businessAnalysis = parsed?.business_analysis || {};
     const brandTone = parsed?.inferred_brand_tone;
 
     // 🔹 Parallel calls: generate ad prompts and persona names
@@ -145,24 +160,35 @@ export async function POST(req: Request) {
         response_format: { type: 'json_object' },
       }),
 
-      // Persona names generation
+      // Persona names generation with comprehensive business analysis
       openai.chat.completions.create({
         model: 'gpt-4o',
         temperature: 0.3,
         messages: [
           {
             role: 'system',
-            content:
-              'You are a customer persona analysis expert specializing in creating HIGHLY SPECIFIC personas for any type of business. You must create personas that are unique to the specific business type, products, services, and target market based on the provided analysis. NEVER create generic personas that could apply to multiple businesses. Do not use examples from other businesses or industries. IMPORTANT: All persona names must be PLURAL since they represent target audiences for marketing campaigns, not individual customers. Focus on business-specific, demographic, and behavioral specificity. ALWAYS respond with ONLY valid JSON, no markdown, no code blocks, no additional text.',
+            content: `You are a customer persona analysis expert specializing in creating HIGHLY SPECIFIC personas for any type of business. You must create personas that are unique to the specific business type, products, services, and target market based on the provided analysis. NEVER create generic personas that could apply to multiple businesses. Do not use examples from other businesses or industries. IMPORTANT: All persona names must be PLURAL since they represent target audiences for marketing campaigns, not individual customers. Focus on business-specific, demographic, and behavioral specificity. ALWAYS respond with ONLY valid JSON, no markdown, no code blocks, no additional text.`,
           },
           {
             role: 'user',
             content: `Based on the following detailed business analysis from screenshot analysis, generate exactly 10 customer personas that are a very strong match (each must score at least 9/10 in relevance to this specific business).
 
-Business Analysis from Screenshot:
-${JSON.stringify(parsed, null, 2)}
+Comprehensive Business Analysis:
+- Business Type: ${businessAnalysis.businessType || 'Not specified'}
+- Products/Services: ${businessAnalysis.productsServices?.join(', ') || 'Not specified'}
+- Target Market: ${businessAnalysis.targetMarket || 'Not specified'}
+- Unique Value Proposition: ${businessAnalysis.uniqueValueProposition || 'Not specified'}
+- Business Model: ${businessAnalysis.businessModel || 'Not specified'}
+- Key Features: ${businessAnalysis.keyFeatures?.join(', ') || 'Not specified'}
+- Pricing Model: ${businessAnalysis.pricingModel || 'Not specified'}
+- Geographic Focus: ${businessAnalysis.geographicFocus || 'Not specified'}
+- Cultural Factors: ${businessAnalysis.culturalFactors || 'Not specified'}
 
-Brand Tone: ${brandTone}
+Visual Analysis:
+- Brand Tone: ${brandTone || 'Not specified'}
+- OCR Text: ${JSON.stringify(parsed?.ocr_text || {}, null, 2)}
+- Inferred Audience: ${JSON.stringify(parsed?.inferred_audience || {}, null, 2)}
+- Colors: ${JSON.stringify(parsed?.colors || {}, null, 2)}
 
 CRITICAL REQUIREMENTS:
 - Create personas that are SPECIFIC to this exact business type and model shown in the screenshot
@@ -172,6 +198,10 @@ CRITICAL REQUIREMENTS:
 - Be culturally and demographically specific where relevant
 - IMPORTANT: All persona names must be PLURAL (representing target audiences, not individual customers)
 - Base personas on the actual visual elements, colors, layout, and text found in the screenshot
+- Each persona should represent a different segment of the target market with clear differentiation
+- Consider psychographic, demographic, and behavioral factors specific to this business
+- Ensure personas are actionable for marketing campaigns and ad targeting
+- Use the comprehensive business analysis data to create highly targeted personas
 
 Output only valid JSON with this structure:
 {
@@ -264,6 +294,7 @@ Output only valid JSON with this structure:
       project_id: projectId,
       screenshot_url: screenshotUrl,
       snapshotanalysis: parsed,
+      business_analysis: businessAnalysis,
       ad_prompts: adPrompts,
       personas: personaParsed.personas || [],
       timestamp: new Date().toISOString(),
