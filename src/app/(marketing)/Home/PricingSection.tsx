@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useRouter } from 'next/navigation';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -100,9 +101,14 @@ const pricingPlans = [
 ];
 
 export default function PricingSection() {
+  const router = useRouter();
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
+
+  const handleGetStarted = () => {
+    router.push('/login');
+  };
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -259,7 +265,14 @@ export default function PricingSection() {
                   </ul>
                 </div>
 
-                <button className={`cta_button ${plan.buttonType}`}>
+                <button
+                  className={`cta_button ${plan.buttonType}`}
+                  onClick={
+                    plan.buttonText === 'Get Started Now'
+                      ? handleGetStarted
+                      : undefined
+                  }
+                >
                   {plan.buttonText}
                 </button>
               </div>

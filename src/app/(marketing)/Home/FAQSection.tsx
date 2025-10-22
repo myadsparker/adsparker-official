@@ -57,15 +57,13 @@ const faqData = [
 export default function FAQSection() {
   const [openItem, setOpenItem] = useState<number | null>(1); // First item open by default
   const sectionRef = useRef<HTMLElement>(null);
-  const headingRef = useRef<HTMLDivElement>(null);
   const faqItemsRef = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     const section = sectionRef.current;
-    const heading = headingRef.current;
     const faqItems = faqItemsRef.current;
 
-    if (!section || !heading || !faqItems.length) return;
+    if (!section || !faqItems.length) return;
 
     // Viewport entrance animations
     const tl = gsap.timeline({
@@ -76,13 +74,6 @@ export default function FAQSection() {
         toggleActions: 'play none none reverse',
       },
     });
-
-    // Animate heading
-    tl.fromTo(
-      heading,
-      { y: 50, opacity: 0 },
-      { duration: 0.8, y: 0, opacity: 1, ease: 'power3.out' }
-    );
 
     // Animate FAQ items with stagger and enhanced effects
     tl.fromTo(
@@ -143,7 +134,7 @@ export default function FAQSection() {
         className='faq_section_bg'
       />
       <div className='container'>
-        <div ref={headingRef} className='faq_heading'>
+        <div className='faq_heading'>
           <div className='emoji_left'>
             <Image
               src='/images/emoji-left.png'

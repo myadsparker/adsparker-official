@@ -53,7 +53,7 @@ export function HeroSection() {
     e.preventDefault();
     if (!url.trim()) return;
 
-    window.location.href = '/signup';
+    window.location.href = '/login';
   };
 
   return (

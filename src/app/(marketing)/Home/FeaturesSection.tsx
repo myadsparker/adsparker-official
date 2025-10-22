@@ -161,38 +161,7 @@ export default function FeaturesSection() {
       },
     });
 
-    // Animate first row blocks
-    const firstRowBlocks = section.querySelectorAll('.first_row .block_item');
-    tl.fromTo(
-      firstRowBlocks,
-      { y: 50, opacity: 0, scale: 0.9, rotationY: -15 },
-      {
-        duration: 0.8,
-        y: 0,
-        opacity: 1,
-        scale: 1,
-        rotationY: 0,
-        ease: 'power3.out',
-        stagger: 0.2,
-      }
-    );
-
-    // Animate second row blocks
-    const secondRowBlocks = section.querySelectorAll('.second_row .block_item');
-    tl.fromTo(
-      secondRowBlocks,
-      { y: 50, opacity: 0, scale: 0.9, rotationY: 15 },
-      {
-        duration: 0.8,
-        y: 0,
-        opacity: 1,
-        scale: 1,
-        rotationY: 0,
-        ease: 'power3.out',
-        stagger: 0.2,
-      },
-      '-=0.4'
-    );
+    // Second row blocks - no scroll animations (removed as requested)
 
     return () => {
       ScrollTrigger.getAll().forEach(trigger => trigger.kill());

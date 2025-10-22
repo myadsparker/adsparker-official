@@ -4,10 +4,16 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 export function StickyCTA() {
+  const router = useRouter();
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+
+  const handleGetStarted = () => {
+    router.push('/login');
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -49,6 +55,7 @@ export function StickyCTA() {
               <Button
                 size='sm'
                 className='bg-white text-indigo-700 hover:bg-gray-100 shadow-md whitespace-nowrap'
+                onClick={handleGetStarted}
               >
                 Get Started
                 <ArrowRight className='ml-1 h-3 w-3' />

@@ -9,12 +9,14 @@ const Header = () => {
     <header className='header-main'>
       <div className='container'>
         <div className='nav'>
-          <Image
-            src='/images/adsparker-logo.png'
-            alt='Adsparker Logo'
-            width={150}
-            height={40}
-          />
+          <Link href='/'>
+            <Image
+              src='/images/adsparker-logo.png'
+              alt='Adsparker Logo'
+              width={150}
+              height={40}
+            />
+          </Link>
           <div className='menu'>
             <Link href='/'>Home</Link>
             <Link href='/'>Pricing</Link>
@@ -24,7 +26,7 @@ const Header = () => {
             <Link href='/' className='sign_in'>
               Sign In
             </Link>
-            <Link href='/' className='get_started'>
+            <Link href='/login' className='get_started'>
               Get Started
             </Link>
           </div>

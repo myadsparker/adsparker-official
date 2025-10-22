@@ -13,7 +13,7 @@ export function Header() {
       <div className='max-w-7xl mx-auto'>
         <nav className='bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl sm:rounded-full px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shadow-lg'>
           {/* Logo */}
-          <div className='flex items-center gap-1.5 sm:gap-2'>
+          <Link href='/' className='flex items-center gap-1.5 sm:gap-2'>
             <div className='flex items-center justify-center'>
               <span className='text-yellow-400 text-lg sm:text-xl md:text-2xl'>
                 ✨
@@ -29,7 +29,7 @@ export function Header() {
             >
               AdSparkr
             </span>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className='hidden md:flex items-center gap-6 lg:gap-8'>
@@ -93,7 +93,7 @@ export function Header() {
                 fontSize: '15px',
                 fontWeight: 500,
               }}
-              onClick={() => (window.location.href = '/signup')}
+              onClick={() => (window.location.href = '/login')}
             >
               Get Started
             </Button>
@@ -177,7 +177,7 @@ export function Header() {
                       fontSize: '16px',
                       fontWeight: 500,
                     }}
-                    onClick={() => (window.location.href = '/signup')}
+                    onClick={() => (window.location.href = '/login')}
                   >
                     Get Started
                   </Button>

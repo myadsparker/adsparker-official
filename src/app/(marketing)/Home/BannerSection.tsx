@@ -179,7 +179,7 @@ export default function BannerSection() {
                 to optimization, everything's handled for you. No wasted spend,
                 no manual effort.
               </p>
-              <a href='#' className='cta'>
+              <a href='/login' className='cta'>
                 Generate Ads
                 <svg
                   width='20'
