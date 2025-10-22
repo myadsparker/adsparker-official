@@ -916,7 +916,8 @@ header .nav .sign_in:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 80px;
+  padding-bottom: 0px;
+  padding-inline: 60px;
 }
 
 .steps_section .heading_block h2 {
@@ -954,6 +955,7 @@ header .nav .sign_in:hover {
   grid-template-columns: 1fr 1fr;
   gap: 80px;
   align-items: center;
+  padding-inline: 60px;
 }
 
 /* Left Side - Steps */
@@ -1006,7 +1008,7 @@ header .nav .sign_in:hover {
 }
 
 .step-title {
-  font-size: 20px;
+  font-size: 40px;
   font-weight: 600;
   color: #1f2937;
   margin-bottom: 16px;
@@ -1014,7 +1016,7 @@ header .nav .sign_in:hover {
 }
 
 .step-description {
-  font-size: 16px;
+  font-size: 20px;
   color: #6b7280;
   line-height: 1.6;
   margin: 0;
@@ -1222,7 +1224,6 @@ header .nav .sign_in:hover {
   width: 100%;
   height: 100%;
   border-radius: 20px;
-  overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
 }
 
@@ -1274,6 +1275,52 @@ header .nav .sign_in:hover {
   border: none;
 }
 
+/* Dots Navigation */
+.dots-navigation {
+  position: absolute;
+  right: -40px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  z-index: 10;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(122, 63, 243, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.dot:hover {
+  background: rgba(122, 63, 243, 0.5);
+  transform: scale(1.1);
+}
+
+.dot.active {
+  background: #7a3ff3;
+  transform: scale(1.2);
+  box-shadow: 0 0 0 3px rgba(122, 63, 243, 0.2);
+}
+
+.dot.active::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 1024px) {
   .steps_content {
@@ -1289,6 +1336,16 @@ header .nav .sign_in:hover {
   .step-image-container {
     max-width: 400px;
     height: 400px;
+  }
+
+  .dots-navigation {
+    right: 15px;
+    gap: 10px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
   }
 }
 
@@ -1329,6 +1386,16 @@ header .nav .sign_in:hover {
   .step-image-container {
     max-width: 300px;
     height: 300px;
+  }
+
+  .dots-navigation {
+    right: 10px;
+    gap: 8px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
   }
 }
 

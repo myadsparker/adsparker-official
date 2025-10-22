@@ -6,33 +6,33 @@ import Link from 'next/link';
 const stepsData = [
   {
     id: 1,
-    title: 'Simply Start With Your URL',
+    title: 'Analyzing Your Business...',
     description:
-      'Just enter your website URL and AdSparker automatically analyzes your business, audience, and products—setting the foundation for your ad campaigns in seconds.',
+      'AdSparker automatically analyzes your business model, products, and market positioning to create the perfect ad strategy.',
     image: '/images/adsparker-022 1.png',
     video: '/images/1.mp4',
   },
   {
     id: 2,
-    title: 'Precise Targeting',
+    title: 'Analyzing Audience...',
     description:
-      'Reach the right people at the right time. AdSparker uses advanced data signals and machine learning to match your ads with the most valuable audience.',
+      'Our AI identifies your ideal customers, their behaviors, and preferences to ensure your ads reach the right people.',
     image: '/images/meta.png',
     video: '/images/2.mp4',
   },
   {
     id: 3,
-    title: 'Smart Ad Creatives',
+    title: 'Analyzing Your Products...',
     description:
-      'AdSparker generates high-performing ad creatives - both copy and visuals - tailored to your audience.',
+      'We examine your product catalog to understand what drives conversions and creates compelling ad creatives.',
     image: '/images/logo.png',
     video: '/images/3.mp4',
   },
   {
     id: 4,
-    title: 'Continuous Optimization',
+    title: 'Generating Ads...',
     description:
-      "Your ads never stop improving. AdSparker tests and refines every element—from creatives to targeting and budgets—scaling what works and replacing what doesn't, so your campaigns grow smarter and more profitable over time.",
+      'AdSparker creates high-performing ad campaigns with optimized targeting, creatives, and budgets for maximum ROI.',
     image: '/images/adsparker-logo.png',
     video: '/images/4.mp4',
   },
@@ -40,15 +40,12 @@ const stepsData = [
 
 export default function StepsSection() {
   const [activeStep, setActiveStep] = useState(0);
-  const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [videoError, setVideoError] = useState(false);
 
   const sectionRef = useRef<HTMLElement>(null);
   const leftRef = useRef<HTMLDivElement>(null);
   const rightRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Note: Video progression is now handled by onEnded event, no automatic timer needed
 
   // Ensure video plays when component mounts
   useEffect(() => {
@@ -92,14 +89,8 @@ export default function StepsSection() {
     }
   }, [activeStep]);
 
-  const handleStepClick = (stepIndex: number) => {
-    setIsUserInteracting(true);
+  const handleDotClick = (stepIndex: number) => {
     setActiveStep(stepIndex);
-
-    // Reset user interaction after 10 seconds to allow automatic progression again
-    setTimeout(() => {
-      setIsUserInteracting(false);
-    }, 10000);
   };
 
   return (
@@ -136,31 +127,17 @@ export default function StepsSection() {
 
         <div className='steps_content'>
           <div ref={leftRef} className='steps_left'>
-            {stepsData.map((step, index) => (
-              <div
-                key={step.id}
-                className={`step-item ${index === activeStep ? 'active' : ''}`}
-                onClick={() => handleStepClick(index)}
-              >
-                <div className='step-content'>
-                  <h3 className='step-title'>{step.title}</h3>
-                  <p className='step-description'>{step.description}</p>
-                </div>
-              </div>
-            ))}
+            <div className='step-content'>
+              <h3 className='step-title'>{stepsData[activeStep]?.title}</h3>
+              <p className='step-description'>
+                {stepsData[activeStep]?.description}
+              </p>
+            </div>
           </div>
 
           <div ref={rightRef} className='steps_right'>
             <div className='step-image-container'>
-              <div
-                className='step-video-container'
-                onClick={() => {
-                  console.log('Video container clicked, attempting to play...');
-                  videoRef.current?.play().catch(error => {
-                    console.log('Manual play failed:', error);
-                  });
-                }}
-              >
+              <div className='step-video-container'>
                 <video
                   ref={videoRef}
                   className='step-video'
@@ -168,6 +145,7 @@ export default function StepsSection() {
                   height='100%'
                   autoPlay
                   muted
+                  loop
                   playsInline
                   preload='metadata'
                   onLoadedData={() => {
@@ -181,10 +159,6 @@ export default function StepsSection() {
                     videoRef.current?.play().catch(error => {
                       console.log('Video play failed on canPlay:', error);
                     });
-                  }}
-                  onEnded={() => {
-                    console.log('Video ended, moving to next step...');
-                    setActiveStep(current => (current + 1) % stepsData.length);
                   }}
                   onError={e => {
                     console.log('Video error:', e);
@@ -220,6 +194,18 @@ export default function StepsSection() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Dots Navigation */}
+              <div className='dots-navigation'>
+                {stepsData.map((_, index) => (
+                  <button
+                    key={index}
+                    className={`dot ${index === activeStep ? 'active' : ''}`}
+                    onClick={() => handleDotClick(index)}
+                    aria-label={`Go to step ${index + 1}`}
+                  />
+                ))}
               </div>
             </div>
           </div>
