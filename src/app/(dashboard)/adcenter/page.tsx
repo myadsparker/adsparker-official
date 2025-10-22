@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { UserProfile, MetaAccount } from '@/types/user-profile';
@@ -26,7 +26,7 @@ interface Ad {
   insights: any;
 }
 
-export default function AdCenterPage() {
+function AdCenterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
@@ -605,5 +605,26 @@ export default function AdCenterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading component for Suspense fallback
+function AdCenterLoading() {
+  return (
+    <div className='flex items-center justify-center min-h-screen'>
+      <div className='text-center'>
+        <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto'></div>
+        <p className='mt-4 text-gray-600'>Loading Ad Center...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main export with Suspense wrapper
+export default function AdCenterPage() {
+  return (
+    <Suspense fallback={<AdCenterLoading />}>
+      <AdCenterContent />
+    </Suspense>
   );
 }
