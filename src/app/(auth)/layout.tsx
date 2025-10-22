@@ -8,7 +8,9 @@ export default function AuthLayout({
 }) {
   return (
     <div>
-      <Header />
+      <div className='auth-header-container'>
+        <Header />
+      </div>
       <div className='auth_page'>
         <div className='content_left'>{children}</div>
         <div className='content_right'>

@@ -1278,6 +1278,29 @@ header .nav .sign_in:hover {
   display: block;
 }
 
+/* Auth pages header - non-sticky */
+.auth-header-container .header-main {
+  position: relative !important;
+  top: 20px !important;
+  left: auto !important;
+  right: auto !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  z-index: auto !important;
+}
+
+.auth-header-container .header-main.header-scrolled {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
 /* Dots Navigation */
 .dots-navigation {
   position: absolute;
@@ -2458,6 +2481,7 @@ header .nav .sign_in:hover {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 40px;
+  padding-top: 60px;
 }
 
 /* Infinite Marquee Styles */
