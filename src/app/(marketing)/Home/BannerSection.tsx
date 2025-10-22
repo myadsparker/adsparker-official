@@ -11,15 +11,6 @@ export default function BannerSection() {
   const row1Ref = useRef<HTMLDivElement>(null);
   const row2Ref = useRef<HTMLDivElement>(null);
   const row3Ref = useRef<HTMLDivElement>(null);
-  const sectionRef = useRef<HTMLElement>(null);
-  const leftContentRef = useRef<HTMLDivElement>(null);
-  const rightContentRef = useRef<HTMLDivElement>(null);
-  const badgeRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const descriptionRef = useRef<HTMLParagraphElement>(null);
-  const ctaRef = useRef<HTMLAnchorElement>(null);
-  const featuresRef = useRef<HTMLDivElement>(null);
-  const partnerSectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     // Create truly infinite marquee animation for each column
@@ -114,144 +105,13 @@ export default function BannerSection() {
     };
   }, []);
 
-  // Banner section entrance animations
-  useEffect(() => {
-    const section = sectionRef.current;
-    const leftContent = leftContentRef.current;
-    const rightContent = rightContentRef.current;
-    const badge = badgeRef.current;
-    const title = titleRef.current;
-    const description = descriptionRef.current;
-    const cta = ctaRef.current;
-    const features = featuresRef.current;
-    const partnerSection = partnerSectionRef.current;
-
-    if (!section || !leftContent || !rightContent) return;
-
-    // Main banner animations
-    const bannerTl = gsap.timeline({
-      scrollTrigger: {
-        trigger: section,
-        start: 'top 80%',
-        end: 'bottom 20%',
-        toggleActions: 'play none none reverse',
-      },
-    });
-
-    // Animate left content
-    bannerTl.fromTo(
-      leftContent,
-      { x: -100, opacity: 0 },
-      { duration: 1, x: 0, opacity: 1, ease: 'power3.out' }
-    );
-
-    // Animate right content
-    bannerTl.fromTo(
-      rightContent,
-      { x: 100, opacity: 0 },
-      { duration: 1, x: 0, opacity: 1, ease: 'power3.out' },
-      '-=0.8'
-    );
-
-    // Staggered animations for left content elements
-    if (badge) {
-      bannerTl.fromTo(
-        badge,
-        { y: 30, opacity: 0, scale: 0.8 },
-        { duration: 0.6, y: 0, opacity: 1, scale: 1, ease: 'back.out(1.7)' },
-        '-=0.6'
-      );
-    }
-
-    if (title) {
-      bannerTl.fromTo(
-        title,
-        { y: 50, opacity: 0 },
-        { duration: 0.8, y: 0, opacity: 1, ease: 'power3.out' },
-        '-=0.4'
-      );
-    }
-
-    if (description) {
-      bannerTl.fromTo(
-        description,
-        { y: 30, opacity: 0 },
-        { duration: 0.6, y: 0, opacity: 1, ease: 'power2.out' },
-        '-=0.2'
-      );
-    }
-
-    if (cta) {
-      bannerTl.fromTo(
-        cta,
-        { y: 30, opacity: 0, scale: 0.9 },
-        { duration: 0.6, y: 0, opacity: 1, scale: 1, ease: 'back.out(1.7)' },
-        '-=0.2'
-      );
-    }
-
-    if (features) {
-      bannerTl.fromTo(
-        features,
-        { y: 30, opacity: 0 },
-        { duration: 0.6, y: 0, opacity: 1, ease: 'power2.out' },
-        '-=0.2'
-      );
-
-      // Animate individual feature items
-      const featureItems = features.querySelectorAll('.feature');
-      bannerTl.fromTo(
-        featureItems,
-        { y: 20, opacity: 0, scale: 0.9 },
-        {
-          duration: 0.4,
-          y: 0,
-          opacity: 1,
-          scale: 1,
-          ease: 'power2.out',
-          stagger: 0.1,
-        },
-        '-=0.3'
-      );
-    }
-
-    // Partner section animations
-    if (partnerSection) {
-      const partnerTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: partnerSection,
-          start: 'top 80%',
-          end: 'bottom 20%',
-          toggleActions: 'play none none reverse',
-        },
-      });
-
-      partnerTl.fromTo(
-        partnerSection.querySelector('p'),
-        { y: 30, opacity: 0 },
-        { duration: 0.6, y: 0, opacity: 1, ease: 'power2.out' }
-      );
-
-      partnerTl.fromTo(
-        partnerSection.querySelector('.marquee_inner'),
-        { x: -100, opacity: 0 },
-        { duration: 0.8, x: 0, opacity: 1, ease: 'power3.out' },
-        '-=0.3'
-      );
-    }
-
-    return () => {
-      ScrollTrigger.getAll().forEach(trigger => trigger.kill());
-    };
-  }, []);
-
   return (
     <>
-      <section ref={sectionRef} className='home_banner'>
+      <section className='home_banner'>
         <div className='container'>
           <div className='grid_row'>
-            <div ref={leftContentRef} className='content_left'>
-              <div ref={badgeRef} className='badge'>
+            <div className='content_left'>
+              <div className='badge'>
                 <svg
                   width='16'
                   height='16'
@@ -266,8 +126,8 @@ export default function BannerSection() {
                 </svg>
                 AI Handles Everything
               </div>
-              <h1 ref={titleRef}>
-                Launch Meta Ads in
+              <h1>
+                Meta Ads in
                 <span>
                   Minutes
                   <svg
@@ -314,12 +174,12 @@ export default function BannerSection() {
                   </svg>
                 </span>
               </h1>
-              <p ref={descriptionRef} className='description'>
+              <p className='description'>
                 Create Facebook and Instagram ads powered by AI — from targeting
                 to optimization, everything's handled for you. No wasted spend,
                 no manual effort.
               </p>
-              <a ref={ctaRef} href='#' className='cta'>
+              <a href='#' className='cta'>
                 Generate Ads
                 <svg
                   width='20'
@@ -345,7 +205,7 @@ export default function BannerSection() {
                 </svg>
               </a>
 
-              <div ref={featuresRef} className='features_extra'>
+              <div className='features_extra'>
                 <p>
                   Finally, ads that work while you sleep - no guesswork, no
                   stress.
@@ -524,7 +384,7 @@ export default function BannerSection() {
                 </div>
               </div>
             </div>
-            <div ref={rightContentRef} className='content_right'>
+            <div className='content_right'>
               <div className='product_marquee_container'>
                 <div className='row' ref={row1Ref}>
                   <Image
@@ -652,79 +512,53 @@ export default function BannerSection() {
           height={1000}
         />
       </section>
-      <section ref={partnerSectionRef} className='partner_section'>
+      <section className='partner_section'>
         <div className='container'>
           <p>
             Built for small businesses, startups, and e-commerce brands ready to
             scale.
           </p>
 
-          <div className='marquee'>
-            <div className='marquee_inner'>
-              <div className='marquee_item'>
-                <Image
-                  src='/images/adsparker-logo.png'
-                  alt='Adsparker'
-                  width={100}
-                  height={100}
-                />
-              </div>
-              <div className='marquee_item'>
-                <Image
-                  src='/images/meta.png'
-                  alt='Meta'
-                  width={100}
-                  height={100}
-                />
-              </div>
-              <div className='marquee_item'>
-                <Image
-                  src='/images/logo.png'
-                  alt='Logo'
-                  width={100}
-                  height={100}
-                />
-              </div>
-              <div className='marquee_item'>
-                <Image
-                  src='/images/adsparker-022 1.png'
-                  alt='Adsparker 2'
-                  width={100}
-                  height={100}
-                />
-              </div>
-              <div className='marquee_item'>
-                <Image
-                  src='/images/adsparker-logo.png'
-                  alt='Adsparker'
-                  width={100}
-                  height={100}
-                />
-              </div>
-              <div className='marquee_item'>
-                <Image
-                  src='/images/meta.png'
-                  alt='Meta'
-                  width={100}
-                  height={100}
-                />
-              </div>
-              <div className='marquee_item'>
-                <Image
-                  src='/images/logo.png'
-                  alt='Logo'
-                  width={100}
-                  height={100}
-                />
-              </div>
-              <div className='marquee_item'>
-                <Image
-                  src='/images/adsparker-022 1.png'
-                  alt='Adsparker 2'
-                  width={100}
-                  height={100}
-                />
-              </div>
+          <div className='partner_logos'>
+            <div className='partner_logo'>
+              <Image
+                src='/images/adsparker-logo-grey.png'
+                alt='Adsparker'
+                width={100}
+                height={100}
+              />
+            </div>
+            <div className='partner_logo'>
+              <Image
+                src='/images/adsparker-logo-grey.png'
+                alt='Adsparker'
+                width={100}
+                height={100}
+              />
+            </div>
+            <div className='partner_logo'>
+              <Image
+                src='/images/adsparker-logo-grey.png'
+                alt='Adsparker'
+                width={100}
+                height={100}
+              />
+            </div>
+            <div className='partner_logo'>
+              <Image
+                src='/images/adsparker-logo-grey.png'
+                alt='Adsparker'
+                width={100}
+                height={100}
+              />
+            </div>
+            <div className='partner_logo'>
+              <Image
+                src='/images/adsparker-logo-grey.png'
+                alt='Adsparker'
+                width={100}
+                height={100}
+              />
             </div>
           </div>
         </div>
