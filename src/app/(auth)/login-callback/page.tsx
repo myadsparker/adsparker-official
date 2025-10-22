@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import toast from 'react-hot-toast';
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -36,5 +36,23 @@ export default function AuthCallbackPage() {
     <div className='text-white text-center min-h-screen flex items-center justify-center'>
       Redirecting...
     </div>
+  );
+}
+
+// Loading component for Suspense fallback
+function AuthCallbackLoading() {
+  return (
+    <div className='text-white text-center min-h-screen flex items-center justify-center'>
+      Loading...
+    </div>
+  );
+}
+
+// Main export with Suspense wrapper
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<AuthCallbackLoading />}>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }
