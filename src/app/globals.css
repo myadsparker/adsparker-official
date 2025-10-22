@@ -1264,7 +1264,8 @@ header .nav .sign_in:hover {
   height: 100%;
   border-radius: 20px;
   overflow: hidden;
-  background: transparent;
+  background: #f8f9fa;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .step-video-container video {
@@ -1273,6 +1274,8 @@ header .nav .sign_in:hover {
   object-fit: cover;
   border-radius: 20px;
   border: none;
+  background: #f8f9fa;
+  display: block;
 }
 
 /* Dots Navigation */

@@ -127,7 +127,7 @@ export default function BannerSection() {
                 AI Handles Everything
               </div>
               <h1>
-                Meta Ads in
+                Launch Meta Ads in
                 <span>
                   Minutes
                   <svg

@@ -6,33 +6,33 @@ import Link from 'next/link';
 const stepsData = [
   {
     id: 1,
-    title: 'Analyzing Your Business...',
+    title: 'Simply Start With Your URL',
     description:
-      'AdSparker automatically analyzes your business model, products, and market positioning to create the perfect ad strategy.',
+      'Just enter your website URL and AdSparker automatically analyzes your business, audience, and products—setting the foundation for your ad campaigns in seconds.',
     image: '/images/adsparker-022 1.png',
     video: '/images/1.mp4',
   },
   {
     id: 2,
-    title: 'Analyzing Audience...',
+    title: 'Precise Targeting',
     description:
-      'Our AI identifies your ideal customers, their behaviors, and preferences to ensure your ads reach the right people.',
+      'Reach the right people at the right time. AdSparker uses advanced data signals and machine learning to match your ads with the most valuable audience.',
     image: '/images/meta.png',
     video: '/images/2.mp4',
   },
   {
     id: 3,
-    title: 'Analyzing Your Products...',
+    title: 'Smart Ad Creatives',
     description:
-      'We examine your product catalog to understand what drives conversions and creates compelling ad creatives.',
+      'AdSparker generates high-performing ad creatives — both copy and visuals — tailored to your audience.',
     image: '/images/logo.png',
     video: '/images/3.mp4',
   },
   {
     id: 4,
-    title: 'Generating Ads...',
+    title: 'Continuous Optimization',
     description:
-      'AdSparker creates high-performing ad campaigns with optimized targeting, creatives, and budgets for maximum ROI.',
+      "Your ads never stop improving. AdSparker tests and refines every element—from creatives to targeting and budgets—scaling what works and replacing what doesn't, so your campaigns grow smarter and more profitable over time.",
     image: '/images/adsparker-logo.png',
     video: '/images/4.mp4',
   },
@@ -72,20 +72,27 @@ export default function StepsSection() {
   // Reload video when activeStep changes
   useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.load(); // Reload the video with new source
+      // Hide video during transition to prevent black flash
+      videoRef.current.style.opacity = '0';
       setVideoError(false); // Reset error state
+
+      videoRef.current.load(); // Reload the video with new source
 
       // Try to play the new video
       const playNewVideo = async () => {
         try {
           await videoRef.current!.play();
+          // Show video once it starts playing
+          videoRef.current!.style.opacity = '1';
         } catch (error) {
           console.log('Autoplay prevented for new video:', error);
+          // Show video even if autoplay fails
+          videoRef.current!.style.opacity = '1';
         }
       };
 
       // Small delay to ensure video is loaded
-      setTimeout(playNewVideo, 100);
+      setTimeout(playNewVideo, 200);
     }
   }, [activeStep]);
 
@@ -147,7 +154,8 @@ export default function StepsSection() {
                   muted
                   loop
                   playsInline
-                  preload='metadata'
+                  preload='auto'
+                  poster={stepsData[activeStep]?.image}
                   onLoadedData={() => {
                     console.log('Video loaded, attempting to play...');
                     videoRef.current?.play().catch(error => {
@@ -164,12 +172,26 @@ export default function StepsSection() {
                     console.log('Video error:', e);
                     setVideoError(true);
                   }}
+                  onLoadStart={() => {
+                    // Hide any potential black flash during loading
+                    if (videoRef.current) {
+                      videoRef.current.style.opacity = '0';
+                    }
+                  }}
+                  onCanPlayThrough={() => {
+                    // Show video once it's ready to play
+                    if (videoRef.current) {
+                      videoRef.current.style.opacity = '1';
+                    }
+                  }}
                   style={{
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
                     borderRadius: '20px',
                     border: 'none',
+                    backgroundColor: '#f8f9fa',
+                    transition: 'opacity 0.3s ease',
                   }}
                 >
                   <source
