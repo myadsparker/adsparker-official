@@ -12,9 +12,11 @@ const supabase = createClient(
 );
 
 export async function POST(req: Request) {
+  console.log('🚀 Analyze-snapshot API called');
   try {
     const body = await req.json().catch(() => ({}));
     const projectId: string | undefined = body.project_id || body.projectId;
+    console.log('📋 Project ID:', projectId);
 
     if (!projectId) {
       return NextResponse.json(
@@ -260,6 +262,88 @@ Output only valid JSON with this structure:
       adPrompts = [promptParsed.ad_prompt];
     }
 
+    // If no prompts found, create a default one
+    if (adPrompts.length === 0) {
+      adPrompts = [
+        {
+          name: 'Default AI Ad Image',
+          prompt:
+            'High-quality marketing ad image for ' +
+            (businessAnalysis.businessType || 'business'),
+          recommended_copy: {
+            headline: 'Discover Our Solution',
+            subhead: 'Transform your business today',
+            cta: 'Learn More',
+            proof: 'Trusted by thousands',
+            disclaimer: 'Results may vary',
+          },
+        },
+      ];
+    }
+
+    // 🔹 Generate AI images from ad prompts
+    let generatedImageUrls: string[] = [];
+
+    if (adPrompts.length > 0) {
+      console.log('🎨 Generating AI images from ad prompts...');
+      console.log('📝 Number of prompts:', adPrompts.length);
+      try {
+        for (let i = 0; i < Math.min(adPrompts.length, 2); i++) {
+          // Generate max 2 images
+          const prompt = adPrompts[i];
+          const imagePrompt =
+            prompt.prompt || prompt.name || 'High-quality marketing ad image';
+
+          const imageResponse = await openai.images.generate({
+            model: 'dall-e-3',
+            prompt: imagePrompt,
+            size: '1024x1024',
+            quality: 'standard',
+            n: 1,
+          });
+
+          const imageData = imageResponse.data?.[0];
+          console.log(
+            `🖼️ Generated image ${i + 1}:`,
+            imageData?.url ? 'Success' : 'Failed'
+          );
+          if (imageData?.url) {
+            // Download the image and save to project-files bucket
+            console.log(`📥 Downloading image ${i + 1} from OpenAI...`);
+            const imageResponse = await fetch(imageData.url);
+            const imageBuffer = await imageResponse.arrayBuffer();
+
+            const timestamp = Date.now();
+            const fileName = `${projectId}/ai-images/ad-${i + 1}-${timestamp}.png`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('project-files')
+              .upload(fileName, imageBuffer, {
+                contentType: 'image/png',
+                cacheControl: '3600',
+                upsert: false,
+              });
+
+            if (!uploadError) {
+              const { data: urlData } = supabase.storage
+                .from('project-files')
+                .getPublicUrl(fileName);
+
+              generatedImageUrls.push(urlData.publicUrl);
+              console.log(`✅ AI image ${i + 1} saved: ${urlData.publicUrl}`);
+            } else {
+              console.error(
+                `❌ Failed to save AI image ${i + 1}:`,
+                uploadError
+              );
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error generating AI images:', error);
+      }
+    }
+
     // 🔹 Merge and save to Supabase
     let existingUrlAnalysis: any = project.url_analysis ?? {};
     if (typeof existingUrlAnalysis === 'string') {
@@ -277,17 +361,80 @@ Output only valid JSON with this structure:
       personas: personaParsed.personas || [],
     };
 
+    // Get existing ai_images and append new ones
+    let existingAiImages: string[] = [];
+    try {
+      const { data: projectData } = await supabase
+        .from('projects')
+        .select('ai_images')
+        .eq('project_id', projectId)
+        .single();
+
+      if (projectData?.ai_images) {
+        existingAiImages =
+          typeof projectData.ai_images === 'string'
+            ? JSON.parse(projectData.ai_images)
+            : projectData.ai_images;
+      }
+    } catch (error) {
+      console.error('Error fetching existing ai_images:', error);
+    }
+
+    const updatedAiImages = [...existingAiImages, ...generatedImageUrls];
+
+    // Set the first generated AI image as thumbnail if no thumbnail exists
+    let thumbnailImage = null;
+    try {
+      const { data: projectData } = await supabase
+        .from('projects')
+        .select('adset_thumbnail_image')
+        .eq('project_id', projectId)
+        .single();
+
+      if (
+        !projectData?.adset_thumbnail_image &&
+        generatedImageUrls.length > 0
+      ) {
+        thumbnailImage = generatedImageUrls[0];
+        console.log(
+          `🖼️ Setting first AI image as thumbnail: ${thumbnailImage}`
+        );
+      }
+    } catch (error) {
+      console.error('Error checking existing thumbnail:', error);
+    }
+
+    const updateData: any = {
+      url_analysis: updatedUrlAnalysis,
+      ai_images: updatedAiImages,
+    };
+
+    if (thumbnailImage) {
+      updateData.adset_thumbnail_image = thumbnailImage;
+    }
+
+    console.log(
+      '🔍 Debug - Updating database with:',
+      JSON.stringify(updateData, null, 2)
+    );
+
     const { error: updateError } = await supabase
       .from('projects')
-      .update({ url_analysis: updatedUrlAnalysis })
+      .update(updateData)
       .eq('project_id', projectId);
 
     if (updateError) {
+      console.error('❌ Database update error:', updateError);
       return NextResponse.json(
-        { error: 'Failed to update url_analysis' },
+        { error: 'Failed to update url_analysis and ai_images' },
         { status: 500 }
       );
     }
+
+    console.log(
+      '✅ Database updated successfully with ai_images:',
+      updateData.ai_images
+    );
 
     return NextResponse.json({
       success: true,
@@ -297,6 +444,10 @@ Output only valid JSON with this structure:
       business_analysis: businessAnalysis,
       ad_prompts: adPrompts,
       personas: personaParsed.personas || [],
+      generated_ai_images: generatedImageUrls,
+      ai_images_count: generatedImageUrls.length,
+      thumbnail_set: !!thumbnailImage,
+      thumbnail_url: thumbnailImage,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

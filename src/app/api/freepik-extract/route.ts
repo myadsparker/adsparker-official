@@ -1227,6 +1227,43 @@ Use the uploaded blank canvas image as the foundation for the final aspect ratio
       finalImageUrl = await uploadToSupabase(base64Image, project_id, 1);
 
       console.log('✅ 1024x1024 image generated and saved!');
+
+      // Save the generated image URL to ai_images column
+      if (finalImageUrl) {
+        try {
+          // Get existing ai_images
+          const { data: projectData } = await supabase
+            .from('projects')
+            .select('ai_images')
+            .eq('project_id', project_id)
+            .single();
+
+          let existingAiImages: string[] = [];
+          if (projectData?.ai_images) {
+            existingAiImages =
+              typeof projectData.ai_images === 'string'
+                ? JSON.parse(projectData.ai_images)
+                : projectData.ai_images;
+          }
+
+          // Add new image URL
+          const updatedAiImages = [...existingAiImages, finalImageUrl];
+
+          // Update the database
+          const { error: updateError } = await supabase
+            .from('projects')
+            .update({ ai_images: updatedAiImages })
+            .eq('project_id', project_id);
+
+          if (updateError) {
+            console.error('❌ Failed to update ai_images:', updateError);
+          } else {
+            console.log('✅ AI image URL saved to ai_images column');
+          }
+        } catch (error) {
+          console.error('❌ Error saving AI image URL:', error);
+        }
+      }
     } catch (error) {
       console.error('❌ Image generation failed:', error);
       throw error;

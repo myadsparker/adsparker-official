@@ -202,8 +202,11 @@ const URLAnalyzerInterface = () => {
       if (!analyzeSnapshotResponse.ok) {
         // Don't throw error here - UI can still work with analyzing points data
         console.warn('⚠️ Analyze snapshot failed, continuing...');
+        const errorText = await analyzeSnapshotResponse.text();
+        console.error('❌ Analyze snapshot error details:', errorText);
       } else {
         const analyzeSnapshotResult = await analyzeSnapshotResponse.json();
+        console.log('🔍 Debug - analyzeSnapshotResult:', analyzeSnapshotResult);
         if (analyzeSnapshotResult.success) {
           console.log('✅ Analyze snapshot completed successfully');
 
