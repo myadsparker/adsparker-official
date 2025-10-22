@@ -193,7 +193,6 @@ const URLAnalyzerInterface = () => {
       setAnalysisDuration(actualDuration);
 
       // Step 2: Call analyze-snapshot API after analyzing-points completes
-
       const analyzeSnapshotResponse = await fetch('/api/analyze-snapshot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -202,10 +201,41 @@ const URLAnalyzerInterface = () => {
 
       if (!analyzeSnapshotResponse.ok) {
         // Don't throw error here - UI can still work with analyzing points data
+        console.warn('⚠️ Analyze snapshot failed, continuing...');
       } else {
         const analyzeSnapshotResult = await analyzeSnapshotResponse.json();
         if (analyzeSnapshotResult.success) {
+          console.log('✅ Analyze snapshot completed successfully');
+
+          // Step 3: Call ad-copy-gen API after analyze-snapshot completes successfully
+          console.log('📋 Step 3: Calling ad-copy-gen API...');
+          try {
+            const adCopyResponse = await fetch('/api/ad-copy-gen', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ project_id: projectId }),
+            });
+
+            if (!adCopyResponse.ok) {
+              console.warn(
+                `⚠️ Ad copy generation failed with status: ${adCopyResponse.status}`
+              );
+            } else {
+              const adCopyResult = await adCopyResponse.json();
+              if (adCopyResult.success) {
+                console.log('✅ Ad copy generation completed successfully');
+                console.log('📊 Ad copy data received:', adCopyResult);
+              } else {
+                console.warn(
+                  '⚠️ Ad copy generation returned unsuccessful result'
+                );
+              }
+            }
+          } catch (adCopyError) {
+            console.warn('⚠️ Ad copy generation error:', adCopyError);
+          }
         } else {
+          console.warn('⚠️ Analyze snapshot returned unsuccessful result');
         }
       }
     } catch (err: any) {

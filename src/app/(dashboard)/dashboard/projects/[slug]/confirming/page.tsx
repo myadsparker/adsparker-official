@@ -96,64 +96,10 @@ export default function Confirming() {
           );
         }
 
-        // Step 1: Call ad-copy-gen API first
+        // No API calls needed here - all APIs are now called from their respective pages
         console.log(
-          '🚀 Starting sequential API calls: ad-copy-gen → audience-tag-gen'
+          '✅ Confirming page loaded - all APIs handled by other pages'
         );
-
-        try {
-          console.log('📋 Step 1: Calling ad-copy-gen API...');
-          const adCopyResponse = await fetch('/api/ad-copy-gen', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ project_id: projectId }),
-          });
-
-          if (!adCopyResponse.ok) {
-            throw new Error(
-              `Ad copy generation failed with status: ${adCopyResponse.status}`
-            );
-          }
-
-          const adCopyResult = await adCopyResponse.json();
-          if (!adCopyResult.success) {
-            throw new Error('Ad copy generation returned unsuccessful result');
-          }
-
-          console.log('✅ Ad copy generation completed successfully');
-          console.log('📊 Ad copy data received:', adCopyResult);
-
-          // Step 2: Call audience-tag-gen API after ad-copy-gen completes
-          console.log('📋 Step 2: Calling audience-tag-gen API...');
-          const audienceTagResponse = await fetch('/api/audience-tag-gen', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ project_id: projectId }),
-          });
-
-          if (!audienceTagResponse.ok) {
-            console.warn(
-              '⚠️ Audience tag generation failed with status:',
-              audienceTagResponse.status
-            );
-            // Don't throw error here - ad copy data is still valuable
-          } else {
-            const audienceTagResult = await audienceTagResponse.json();
-            if (audienceTagResult.success) {
-              console.log('✅ Audience tag generation completed successfully');
-              console.log('📊 Audience tag data received:', audienceTagResult);
-            } else {
-              console.warn(
-                '⚠️ Audience tag generation returned unsuccessful result'
-              );
-            }
-          }
-
-          console.log('🎉 Sequential API calls completed!');
-        } catch (error) {
-          console.error('❌ Error in sequential API calls:', error);
-          // Continue with loading even if APIs fail - user can still proceed
-        }
 
         // Extract business name from existing project data (analyzing points should already be completed)
         if (project.analysing_points?.businessName) {

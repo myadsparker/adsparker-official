@@ -134,6 +134,40 @@ export default function BudgetPage() {
     const fetchAdSets = async () => {
       try {
         setLoading(true);
+
+        // Step 1: Call audience-tag-gen API first
+        console.log('📋 Step 1: Calling audience-tag-gen API...');
+        try {
+          const audienceTagResponse = await fetch('/api/audience-tag-gen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: projectId }),
+          });
+
+          if (!audienceTagResponse.ok) {
+            console.warn(
+              '⚠️ Audience tag generation failed with status:',
+              audienceTagResponse.status
+            );
+            // Continue with ad sets generation even if audience tags fail
+          } else {
+            const audienceTagResult = await audienceTagResponse.json();
+            if (audienceTagResult.success) {
+              console.log('✅ Audience tag generation completed successfully');
+              console.log('📊 Audience tag data received:', audienceTagResult);
+            } else {
+              console.warn(
+                '⚠️ Audience tag generation returned unsuccessful result'
+              );
+            }
+          }
+        } catch (audienceError) {
+          console.warn('⚠️ Audience tag generation error:', audienceError);
+          // Continue with ad sets generation even if audience tags fail
+        }
+
+        // Step 2: Call generate-adsets API after audience-tag-gen completes
+        console.log('📋 Step 2: Calling generate-adsets API...');
         const response = await fetch(
           `/api/projects/${projectId}/generate-adsets`,
           {
@@ -155,6 +189,7 @@ export default function BudgetPage() {
             setSelectedAdSet(data.adsets[0]); // Select first ad set by default
           }
         }
+        console.log('✅ Ad sets generation completed successfully');
       } catch (error) {
         console.error('Error fetching ad sets:', error);
       } finally {

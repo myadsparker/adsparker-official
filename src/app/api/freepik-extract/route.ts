@@ -27,20 +27,11 @@ type ScreenshotAnalysis = {
   keyFeatures: string[];
   brandingElements: string;
   userInterface: string;
-  pageType?: 'product_page' | 'home_page' | 'landing_page' | 'service_page';
+  pageType?: 'product_page' | 'home_page' | 'landing_page';
   isProductPage?: boolean;
   hasMainProduct?: boolean;
   mainProductDescription?: string;
   inferredAudience?: string;
-  // Enhanced fields
-  emotionalTriggers?: string[];
-  valueProposition?: string;
-  competitiveAdvantage?: string;
-  psychologicalAppeal?: string;
-  productCategory?: string;
-  serviceType?: string;
-  painPoints?: string[];
-  desiredOutcome?: string;
 };
 
 type FreepikGenerationResult = {
@@ -50,7 +41,7 @@ type FreepikGenerationResult = {
 };
 
 /**
- * Enhanced screenshot analysis using GPT-4 Vision
+ * Analyze screenshot using GPT-4 Vision (SAME AS BEFORE)
  */
 async function analyzeScreenshot(
   screenshotUrl: string
@@ -66,45 +57,24 @@ async function analyzeScreenshot(
           content: [
             {
               type: 'text',
-              text: `Perform an expert-level analysis of this website screenshot for creating high-converting ad visuals. 
+              text: `Analyze this website screenshot in detail. Focus on:
+1. Visual elements and design style (modern, minimal, corporate, playful, etc.)
+2. Color scheme and branding (primary colors, secondary colors, overall mood)
+3. Layout and structure (hero section, navigation, content organization)
+4. Key features visible (forms, CTAs, product images, testimonials, etc.)
+5. Branding elements (logo style, typography, visual identity)
+6. User interface patterns (buttons, cards, modals, etc.)
+7. **PAGE TYPE DETECTION**: Determine if this is:
+   - A product page (showing a specific product for sale with details, price, add to cart)
+   - A home page (general overview, multiple sections)
+   - A landing page (focused campaign page)
+8. **PRODUCT DETECTION**: If it's a product page, identify:
+   - Does it have a main product image?
+   - What is the product? (brief description)
 
-VISUAL BRAND ANALYSIS:
-1. Design DNA: Identify the core design language (luxury, minimalist, playful, technical, organic, industrial, etc.)
-2. Color Psychology: Primary colors and their emotional impact (trust=blue, energy=red, growth=green, etc.)
-3. Typography Hierarchy: Font styles and what they communicate about the brand
-4. Visual Weight: Where does the eye naturally flow? What's emphasized?
-5. White Space Usage: How does spacing contribute to perceived value?
+Provide a detailed analysis that will help create compelling ad visuals that match this brand's identity.
 
-PAGE TYPE DETECTION:
-- Product Page: Single product with price, add to cart, specifications
-- Service Page: Service descriptions, benefits, process explanations
-- Home Page: Overview, multiple sections, navigation to various areas
-- Landing Page: Single focused campaign or offer
-
-CONVERSION PSYCHOLOGY:
-6. Emotional Triggers: What emotions does this design evoke? (security, excitement, trust, urgency, aspiration)
-7. Value Proposition: What's the core promise or benefit being communicated?
-8. Social Proof Elements: Reviews, testimonials, trust badges, certifications
-9. Urgency/Scarcity: Limited time offers, stock levels, exclusive access
-10. Target Psychological Profile: What are the likely pain points, desires, and motivations of the audience?
-
-PRODUCT/SERVICE SPECIFICS:
-11. If Product Page: 
-    - Product category (electronics, fashion, home goods, software, etc.)
-    - Key product benefits visible
-    - Product positioning (premium, value, innovative)
-12. If Service Page:
-    - Service type (consulting, software, education, health, etc.)
-    - Service delivery method (online, in-person, hybrid)
-    - Key transformation or outcome promised
-
-AD CREATIVE INSIGHTS:
-13. Hero Shot Potential: What would be the most compelling visual focus?
-14. Lifestyle Context: What life situation would best showcase this offering?
-15. Competitive Differentiator: What makes this unique vs competitors?
-16. Call-to-Action Energy: What action verb best matches the brand energy?
-
-Return as JSON with fields: visualElements, colorScheme, layout, keyFeatures (array), brandingElements, userInterface, pageType ("product_page"|"service_page"|"home_page"|"landing_page"), isProductPage (boolean), hasMainProduct (boolean), mainProductDescription (string), inferredAudience (string with demographics + psychographics), emotionalTriggers (array), valueProposition (string), competitiveAdvantage (string), psychologicalAppeal (string), productCategory (string), serviceType (string), painPoints (array), desiredOutcome (string)`,
+Return as JSON with fields: visualElements, colorScheme, layout, keyFeatures (array), brandingElements, userInterface, pageType ("product_page"|"home_page"|"landing_page"), isProductPage (boolean), hasMainProduct (boolean), mainProductDescription (string), inferredAudience (string describing target demographic: age, gender, interests, lifestyle)`,
             },
             {
               type: 'image_url',
@@ -117,11 +87,11 @@ Return as JSON with fields: visualElements, colorScheme, layout, keyFeatures (ar
         },
       ],
       response_format: { type: 'json_object' },
-      max_tokens: 2000,
+      max_tokens: 1500,
     });
 
     const analysis = JSON.parse(response.choices[0].message.content || '{}');
-    console.log('✅ Enhanced screenshot analysis complete:', analysis);
+    console.log('✅ Screenshot analysis complete:', analysis);
     return analysis;
   } catch (err) {
     console.error('❌ Error analyzing screenshot:', err);
@@ -251,7 +221,7 @@ async function generateImageWithFreepik(
   try {
     console.log('🎨 Generating image with Freepik Gemini 2.5 Flash...');
     console.log('📝 Prompt:', prompt.substring(0, 100) + '...');
-    console.log('📐 Aspect Ratio: square_1_1 (1080x1080px)');
+    console.log('📐 Aspect Ratio: square_1_1 (1024x1024px)');
     console.log('🔑 API Key configured:', !!apiKey);
     console.log('🔑 API Key length:', apiKey?.length || 0);
 
@@ -268,7 +238,7 @@ async function generateImageWithFreepik(
 
     const requestBody: any = {
       prompt: prompt,
-      aspect_ratio: 'square_1_1', // Force 1:1 square format (1080x1080px)
+      aspect_ratio: 'square_1_1', // Force 1:1 square format (1024x1024px)
       num_images: 1,
     };
 
@@ -984,80 +954,128 @@ export async function POST(req: NextRequest) {
     // Step 4: Extract content from URL using Firecrawl
     const extracted = await extractContentFromUrl(websiteUrl);
 
-    // Step 5: Generate dynamic prompt using image-to-prompt analysis
-    console.log('🎨 Generating dynamic prompt using image analysis...');
+    // Step 5: Generate ad concept with improved prompt structure
+    console.log('📝 Generating ad concept with GPT-4...');
 
-    // Determine if it's a product or service page
-    const isProductPage =
-      screenshotAnalysis.pageType === 'product_page' ||
-      screenshotAnalysis.isProductPage;
-    const isServicePage =
-      screenshotAnalysis.pageType === 'service_page' ||
-      screenshotAnalysis.serviceType;
+    const conceptGenerationPrompt = `Create 1 high-converting Facebook ad concept for this business.
 
-    // Call the image-to-prompt API internally
-    const imageToPromptResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/image-to-prompt`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ project_id }),
-      }
-    );
+**BUSINESS CONTEXT:**
+Website: ${websiteUrl}
+Business: ${extracted.businessDescription || 'Service/Product business'}
+Target Audience: ${screenshotAnalysis.inferredAudience || 'General consumers'}
 
-    if (!imageToPromptResponse.ok) {
-      const errorData = await imageToPromptResponse.json();
-      throw new Error(
-        `Image-to-prompt failed: ${errorData.error || 'Unknown error'}`
+**BRAND IDENTITY (from website analysis):**
+- Visual Style: ${screenshotAnalysis.visualElements}
+- Color Palette: ${screenshotAnalysis.colorScheme}
+- UI/UX Pattern: ${screenshotAnalysis.userInterface}
+- Brand Voice: ${screenshotAnalysis.brandingElements}
+- Page Type: ${screenshotAnalysis.pageType || 'unknown'}
+
+**ASSETS AVAILABLE:**
+${logoBase64 ? '✓ Company logo (will be auto-included as reference)' : '✗ No logo available'}
+${productReferenceImage ? `✓ Real product image (${screenshotAnalysis.mainProductDescription})` : '✗ No product image available'}
+
+**IMAGE GENERATION REQUIREMENTS:**
+**CRITICAL: You must create ONE detailed image prompt (300-400 words) for a 1024x1024px SQUARE Facebook ad.**
+**MANDATORY: The image MUST be square format (1024x1024 pixels) - NO horizontal banners, NO vertical formats.**
+
+${
+  productReferenceImage || logoBase64
+    ? `**REFERENCE IMAGES PROVIDED:**
+${productReferenceImage ? '- Real product image will be provided as reference' : ''}
+${logoBase64 ? '- Company logo will be provided as reference' : ''}
+
+Your prompt should focus on:
+1. Scene composition and lifestyle context
+2. 1-2 people (${screenshotAnalysis.inferredAudience || 'target demographic'}) naturally using/interacting with the product
+3. Professional photography style (natural lighting, authentic expressions)
+4. Color harmony matching: ${screenshotAnalysis.colorScheme}
+5. Layout: balance product, people, and negative space
+
+DO NOT describe the ${productReferenceImage ? 'product appearance or' : ''} ${logoBase64 ? 'logo' : ''} - they will be provided as reference images.
+`
+    : `**NO REFERENCE IMAGES:**
+Your prompt must include:
+1. Detailed product/service visualization
+2. 1-2 people (${screenshotAnalysis.inferredAudience || 'target demographic'}) in authentic use scenario
+3. Professional lifestyle photography style
+4. Brand colors: ${screenshotAnalysis.colorScheme}
+5. Complete scene description with all visual elements
+`
+}
+
+**PEOPLE REQUIREMENTS (CRITICAL):**
+- Show 1-2 people from target demographic actively using the product
+- Natural features: realistic skin texture, genuine expressions, natural hair
+- Authentic interaction: hands touching/holding product, engaged body language
+- Emotional connection: joy, satisfaction, relief (matching product benefit)
+- Diversity and relatability
+
+**PHOTOGRAPHY STYLE:**
+- Professional lifestyle shoot aesthetic
+- Soft natural lighting (golden hour, window light, studio softbox)
+- Shallow depth of field with product/person in focus
+- Warm color grading matching brand palette
+- Compositional balance: rule of thirds, leading lines
+- AVOID: AI-generated perfection, stock photo clichés, harsh lighting
+
+Return JSON:
+{
+  "analysis": {
+    "business_type": "...",
+    "target_audience": "...",
+    "key_value_props": ["..."],
+    "tone": "...",
+    "brand_colors": "${screenshotAnalysis.colorScheme}",
+    "visual_style": "${screenshotAnalysis.visualElements}"
+  },
+  "concepts": [
+    {
+      "headline": "Compelling headline under 40 chars",
+      "primary_text": "150-200 char engaging copy with benefit and CTA",
+      "cta": "Learn More|Shop Now|Get Started|Sign Up",
+      "image_prompt": "DETAILED 300-400 word prompt for 1024x1024px square image..."
+    }
+  ]
+}`;
+
+    const openaiResponse = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: conceptGenerationPrompt }],
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
+    });
+
+    const responseText = openaiResponse.choices[0].message.content || '{}';
+    let conceptsData: any;
+
+    try {
+      // Try to extract JSON from the response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      conceptsData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } catch (e) {
+      console.error('❌ Failed to parse GPT-4 response:', e);
+      return NextResponse.json(
+        { error: 'Failed to parse ad concept response', details: responseText },
+        { status: 500 }
       );
     }
 
-    const imageToPromptData = await imageToPromptResponse.json();
-    const dynamicPrompt = imageToPromptData.facebook_ad_prompt;
+    if (!conceptsData?.concepts?.[0]) {
+      return NextResponse.json(
+        { error: 'Failed to generate ad concepts', data: conceptsData },
+        { status: 500 }
+      );
+    }
 
-    console.log(
-      '✅ Dynamic prompt generated:',
-      dynamicPrompt.substring(0, 100) + '...'
-    );
-
-    // Create simplified concept data structure
-    const conceptsData = {
-      analysis: {
-        business_type:
-          imageToPromptData.business_context.businessType || 'Business',
-        target_audience:
-          imageToPromptData.business_context.targetAudience ||
-          'General consumers',
-        key_value_props: ['Quality', 'Value', 'Trust'],
-        tone: 'Professional and engaging',
-        brand_colors:
-          imageToPromptData.business_context.brandColors || 'Professional',
-        visual_style:
-          imageToPromptData.business_context.visualStyle || 'Modern',
-        psychological_hooks: ['Trust', 'Value', 'Quality'],
-        conversion_strategy: 'Visual appeal and clear value proposition',
-      },
-      concepts: [
-        {
-          headline: 'Transform Your Business Today',
-          primary_text:
-            'Discover the solution that thousands of satisfied customers trust. Get started now and see results immediately.',
-          cta: 'Get Started',
-          image_prompt: dynamicPrompt,
-        },
-      ],
-    };
-
-    // Step 6: Enhanced image generation with Freepik using improved prompts
+    // Step 6: Enhanced image generation with Freepik
     const chosenConcept = conceptsData.concepts[0];
     let finalImageUrl: string | null = null;
 
-    // Download canvas image first (like logo and product images)
+    // Download blank canvas image for exact 1024x1024 dimensions
     let canvasImageBase64: string | null = null;
     try {
-      console.log('📐 Downloading blank canvas image...');
+      console.log('📐 Downloading blank canvas image for 1024x1024...');
       canvasImageBase64 = await downloadImageAsBase64(
         'https://ghsgnjzkgygiqmhjvtpi.supabase.co/storage/v1/object/public/project-files/white-canvas-1024_1024.png'
       );
@@ -1092,7 +1110,7 @@ export async function POST(req: NextRequest) {
     if (canvasImageBase64) {
       referenceImages.push(canvasImageBase64);
       console.log(
-        '✅ Added blank canvas as LAST reference image for size control'
+        '✅ Added blank canvas as LAST reference image for exact 1024x1024 size control'
       );
     }
 
@@ -1101,37 +1119,97 @@ export async function POST(req: NextRequest) {
     const finalReferenceImages =
       referenceImages.length > 0 ? referenceImages : undefined;
 
-    // Build SIMPLIFIED Freepik prompt using dynamic prompt from image analysis
-    const optimizedPrompt = `**MANDATORY: Generate a square Facebook ad image**
+    // Build optimized prompt for Freepik Gemini 2.5 Flash
+    let optimizedPrompt = '';
 
-${hasProduct ? 'PRODUCT: Integrate the reference product naturally into the scene' : ''}
-${hasLogo ? 'LOGO: Include the brand logo prominently but tastefully in the composition' : ''}
+    if (finalReferenceImages) {
+      // WITH REFERENCE IMAGES - Focus on composition and people
+      optimizedPrompt = `**CRITICAL REQUIREMENT: GENERATE IMAGE AT EXACTLY 1024x1024 PIXELS - SQUARE FORMAT ONLY**
 
-**DYNAMIC SCENE PROMPT:**
+REFERENCE IMAGES:
+${hasProduct ? '• Product image provided - use EXACT product as-is, no modifications' : ''}
+${hasLogo ? `• Logo provided - place ${logoBase64 ? 'prominently in top-right corner OR center-top with 80% opacity overlay' : ''}` : ''}
+
+SCENE COMPOSITION:
 ${chosenConcept.image_prompt}
 
-**TECHNICAL REQUIREMENTS:**
-- High-quality, professional photography style
-- Clean, modern, and conversion-focused
-- Space for text overlay
-- Brand colors: ${screenshotAnalysis.colorScheme}
+HUMAN SUBJECTS (MANDATORY):
+• ${screenshotAnalysis.inferredAudience || '1-2 people aged 25-35'}
+• Natural facial features: subtle skin texture, authentic expressions, real hair movement
+• Active product interaction: hands naturally holding/using ${hasProduct ? 'the reference product' : 'the product'}
+• Genuine emotion: ${screenshotAnalysis.inferredAudience?.includes('professional') ? 'confident satisfaction' : 'joyful contentment'}
 
-**CANVAS INSTRUCTIONS:**
-Use the uploaded blank canvas image as the canvas for the final aspect ratio. Fill this canvas with the following description while maintaining the exact square dimensions of the uploaded canvas.
+PHOTOGRAPHY DIRECTION:
+• Lighting: soft window light, golden hour glow, or professional studio softbox
+• Color grade: warm tones with ${screenshotAnalysis.colorScheme}
+• Depth: f/2.8 aperture effect, background slightly blurred
+• Framing: center-weighted, negative space for text overlay (top 20% clear)
+• Style: lifestyle editorial, authentic not stock-photo, professional not amateur
 
-**RESULT: Premium square Facebook ad image**`;
+LAYOUT FOR SQUARE AD (1024x1024px):
+• Center: product + person interaction (60% of frame)
+• Top 20%: clear area for headline text
+• ${hasLogo ? 'Top-right corner: logo placement zone' : 'Bottom-right: branding space'}
+• Rule of thirds: primary subject at intersection points
+
+CANVAS INSTRUCTIONS:
+Use the uploaded blank canvas image as the foundation for the final aspect ratio. Fill this canvas completely with the scene description while maintaining the exact square dimensions (1024x1024px) of the uploaded canvas.
+
+**MANDATORY: Square 1024x1024 pixel format - NO horizontal banners, NO vertical formats**`;
+    } else {
+      // WITHOUT REFERENCE - Complete scene description
+      optimizedPrompt = `**CRITICAL REQUIREMENT: GENERATE IMAGE AT EXACTLY 1024x1024 PIXELS - SQUARE FORMAT ONLY**
+
+COMPLETE SCENE:
+${chosenConcept.image_prompt}
+
+PRODUCT/SERVICE VISUALIZATION:
+• ${extracted.productDescription || 'Primary product/service offering'}
+• Style: ${screenshotAnalysis.visualElements}
+• Colors: ${screenshotAnalysis.colorScheme}
+• Branding elements: ${screenshotAnalysis.brandingElements}
+
+HUMAN SUBJECTS (MANDATORY):
+• ${screenshotAnalysis.inferredAudience || '1-2 people aged 25-35'} representing target demographic
+• Natural features: authentic skin texture, real expressions, genuine hair
+• Interaction: actively using/benefiting from product
+• Emotion: positive, relatable, authentic satisfaction
+
+PROFESSIONAL PHOTOGRAPHY:
+• Lighting: soft natural light, warm temperature (4500-5500K)
+• Composition: rule of thirds, leading lines to product
+• Depth: shallow focus (f/2.8), subject sharp, background soft
+• Color: warm grade matching ${screenshotAnalysis.colorScheme}
+• Style: lifestyle editorial, not stock photography
+
+SQUARE AD LAYOUT (1024x1024px):
+• Center: main subject + product (60% frame)
+• Top 20%: negative space for headline
+• Bottom: natural vignette
+• Balance: 40% product, 40% person, 20% environment
+
+CANVAS INSTRUCTIONS:
+Use the uploaded blank canvas image as the foundation for the final aspect ratio. Fill this canvas completely with the scene description while maintaining the exact square dimensions (1024x1024px) of the uploaded canvas.
+
+**MANDATORY: Square 1024x1024 pixel format - NO horizontal banners, NO vertical formats**`;
+    }
 
     console.log(
-      `🎨 Generating ${isProductPage ? 'PRODUCT-HERO' : isServicePage ? 'SERVICE-VISUALIZATION' : 'LIFESTYLE'} ad with Freepik...`
+      `🎨 Generating with Freepik (${hasProduct ? 'product' : ''}${hasProduct && hasLogo ? '+' : ''}${hasLogo ? 'logo' : 'text-only'} mode)...`
     );
     console.log(
-      `📊 Sending ${referenceImages.length} reference image(s) to Freepik (canvas as LAST for size control)`
+      `📊 Sending ${referenceImages.length} reference image(s) to Freepik`
     );
 
     try {
+      // Add final size instruction to ensure square format
+      const finalImagePrompt = `${optimizedPrompt}
+
+**FINAL REMINDER: Generate at EXACTLY 1024x1024 pixels - SQUARE FORMAT ONLY - NO horizontal banners or vertical formats**`;
+
       // Generate with Freepik
       const generationResult = await generateImageWithFreepik(
-        optimizedPrompt,
+        finalImagePrompt,
         finalReferenceImages
       );
 
@@ -1148,7 +1226,7 @@ Use the uploaded blank canvas image as the canvas for the final aspect ratio. Fi
       const base64Image = await downloadImageAsBase64(freepikImageUrl);
       finalImageUrl = await uploadToSupabase(base64Image, project_id, 1);
 
-      console.log('✅ 1080x1080 optimized ad image generated and saved!');
+      console.log('✅ 1024x1024 image generated and saved!');
     } catch (error) {
       console.error('❌ Image generation failed:', error);
       throw error;
@@ -1190,7 +1268,7 @@ Use the uploaded blank canvas image as the canvas for the final aspect ratio. Fi
       analysis: conceptsData.analysis,
       chosenConcept,
       generation: {
-        method: 'dynamic-prompt-freepik-gemini-2.5-flash',
+        method: 'freepik-gemini-2.5-flash',
         finalImageUrl: finalImageUrl,
         usedRealProductImage: !!productReferenceImage,
         usedCompanyLogo: !!logoBase64,
@@ -1198,18 +1276,11 @@ Use the uploaded blank canvas image as the canvas for the final aspect ratio. Fi
         referenceImageFormat: 'base64',
         ogImageUrl: ogImage,
         extractionMethod: 'cheerio-og-image-base64',
-        imageType: isProductPage
-          ? 'product-hero'
-          : isServicePage
-            ? 'service-visualization'
-            : 'lifestyle-balanced',
-        promptSource: 'image-to-prompt-analysis',
-        dynamicPrompt: dynamicPrompt,
       },
       allConcepts: conceptsData.concepts,
     };
 
-    console.log('🎉 Enhanced ad generation with Freepik complete!');
+    console.log('🎉 Ad generation with Freepik complete!');
     return NextResponse.json(response);
   } catch (err: any) {
     console.error('❌ Error in freepik-extract:', err);
