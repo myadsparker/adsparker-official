@@ -281,68 +281,12 @@ Output only valid JSON with this structure:
       ];
     }
 
-    // 🔹 Generate AI images from ad prompts
+    // 🔹 AI images will be generated manually by user via Generate Image button
+    // No automatic image generation - images are only created when user clicks "Generate Image"
     let generatedImageUrls: string[] = [];
-
-    if (adPrompts.length > 0) {
-      console.log('🎨 Generating AI images from ad prompts...');
-      console.log('📝 Number of prompts:', adPrompts.length);
-      try {
-        for (let i = 0; i < Math.min(adPrompts.length, 2); i++) {
-          // Generate max 2 images
-          const prompt = adPrompts[i];
-          const imagePrompt =
-            prompt.prompt || prompt.name || 'High-quality marketing ad image';
-
-          const imageResponse = await openai.images.generate({
-            model: 'dall-e-3',
-            prompt: imagePrompt,
-            size: '1024x1024',
-            quality: 'standard',
-            n: 1,
-          });
-
-          const imageData = imageResponse.data?.[0];
-          console.log(
-            `🖼️ Generated image ${i + 1}:`,
-            imageData?.url ? 'Success' : 'Failed'
-          );
-          if (imageData?.url) {
-            // Download the image and save to project-files bucket
-            console.log(`📥 Downloading image ${i + 1} from OpenAI...`);
-            const imageResponse = await fetch(imageData.url);
-            const imageBuffer = await imageResponse.arrayBuffer();
-
-            const timestamp = Date.now();
-            const fileName = `${projectId}/ai-images/ad-${i + 1}-${timestamp}.png`;
-
-            const { error: uploadError } = await supabase.storage
-              .from('project-files')
-              .upload(fileName, imageBuffer, {
-                contentType: 'image/png',
-                cacheControl: '3600',
-                upsert: false,
-              });
-
-            if (!uploadError) {
-              const { data: urlData } = supabase.storage
-                .from('project-files')
-                .getPublicUrl(fileName);
-
-              generatedImageUrls.push(urlData.publicUrl);
-              console.log(`✅ AI image ${i + 1} saved: ${urlData.publicUrl}`);
-            } else {
-              console.error(
-                `❌ Failed to save AI image ${i + 1}:`,
-                uploadError
-              );
-            }
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error generating AI images:', error);
-      }
-    }
+    console.log(
+      'ℹ️ Images will be generated manually by user - no automatic generation'
+    );
 
     // 🔹 Merge and save to Supabase
     let existingUrlAnalysis: any = project.url_analysis ?? {};

@@ -350,6 +350,8 @@
   display: inline-block;
   transform-origin: center;
   backface-visibility: hidden;
+  will-change: transform, opacity; /* Optimize for animations */
+  transform-style: preserve-3d; /* Enable 3D transforms */
 }
 
 /* Key box entrance animation */
@@ -357,6 +359,7 @@
   opacity: 0;
   transform: translateY(30px);
   animation: boxReveal 0.6s ease-out forwards;
+  will-change: transform, opacity; /* Optimize for animations */
 }
 
 @keyframes boxReveal {
@@ -380,5 +383,53 @@
   51%,
   100% {
     opacity: 0;
+  }
+}
+
+/* Fallback CSS animation for text reveal */
+.text-reveal-fallback .char {
+  animation: charReveal 0.05s ease-out forwards;
+  animation-fill-mode: both;
+}
+
+.text-reveal-fallback .char:nth-child(1) {
+  animation-delay: 0s;
+}
+.text-reveal-fallback .char:nth-child(2) {
+  animation-delay: 0.02s;
+}
+.text-reveal-fallback .char:nth-child(3) {
+  animation-delay: 0.04s;
+}
+.text-reveal-fallback .char:nth-child(4) {
+  animation-delay: 0.06s;
+}
+.text-reveal-fallback .char:nth-child(5) {
+  animation-delay: 0.08s;
+}
+.text-reveal-fallback .char:nth-child(6) {
+  animation-delay: 0.1s;
+}
+.text-reveal-fallback .char:nth-child(7) {
+  animation-delay: 0.12s;
+}
+.text-reveal-fallback .char:nth-child(8) {
+  animation-delay: 0.14s;
+}
+.text-reveal-fallback .char:nth-child(9) {
+  animation-delay: 0.16s;
+}
+.text-reveal-fallback .char:nth-child(10) {
+  animation-delay: 0.18s;
+}
+
+@keyframes charReveal {
+  from {
+    opacity: 0;
+    transform: translateY(20px) rotateX(90deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg);
   }
 }

@@ -8,6 +8,46 @@ import Stepper from '@/components/dashboard/Stepper';
 import AnalysisTimeline from '@/components/dashboard/AnalysisTimeline';
 import { gsap } from 'gsap';
 
+// Configure GSAP to prevent auto-sleep and ensure animations continue
+if (typeof window !== 'undefined') {
+  gsap.config({
+    autoSleep: 60, // Disable auto-sleep (default is 2 seconds)
+    force3D: true, // Force hardware acceleration
+    nullTargetWarn: false, // Reduce console warnings
+  });
+}
+
+// Custom hook to handle tab visibility and ensure animations continue
+const useTabVisibility = () => {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const visible = document.visibilityState === 'visible';
+      setIsVisible(visible);
+
+      if (visible) {
+        // When tab becomes visible, resume all GSAP animations
+        gsap.globalTimeline.resume();
+        // Also resume any paused timelines
+        gsap.getAllTweens().forEach(tween => {
+          if (tween.isActive() && tween.paused()) {
+            tween.resume();
+          }
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  return isVisible;
+};
+
 // Simple Dot Loading Animation Component
 const SimpleDotLoading = ({ text = 'Analyzing your website...' }) => {
   return (
@@ -36,6 +76,7 @@ const GSAPTextReveal = ({
 }) => {
   const textRef = useRef<HTMLParagraphElement>(null);
   const hasAnimated = useRef(false);
+  const animationRef = useRef<gsap.core.Timeline | null>(null);
 
   useEffect(() => {
     // Only run GSAP animations on client side
@@ -60,16 +101,72 @@ const GSAPTextReveal = ({
         rotationX: 90,
       });
 
-      // Animate characters
-      gsap.to(textRef.current.querySelectorAll('.char'), {
-        opacity: 1,
-        y: 0,
-        rotationX: 0,
-        duration: 0.05,
-        stagger: 0.02,
-        ease: 'power2.out',
-        onComplete: onComplete,
-      });
+      // Create a more robust animation approach
+      const animateText = () => {
+        const chars = textRef.current?.querySelectorAll('.char');
+        if (!chars || chars.length === 0) return;
+
+        // Use a more direct approach with individual tweens
+        chars.forEach((char, index) => {
+          gsap.to(char, {
+            opacity: 1,
+            y: 0,
+            rotationX: 0,
+            duration: 0.05,
+            delay: index * 0.02,
+            ease: 'power2.out',
+            force3D: true,
+            immediateRender: false,
+            onComplete: index === chars.length - 1 ? onComplete : undefined,
+          });
+        });
+      };
+
+      // Start animation immediately
+      animateText();
+
+      // Handle visibility change to ensure animation continues
+      const handleVisibilityChange = () => {
+        console.log('Tab visibility changed:', document.visibilityState);
+        if (document.visibilityState === 'visible') {
+          // When tab becomes visible, ensure all animations are running
+          console.log('Tab became visible, resuming animations');
+          gsap.globalTimeline.resume();
+          gsap.getAllTweens().forEach(tween => {
+            if (tween.isActive() && tween.paused()) {
+              console.log('Resuming paused tween');
+              tween.resume();
+            }
+          });
+        }
+      };
+
+      // Add visibility change listener
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      // Also add a periodic check to ensure animation continues
+      const intervalId = setInterval(() => {
+        // Check if any animations are paused and resume them
+        gsap.getAllTweens().forEach(tween => {
+          if (tween.isActive() && tween.paused()) {
+            console.log('Resuming paused animation for text reveal');
+            tween.resume();
+          }
+        });
+      }, 50); // Check every 50ms for more responsiveness
+
+      // Cleanup function
+      return () => {
+        document.removeEventListener(
+          'visibilitychange',
+          handleVisibilityChange
+        );
+        clearInterval(intervalId);
+        // Kill all tweens for this element
+        if (textRef.current) {
+          gsap.killTweensOf(textRef.current.querySelectorAll('.char'));
+        }
+      };
     }
   }, [text, onComplete, animateKey]);
 
@@ -80,6 +177,7 @@ const URLAnalyzerInterface = () => {
   const params = useParams();
   const router = useRouter();
   const projectId = params.slug as string;
+  const isVisible = useTabVisibility(); // Use tab visibility hook
 
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -255,6 +353,15 @@ const URLAnalyzerInterface = () => {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Handle tab visibility changes to ensure animations continue
+  useEffect(() => {
+    if (isVisible && analyzingPoints) {
+      // When tab becomes visible and we have data, ensure animations are running
+      // This helps resume any paused animations
+      gsap.globalTimeline.resume();
+    }
+  }, [isVisible, analyzingPoints]);
 
   useEffect(() => {
     if (projectId && isClient) fetchProjectData();

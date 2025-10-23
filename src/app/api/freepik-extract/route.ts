@@ -954,8 +954,8 @@ export async function POST(req: NextRequest) {
     // Step 4: Extract content from URL using Firecrawl
     const extracted = await extractContentFromUrl(websiteUrl);
 
-    // Step 5: Generate ad concept with improved prompt structure
-    console.log('📝 Generating ad concept with GPT-4...');
+    // Step 5: Generate SHORT, SPECIFIC, HIGH-QUALITY ad concept
+    console.log('📝 Generating SHORT, SPECIFIC ad concept with GPT-4...');
 
     const conceptGenerationPrompt = `Create 1 high-converting Facebook ad concept for this business.
 
@@ -975,49 +975,34 @@ Target Audience: ${screenshotAnalysis.inferredAudience || 'General consumers'}
 ${logoBase64 ? '✓ Company logo (will be auto-included as reference)' : '✗ No logo available'}
 ${productReferenceImage ? `✓ Real product image (${screenshotAnalysis.mainProductDescription})` : '✗ No product image available'}
 
-**IMAGE GENERATION REQUIREMENTS:**
-**CRITICAL: You must create ONE detailed image prompt (300-400 words) for a 1024x1024px SQUARE Facebook ad.**
-**MANDATORY: The image MUST be square format (1024x1024 pixels) - NO horizontal banners, NO vertical formats.**
+**CRITICAL: Create SHORT, SPECIFIC image prompt (1-2 sentences, under 50 words) like this example:**
+"Urban streetwear fashion photo of a young male model wearing a green longsleeve with scuffers logo, walking down a European street with graffiti walls, cinematic lighting, shallow depth of field, editorial photography style."
+
+**REQUIREMENTS:**
+- SHORT: 1-2 sentences max, under 50 words
+- SPECIFIC: Include exact visual elements, lighting, composition, style
+- PROFESSIONAL: Use photography terminology (cinematic lighting, shallow depth of field, editorial style)
+- TARGET AUDIENCE: ${screenshotAnalysis.inferredAudience || 'target demographic'}
+- BRAND COLORS: ${screenshotAnalysis.colorScheme}
+- SQUARE FORMAT: 1024x1024px
 
 ${
   productReferenceImage || logoBase64
-    ? `**REFERENCE IMAGES PROVIDED:**
-${productReferenceImage ? '- Real product image will be provided as reference' : ''}
-${logoBase64 ? '- Company logo will be provided as reference' : ''}
+    ? `**WITH REFERENCE IMAGES:**
+Focus on scene composition, people, and lifestyle context. DO NOT describe product/logo appearance - they're provided as reference.
 
-Your prompt should focus on:
-1. Scene composition and lifestyle context
-2. 1-2 people (${screenshotAnalysis.inferredAudience || 'target demographic'}) naturally using/interacting with the product
-3. Professional photography style (natural lighting, authentic expressions)
-4. Color harmony matching: ${screenshotAnalysis.colorScheme}
-5. Layout: balance product, people, and negative space
+GOOD: "Professional lifestyle photo of a young woman using the product in a modern home setting, natural window lighting, shallow depth of field, warm color grading, editorial photography style."
 
-DO NOT describe the ${productReferenceImage ? 'product appearance or' : ''} ${logoBase64 ? 'logo' : ''} - they will be provided as reference images.
+BAD: "Create a high-quality, professional marketing image that showcases our brand's unique value proposition and resonates with our target audience while maintaining visual consistency..."
 `
-    : `**NO REFERENCE IMAGES:**
-Your prompt must include:
-1. Detailed product/service visualization
-2. 1-2 people (${screenshotAnalysis.inferredAudience || 'target demographic'}) in authentic use scenario
-3. Professional lifestyle photography style
-4. Brand colors: ${screenshotAnalysis.colorScheme}
-5. Complete scene description with all visual elements
+    : `**WITHOUT REFERENCE IMAGES:**
+Include specific product visualization, people, and complete scene description.
+
+GOOD: "Modern tech product photo of a professional using a sleek device in a contemporary office, natural lighting, shallow depth of field, clean composition, professional photography style."
+
+BAD: "Create a comprehensive marketing image that effectively communicates our brand message and engages our target demographic through compelling visual storytelling..."
 `
 }
-
-**PEOPLE REQUIREMENTS (CRITICAL):**
-- Show 1-2 people from target demographic actively using the product
-- Natural features: realistic skin texture, genuine expressions, natural hair
-- Authentic interaction: hands touching/holding product, engaged body language
-- Emotional connection: joy, satisfaction, relief (matching product benefit)
-- Diversity and relatability
-
-**PHOTOGRAPHY STYLE:**
-- Professional lifestyle shoot aesthetic
-- Soft natural lighting (golden hour, window light, studio softbox)
-- Shallow depth of field with product/person in focus
-- Warm color grading matching brand palette
-- Compositional balance: rule of thirds, leading lines
-- AVOID: AI-generated perfection, stock photo clichés, harsh lighting
 
 Return JSON:
 {
@@ -1034,7 +1019,7 @@ Return JSON:
       "headline": "Compelling headline under 40 chars",
       "primary_text": "150-200 char engaging copy with benefit and CTA",
       "cta": "Learn More|Shop Now|Get Started|Sign Up",
-      "image_prompt": "DETAILED 300-400 word prompt for 1024x1024px square image..."
+      "image_prompt": "SHORT, SPECIFIC prompt (under 50 words) with exact visual details, lighting, composition, and style..."
     }
   ]
 }`;
@@ -1119,79 +1104,24 @@ Return JSON:
     const finalReferenceImages =
       referenceImages.length > 0 ? referenceImages : undefined;
 
-    // Build optimized prompt for Freepik Gemini 2.5 Flash
+    // Use the SHORT, SPECIFIC prompt directly from ChatGPT
     let optimizedPrompt = '';
 
     if (finalReferenceImages) {
-      // WITH REFERENCE IMAGES - Focus on composition and people
-      optimizedPrompt = `**CRITICAL REQUIREMENT: GENERATE IMAGE AT EXACTLY 1024x1024 PIXELS - SQUARE FORMAT ONLY**
+      // WITH REFERENCE IMAGES - Use the short prompt + reference instructions
+      optimizedPrompt = `${chosenConcept.image_prompt}
 
-REFERENCE IMAGES:
-${hasProduct ? '• Product image provided - use EXACT product as-is, no modifications' : ''}
-${hasLogo ? `• Logo provided - place ${logoBase64 ? 'prominently in top-right corner OR center-top with 80% opacity overlay' : ''}` : ''}
+REFERENCE IMAGES PROVIDED:
+${hasProduct ? '• Product image - use exactly as shown' : ''}
+${hasLogo ? '• Logo - place prominently in top-right corner' : ''}
+• Canvas template - maintain exact 1024x1024 square format
 
-SCENE COMPOSITION:
-${chosenConcept.image_prompt}
-
-HUMAN SUBJECTS (MANDATORY):
-• ${screenshotAnalysis.inferredAudience || '1-2 people aged 25-35'}
-• Natural facial features: subtle skin texture, authentic expressions, real hair movement
-• Active product interaction: hands naturally holding/using ${hasProduct ? 'the reference product' : 'the product'}
-• Genuine emotion: ${screenshotAnalysis.inferredAudience?.includes('professional') ? 'confident satisfaction' : 'joyful contentment'}
-
-PHOTOGRAPHY DIRECTION:
-• Lighting: soft window light, golden hour glow, or professional studio softbox
-• Color grade: warm tones with ${screenshotAnalysis.colorScheme}
-• Depth: f/2.8 aperture effect, background slightly blurred
-• Framing: center-weighted, negative space for text overlay (top 20% clear)
-• Style: lifestyle editorial, authentic not stock-photo, professional not amateur
-
-LAYOUT FOR SQUARE AD (1024x1024px):
-• Center: product + person interaction (60% of frame)
-• Top 20%: clear area for headline text
-• ${hasLogo ? 'Top-right corner: logo placement zone' : 'Bottom-right: branding space'}
-• Rule of thirds: primary subject at intersection points
-
-CANVAS INSTRUCTIONS:
-Use the uploaded blank canvas image as the foundation for the final aspect ratio. Fill this canvas completely with the scene description while maintaining the exact square dimensions (1024x1024px) of the uploaded canvas.
-
-**MANDATORY: Square 1024x1024 pixel format - NO horizontal banners, NO vertical formats**`;
+SQUARE FORMAT: 1024x1024 pixels only`;
     } else {
-      // WITHOUT REFERENCE - Complete scene description
-      optimizedPrompt = `**CRITICAL REQUIREMENT: GENERATE IMAGE AT EXACTLY 1024x1024 PIXELS - SQUARE FORMAT ONLY**
+      // WITHOUT REFERENCE - Use the short prompt directly
+      optimizedPrompt = `${chosenConcept.image_prompt}
 
-COMPLETE SCENE:
-${chosenConcept.image_prompt}
-
-PRODUCT/SERVICE VISUALIZATION:
-• ${extracted.productDescription || 'Primary product/service offering'}
-• Style: ${screenshotAnalysis.visualElements}
-• Colors: ${screenshotAnalysis.colorScheme}
-• Branding elements: ${screenshotAnalysis.brandingElements}
-
-HUMAN SUBJECTS (MANDATORY):
-• ${screenshotAnalysis.inferredAudience || '1-2 people aged 25-35'} representing target demographic
-• Natural features: authentic skin texture, real expressions, genuine hair
-• Interaction: actively using/benefiting from product
-• Emotion: positive, relatable, authentic satisfaction
-
-PROFESSIONAL PHOTOGRAPHY:
-• Lighting: soft natural light, warm temperature (4500-5500K)
-• Composition: rule of thirds, leading lines to product
-• Depth: shallow focus (f/2.8), subject sharp, background soft
-• Color: warm grade matching ${screenshotAnalysis.colorScheme}
-• Style: lifestyle editorial, not stock photography
-
-SQUARE AD LAYOUT (1024x1024px):
-• Center: main subject + product (60% frame)
-• Top 20%: negative space for headline
-• Bottom: natural vignette
-• Balance: 40% product, 40% person, 20% environment
-
-CANVAS INSTRUCTIONS:
-Use the uploaded blank canvas image as the foundation for the final aspect ratio. Fill this canvas completely with the scene description while maintaining the exact square dimensions (1024x1024px) of the uploaded canvas.
-
-**MANDATORY: Square 1024x1024 pixel format - NO horizontal banners, NO vertical formats**`;
+SQUARE FORMAT: 1024x1024 pixels only`;
     }
 
     console.log(
@@ -1202,14 +1132,9 @@ Use the uploaded blank canvas image as the foundation for the final aspect ratio
     );
 
     try {
-      // Add final size instruction to ensure square format
-      const finalImagePrompt = `${optimizedPrompt}
-
-**FINAL REMINDER: Generate at EXACTLY 1024x1024 pixels - SQUARE FORMAT ONLY - NO horizontal banners or vertical formats**`;
-
-      // Generate with Freepik
+      // Generate with Freepik using the short, specific prompt
       const generationResult = await generateImageWithFreepik(
-        finalImagePrompt,
+        optimizedPrompt,
         finalReferenceImages
       );
 
