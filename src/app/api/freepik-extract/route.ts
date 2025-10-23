@@ -1007,7 +1007,7 @@ BAD: "Create a comprehensive marketing image that effectively communicates our b
 Return JSON:
 {
   "analysis": {
-    "business_type": "...",
+    "business_type": "..",
     "target_audience": "...",
     "key_value_props": ["..."],
     "tone": "...",
