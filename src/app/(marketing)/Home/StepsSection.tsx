@@ -34,7 +34,7 @@ const stepsData = [
     description:
       "Your ads never stop improving. AdSparker tests and refines every element—from creatives to targeting and budgets—scaling what works and replacing what doesn't, so your campaigns grow smarter and more profitable over time.",
     image: '/images/adsparker-logo.png',
-    video: '/images/4.mp4',
+    video: '/images/5.mp4',
   },
 ];
 

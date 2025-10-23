@@ -88,6 +88,7 @@
     "react-hook-form": "latest",
     "react-hot-toast": "^2.5.2",
     "react-is": "^19.2.0",
+    "react-player": "^3.3.3",
     "react-resizable-panels": "latest",
     "react-select": "^5.10.2",
     "recharts": "latest",
