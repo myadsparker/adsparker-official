@@ -933,7 +933,7 @@ header .nav .sign_in:hover {
   display: flex;
   align-items: center;
   gap: 16px;
-  height: 40px;
+  height: 48px;
   background: #7a3ff3;
   border-radius: 90px;
   color: #fff;
@@ -1953,15 +1953,13 @@ header .nav .sign_in:hover {
 
 .faq_item {
   background: #fff;
-  border-radius: 24px;
+  border-radius: 6px;
   margin-bottom: 16px;
   cursor: pointer;
-  transition: all 0.3s ease;
   overflow: hidden;
 }
 
 .faq_item:hover {
-  transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
@@ -1969,12 +1967,11 @@ header .nav .sign_in:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 32px;
-  min-height: 80px;
+  padding: 12px 20px;
 }
 
 .faq_question h3 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #343438;
   margin: 0;
@@ -1997,7 +1994,7 @@ header .nav .sign_in:hover {
 }
 
 .faq_answer {
-  padding: 0 32px 24px 32px;
+  padding: 0 20px 12px 20px;
   animation: slideDown 0.3s ease-out;
 }
 
