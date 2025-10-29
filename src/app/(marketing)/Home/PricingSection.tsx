@@ -180,7 +180,7 @@ export default function PricingSection() {
   }, []);
 
   return (
-    <section ref={sectionRef} className='pricing_section'>
+    <section id='pricing' ref={sectionRef} className='pricing_section'>
       <div className='container'>
         <div ref={headingRef} className='pricing_heading'>
           <h2>Hire Your AI Ad Manager Today</h2>

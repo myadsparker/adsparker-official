@@ -29,12 +29,15 @@ const useTabVisibility = () => {
       if (visible) {
         // When tab becomes visible, resume all GSAP animations
         gsap.globalTimeline.resume();
-        // Also resume any paused timelines
-        gsap.getAllTweens().forEach(tween => {
-          if (tween.isActive() && tween.paused()) {
-            tween.resume();
-          }
-        });
+        // Resume any paused timelines
+        const allTweens = (gsap as any).getAllTweens?.();
+        if (allTweens) {
+          allTweens.forEach((tween: any) => {
+            if (tween.isActive() && tween.paused()) {
+              tween.resume();
+            }
+          });
+        }
       }
     };
 
@@ -62,8 +65,15 @@ const SimpleDotLoading = ({ text = 'Analyzing your website...' }) => {
   );
 };
 
-// GSAP Text Reveal Component
-const GSAPTextReveal = ({
+// Global storage for animation state (persists across tab changes)
+const animationStorage = new Map<
+  string,
+  { startTime: number; targetInterval: number }
+>();
+
+// Typewriter Text Component - Character by character typing
+// Uses time-based animation that continues even when tab is hidden
+const TypewriterText = ({
   text,
   className = '',
   onComplete,
@@ -75,102 +85,242 @@ const GSAPTextReveal = ({
   animateKey: string;
 }) => {
   const textRef = useRef<HTMLParagraphElement>(null);
-  const hasAnimated = useRef(false);
-  const animationRef = useRef<gsap.core.Timeline | null>(null);
+  const hasAnimated = useRef<string>('');
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const currentIndexRef = useRef<number>(0);
+  const isAnimatingRef = useRef<boolean>(false);
+  const targetInterval = 30; // milliseconds between characters
 
   useEffect(() => {
-    // Only run GSAP animations on client side
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !text) return;
 
-    if (textRef.current && text && !hasAnimated.current) {
-      hasAnimated.current = true;
+    // Check if this key has already been animated completely
+    if (hasAnimated.current === animateKey) return;
 
-      // Split text into characters (text is already processed)
-      const chars = text.split('');
-      const html = chars
-        .map(
-          char => `<span class="char">${char === ' ' ? '&nbsp;' : char}</span>`
-        )
-        .join('');
-      textRef.current.innerHTML = html;
+    // Check if animation is already running for this key
+    const existingState = animationStorage.get(animateKey);
 
-      // Set initial state
-      gsap.set(textRef.current.querySelectorAll('.char'), {
-        opacity: 0,
-        y: 20,
-        rotationX: 90,
-      });
+    if (textRef.current) {
+      // Clear any existing timeout, animation frame, or interval
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      if (intervalRef.current) {
+        clearTimeout(intervalRef.current);
+        intervalRef.current = null;
+      }
 
-      // Create a more robust animation approach
-      const animateText = () => {
-        const chars = textRef.current?.querySelectorAll('.char');
-        if (!chars || chars.length === 0) return;
+      // If animation already exists, restore from stored state (resume from where it left off)
+      if (existingState && existingState.startTime > 0) {
+        startTimeRef.current = existingState.startTime;
+        isAnimatingRef.current = true;
+        textRef.current.classList.add('typing-cursor');
 
-        // Use a more direct approach with individual tweens
-        chars.forEach((char, index) => {
-          gsap.to(char, {
-            opacity: 1,
-            y: 0,
-            rotationX: 0,
-            duration: 0.05,
-            delay: index * 0.02,
-            ease: 'power2.out',
-            force3D: true,
-            immediateRender: false,
-            onComplete: index === chars.length - 1 ? onComplete : undefined,
-          });
-        });
-      };
+        // Immediately sync to current position
+        const updateToCurrentPosition = () => {
+          if (!textRef.current) return;
+          const now = Date.now();
+          const elapsed = now - startTimeRef.current;
+          const expectedIndex = Math.min(
+            Math.floor(elapsed / targetInterval),
+            text.length
+          );
+          currentIndexRef.current = expectedIndex;
+          textRef.current.textContent = text.slice(0, currentIndexRef.current);
+        };
+        updateToCurrentPosition();
+      } else {
+        // New animation - reset to empty
+        textRef.current.textContent = '';
+        textRef.current.classList.remove(
+          'typewriter-animation',
+          'typing-cursor'
+        );
+        currentIndexRef.current = 0;
+        startTimeRef.current = 0;
+        isAnimatingRef.current = false;
+      }
 
-      // Start animation immediately
-      animateText();
+      // Define animation update function that works even in background
+      const updateAnimation = () => {
+        if (!textRef.current || !isAnimatingRef.current) return;
 
-      // Handle visibility change to ensure animation continues
-      const handleVisibilityChange = () => {
-        console.log('Tab visibility changed:', document.visibilityState);
+        // Use wall-clock time (Date.now()) which is not affected by tab visibility
+        const now = Date.now();
+
+        // If startTime wasn't set yet, set it now
+        if (startTimeRef.current === 0) {
+          startTimeRef.current = now;
+          animationStorage.set(animateKey, { startTime: now, targetInterval });
+        }
+
+        const elapsed = now - startTimeRef.current;
+        const expectedIndex = Math.min(
+          Math.floor(elapsed / targetInterval),
+          text.length
+        );
+
+        // Update text if we've progressed or if we're restoring from background
+        if (
+          expectedIndex !== currentIndexRef.current &&
+          expectedIndex <= text.length
+        ) {
+          currentIndexRef.current = expectedIndex;
+          textRef.current.textContent = text.slice(0, currentIndexRef.current);
+        }
+
+        // Check if animation is complete
+        if (currentIndexRef.current >= text.length) {
+          // Remove cursor when typing is complete
+          textRef.current.classList.remove('typing-cursor');
+          textRef.current.classList.add('typewriter-animation');
+          hasAnimated.current = animateKey;
+          isAnimatingRef.current = false;
+
+          // Clean up storage
+          animationStorage.delete(animateKey);
+
+          // Clean up timers
+          if (rafRef.current) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
+          }
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+
+          // Call onComplete after a short delay
+          if (onComplete) {
+            timeoutRef.current = setTimeout(() => {
+              onComplete();
+            }, 300);
+          }
+          return;
+        }
+
+        // Continue animation - use requestAnimationFrame when tab is visible for smoothness
+        // When tab is hidden, browsers throttle setTimeout, but we still use it as backup
+        // The key is that we always calculate progress from wall-clock time
         if (document.visibilityState === 'visible') {
-          // When tab becomes visible, ensure all animations are running
-          console.log('Tab became visible, resuming animations');
-          gsap.globalTimeline.resume();
-          gsap.getAllTweens().forEach(tween => {
-            if (tween.isActive() && tween.paused()) {
-              console.log('Resuming paused tween');
-              tween.resume();
-            }
+          rafRef.current = requestAnimationFrame(() => {
+            updateAnimation();
           });
+        } else {
+          // In background: use a longer interval (browsers throttle to ~1s anyway)
+          // But our time-based calculation will catch up immediately when tab becomes visible
+          intervalRef.current = setTimeout(
+            () => {
+              updateAnimation();
+            },
+            Math.max(targetInterval, 100)
+          );
         }
       };
 
-      // Add visibility change listener
+      // Start or resume animation
+      const startTyping = () => {
+        if (!textRef.current) return;
+
+        // If not already animating, initialize
+        if (!isAnimatingRef.current) {
+          startTimeRef.current = Date.now();
+          animationStorage.set(animateKey, {
+            startTime: startTimeRef.current,
+            targetInterval,
+          });
+          currentIndexRef.current = 0;
+          isAnimatingRef.current = true;
+          textRef.current.classList.add('typing-cursor');
+        }
+
+        // Start the animation loop
+        updateAnimation();
+      };
+
+      // Wait for box to be fully visible and ready (only if not already started)
+      if (!existingState) {
+        timeoutRef.current = setTimeout(() => {
+          if (!textRef.current) return;
+
+          // Ensure the element is visible
+          const checkVisibility = () => {
+            if (!textRef.current) return false;
+            const rect = textRef.current.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          };
+
+          if (!checkVisibility()) {
+            // Retry after a short delay if not visible yet
+            timeoutRef.current = setTimeout(() => {
+              if (!textRef.current || !checkVisibility()) return;
+              startTyping();
+            }, 200);
+            return;
+          }
+
+          startTyping();
+        }, 150);
+      } else {
+        // Animation was already started, resume immediately
+        startTyping();
+      }
+
+      // Also listen for visibility changes to resume immediately when tab becomes visible
+      const handleVisibilityChange = () => {
+        if (
+          document.visibilityState === 'visible' &&
+          isAnimatingRef.current &&
+          textRef.current
+        ) {
+          // Cancel any pending setTimeout and switch to requestAnimationFrame
+          if (intervalRef.current) {
+            clearTimeout(intervalRef.current);
+            intervalRef.current = null;
+          }
+          // Immediately update and continue with RAF
+          updateAnimation();
+        }
+      };
+
       document.addEventListener('visibilitychange', handleVisibilityChange);
 
-      // Also add a periodic check to ensure animation continues
-      const intervalId = setInterval(() => {
-        // Check if any animations are paused and resume them
-        gsap.getAllTweens().forEach(tween => {
-          if (tween.isActive() && tween.paused()) {
-            console.log('Resuming paused animation for text reveal');
-            tween.resume();
-          }
-        });
-      }, 50); // Check every 50ms for more responsiveness
-
-      // Cleanup function
       return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+        if (intervalRef.current) {
+          clearTimeout(intervalRef.current);
+          intervalRef.current = null;
+        }
         document.removeEventListener(
           'visibilitychange',
           handleVisibilityChange
         );
-        clearInterval(intervalId);
-        // Kill all tweens for this element
-        if (textRef.current) {
-          gsap.killTweensOf(textRef.current.querySelectorAll('.char'));
-        }
       };
     }
-  }, [text, onComplete, animateKey]);
 
-  return <p ref={textRef} className={className}></p>;
+    // Cleanup storage if component unmounts
+    return () => {
+      // Don't delete storage here - we want it to persist across tab changes
+      // Only delete when animation completes
+    };
+  }, [text, onComplete, animateKey, targetInterval]);
+
+  return <p ref={textRef} className={`${className} typewriter-text`}></p>;
 };
 
 const URLAnalyzerInterface = () => {
@@ -198,18 +348,24 @@ const URLAnalyzerInterface = () => {
   const [showBox3, setShowBox3] = useState(false);
   const [showScreenshot, setShowScreenshot] = useState(false);
   const [allAnimationsComplete, setAllAnimationsComplete] = useState(false);
+  const [animationKey, setAnimationKey] = useState(0);
   const rightContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch project data + trigger analysis
   const fetchProjectData = async () => {
     try {
+      console.log('📋 Fetching project data for:', projectId);
       setInitialLoading(true);
+      setError(null);
+      setLoading(false);
+
       const supabase = createClientComponentClient();
 
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
+        console.error('❌ Not authenticated');
         setError('Not authenticated');
         setInitialLoading(false);
         return;
@@ -223,11 +379,13 @@ const URLAnalyzerInterface = () => {
         .single();
 
       if (error) {
+        console.error('❌ Failed to fetch project data:', error);
         setError('Failed to fetch project data');
         setInitialLoading(false);
         return;
       }
 
+      console.log('✅ Project data fetched:', project);
       setProjectData(project);
       const projectUrl = project.url_analysis?.website_url;
       setUrl(projectUrl);
@@ -237,16 +395,38 @@ const URLAnalyzerInterface = () => {
         project.url_analysis?.personas?.personaNames &&
         project.url_analysis?.personas?.personaNames.length > 0
       ) {
+        console.log(
+          '✅ Persona analysis exists, navigating to confirming page'
+        );
         // Persona analysis exists, navigate directly to confirming page
-
         router.push(`/dashboard/projects/${projectId}/confirming`);
         return;
-      } else {
-        // No persona analysis found, start the persona creation process
-        setInitialLoading(false);
-        await analyzeURL(projectId);
       }
+
+      // Check if analyzing_points already exists in database
+      if (project.analysing_points) {
+        console.log(
+          '✅ Analyzing points already exist in database, loading with animation'
+        );
+        const points =
+          typeof project.analysing_points === 'string'
+            ? JSON.parse(project.analysing_points)
+            : project.analysing_points;
+
+        setInitialLoading(false);
+        setAnalyzingPoints(points);
+        setAnalysisSuccess(true);
+        setLoading(false);
+        // The animation will trigger via the useEffect hooks
+        return;
+      }
+
+      // No analyzing points found, start the analysis process
+      console.log('🚀 Starting persona creation process - no existing data');
+      setInitialLoading(false);
+      await analyzeURL(projectId);
     } catch (err) {
+      console.error('❌ Error fetching project data:', err);
       setError('Failed to load project');
       setInitialLoading(false);
     }
@@ -266,23 +446,47 @@ const URLAnalyzerInterface = () => {
       const startTime = Date.now();
       setAnalysisStartTime(startTime);
 
-      // Step 1: Call analyzing-points API first
-      const analyzingPointsResponse = await fetch('/api/analyzing-points', {
+      // Add timeout for the analyzing-points API (5 minutes)
+      const analyzingPointsFetchPromise = fetch('/api/analyzing-points', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId }),
       });
 
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(
+          () => reject(new Error('Request timed out after 5 minutes')),
+          5 * 60 * 1000
+        );
+      });
+
+      console.log('🚀 Starting analysis for project:', projectId);
+
+      // Step 1: Call analyzing-points API first with timeout
+      const analyzingPointsResponse = (await Promise.race([
+        analyzingPointsFetchPromise,
+        timeoutPromise,
+      ])) as Response;
+
       if (!analyzingPointsResponse.ok) {
+        const errorText = await analyzingPointsResponse.text();
+        console.error('❌ Analyzing points API error:', errorText);
         throw new Error(
-          `Analyzing Points API failed with status: ${analyzingPointsResponse.status}`
+          `Analysis failed with status ${analyzingPointsResponse.status}. Please check the browser console for details.`
         );
       }
 
       const analyzingPointsResult = await analyzingPointsResponse.json();
       if (!analyzingPointsResult.success) {
-        throw new Error('Analyzing Points API returned unsuccessful result');
+        console.error('❌ Analyzing points API returned unsuccessful result');
+        throw new Error(
+          analyzingPointsResult.error ||
+            'Analysis failed. Please try again or contact support.'
+        );
       }
+
+      console.log('✅ Analyzing points completed successfully');
+      console.log('📊 Analyzing points data:', analyzingPointsResult);
 
       // Show UI immediately when analyzing points finishes
       setAnalyzingPoints(analyzingPointsResult.analysing_points);
@@ -290,57 +494,47 @@ const URLAnalyzerInterface = () => {
       const actualDuration = Date.now() - startTime;
       setAnalysisDuration(actualDuration);
 
-      // Step 2: Call analyze-snapshot API after analyzing-points completes
-      const analyzeSnapshotResponse = await fetch('/api/analyze-snapshot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId }),
-      });
+      // Step 2: Call website-analysis API after analyzing-points completes (with timeout)
+      try {
+        const websiteAnalysisFetchPromise = fetch('/api/website-analysis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project_id: projectId }),
+        });
 
-      if (!analyzeSnapshotResponse.ok) {
-        // Don't throw error here - UI can still work with analyzing points data
-        console.warn('⚠️ Analyze snapshot failed, continuing...');
-        const errorText = await analyzeSnapshotResponse.text();
-        console.error('❌ Analyze snapshot error details:', errorText);
-      } else {
-        const analyzeSnapshotResult = await analyzeSnapshotResponse.json();
-        console.log('🔍 Debug - analyzeSnapshotResult:', analyzeSnapshotResult);
-        if (analyzeSnapshotResult.success) {
-          console.log('✅ Analyze snapshot completed successfully');
+        const websiteAnalysisResponse = (await Promise.race([
+          websiteAnalysisFetchPromise,
+          timeoutPromise,
+        ])) as Response;
 
-          // Step 3: Call ad-copy-gen API after analyze-snapshot completes successfully
-          console.log('📋 Step 3: Calling ad-copy-gen API...');
-          try {
-            const adCopyResponse = await fetch('/api/ad-copy-gen', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ project_id: projectId }),
-            });
-
-            if (!adCopyResponse.ok) {
-              console.warn(
-                `⚠️ Ad copy generation failed with status: ${adCopyResponse.status}`
-              );
-            } else {
-              const adCopyResult = await adCopyResponse.json();
-              if (adCopyResult.success) {
-                console.log('✅ Ad copy generation completed successfully');
-                console.log('📊 Ad copy data received:', adCopyResult);
-              } else {
-                console.warn(
-                  '⚠️ Ad copy generation returned unsuccessful result'
-                );
-              }
-            }
-          } catch (adCopyError) {
-            console.warn('⚠️ Ad copy generation error:', adCopyError);
-          }
+        if (!websiteAnalysisResponse.ok) {
+          // Don't throw error here - UI can still work with analyzing points data
+          console.warn('⚠️ Website analysis failed, continuing...');
+          const errorText = await websiteAnalysisResponse.text();
+          console.error('❌ Website analysis error details:', errorText);
         } else {
-          console.warn('⚠️ Analyze snapshot returned unsuccessful result');
+          const websiteAnalysisResult = await websiteAnalysisResponse.json();
+          console.log(
+            '🔍 Debug - websiteAnalysisResult:',
+            websiteAnalysisResult
+          );
+          if (websiteAnalysisResult.success) {
+            console.log('✅ Website analysis completed successfully');
+            console.log('📊 Generated ad sets:', websiteAnalysisResult.adSets);
+          } else {
+            console.warn('⚠️ Website analysis returned unsuccessful result');
+          }
         }
+      } catch (websiteAnalysisError: any) {
+        console.error('❌ Website analysis error:', websiteAnalysisError);
+        // Don't fail the entire process - analyzing points is already done
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('❌ Analysis error:', err);
+      setError(
+        err.message ||
+          'Failed to analyze the website. Please refresh the page and try again.'
+      );
       setAnalysisSuccess(false);
     } finally {
       setLoading(false);
@@ -367,9 +561,17 @@ const URLAnalyzerInterface = () => {
     if (projectId && isClient) fetchProjectData();
   }, [projectId, isClient]);
 
-  // Trigger sequential reveals when analyzing points data is loaded
+  // Reset box states when analyzingPoints changes
   useEffect(() => {
     if (analyzingPoints) {
+      console.log('🔄 Resetting box states for new animation sequence');
+      setShowBox1(false);
+      setShowBox2(false);
+      setShowBox3(false);
+      setShowScreenshot(false);
+      setAllAnimationsComplete(false);
+      setAnimationKey(prev => prev + 1); // Increment to force re-animation
+
       // Start with screenshot after a short delay
       setTimeout(() => {
         setShowScreenshot(true);
@@ -380,9 +582,14 @@ const URLAnalyzerInterface = () => {
   // Auto-navigate to confirming page after all animations complete
   useEffect(() => {
     if (allAnimationsComplete) {
+      console.log('🚀 All animations complete, navigating to confirm page...');
       const navigationTimer = setTimeout(() => {
+        console.log(
+          '🚀 Navigating to:',
+          `/dashboard/projects/${projectId}/confirming`
+        );
         router.push(`/dashboard/projects/${projectId}/confirming`);
-      }, 2000); // 2 seconds after all animations complete
+      }, 1000); // Reduced to 1 second for faster navigation
 
       // Cleanup timer if component unmounts
       return () => clearTimeout(navigationTimer);
@@ -402,26 +609,35 @@ const URLAnalyzerInterface = () => {
 
     container.scrollTo({
       top: scrollTop,
-      behavior: 'smooth',
+      behavior: 'auto',
     });
   };
 
   // Handle screenshot completion
   const handleScreenshotComplete = () => {
+    console.log('📸 Screenshot loaded, starting box 1');
     setTimeout(() => {
+      console.log('✅ Showing box 1');
       setShowBox1(true);
     }, 300);
   };
 
   // Handle box completion callbacks with scrolling
   const handleBox1Complete = () => {
+    console.log('✅ Box 1 complete, showing box 2');
     setTimeout(() => {
       setShowBox2(true);
+      console.log('✅ Box 2 should now be visible');
       // Scroll to box 2 after it appears - only on client
       if (typeof window !== 'undefined') {
         setTimeout(() => {
           const box2 = document.querySelector('[data-box="2"]');
-          if (box2) scrollToElement(box2 as HTMLElement);
+          if (box2) {
+            console.log('📜 Scrolling to box 2');
+            scrollToElement(box2 as HTMLElement);
+          } else {
+            console.warn('⚠️ Box 2 element not found for scrolling');
+          }
         }, 100);
       }
     }, 200);
@@ -441,10 +657,12 @@ const URLAnalyzerInterface = () => {
   };
 
   const handleBox3Complete = () => {
+    console.log('✅ Box 3 typewriter animation complete');
     // All animations are complete when box 3 finishes
     setTimeout(() => {
+      console.log('✅ Setting allAnimationsComplete to true');
       setAllAnimationsComplete(true);
-    }, 1000); // Give a bit more time for the final animation to complete
+    }, 800); // Reduced delay for faster navigation
   };
 
   // Show loading state during hydration
@@ -527,7 +745,7 @@ const URLAnalyzerInterface = () => {
                     Parsing URL{' '}
                   </h4>
                   <div className='screenshot_container'>
-                    <p>Checking the website...</p>
+                    <p>Checking out what's your page...</p>
                     <img
                       src={analyzingPoints.parsingUrl.screenshot}
                       alt='Website Screenshot'
@@ -563,9 +781,9 @@ const URLAnalyzerInterface = () => {
                       Product Information
                     </h4>
                     <div className='key_box_text'>
-                      <GSAPTextReveal
-                        key='product-info'
-                        animateKey='product-info'
+                      <TypewriterText
+                        key={`product-info-${animationKey}`}
+                        animateKey={`product-info-${animationKey}`}
                         text={
                           analyzingPoints.productInformation?.description ||
                           'Analyzing product information...'
@@ -599,9 +817,9 @@ const URLAnalyzerInterface = () => {
                       Selling Points
                     </h4>
                     <div className='key_box_text'>
-                      <GSAPTextReveal
-                        key='selling-points'
-                        animateKey='selling-points'
+                      <TypewriterText
+                        key={`selling-points-${animationKey}`}
+                        animateKey={`selling-points-${animationKey}`}
                         text={
                           analyzingPoints.sellingPoints?.description ||
                           'Analyzing selling points...'
@@ -635,9 +853,9 @@ const URLAnalyzerInterface = () => {
                       Ads Goal Strategy
                     </h4>
                     <div className='key_box_text'>
-                      <GSAPTextReveal
-                        key='ads-goal-strategy'
-                        animateKey='ads-goal-strategy'
+                      <TypewriterText
+                        key={`ads-goal-strategy-${animationKey}`}
+                        animateKey={`ads-goal-strategy-${animationKey}`}
                         text={
                           analyzingPoints.adsGoalStrategy?.description ||
                           'Analyzing ads goal strategy...'
@@ -661,8 +879,50 @@ const URLAnalyzerInterface = () => {
             </div>
           )}
 
-          {/* Show simple dot loading animation */}
-          {!analyzingPoints && (
+          {/* Show error state if there's an error */}
+          {error && !analyzingPoints && (
+            <div className='error_state'>
+              <h4 style={{ color: '#ef4444', marginBottom: '16px' }}>
+                Analysis Error
+              </h4>
+              <p style={{ color: '#737373', marginBottom: '16px' }}>{error}</p>
+              <button
+                onClick={() => {
+                  setError(null);
+                  analyzeURL(projectId);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#005AFF',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                Retry Analysis
+              </button>
+              <p
+                style={{
+                  marginTop: '16px',
+                  fontSize: '14px',
+                  color: '#737373',
+                }}
+              >
+                Or{' '}
+                <a
+                  href='/dashboard'
+                  style={{ color: '#005AFF', textDecoration: 'underline' }}
+                >
+                  go back to dashboard
+                </a>
+              </p>
+            </div>
+          )}
+
+          {/* Show loading during analysis */}
+          {!error && loading && !analyzingPoints && (
             <div className='loading_state'>
               <SimpleDotLoading text='Analyzing your website...' />
             </div>

@@ -147,8 +147,8 @@ export default function TestimonialsSection() {
   return (
     <section className='testimonials_section'>
       <Image
-        src='/images/faq-section-bg.png'
-        alt='FAQ Section Background'
+        src='/images/testimonials-bg.png'
+        alt='Testimonials Section Background'
         width={1000}
         height={1000}
         className='testimonials_section_bg'

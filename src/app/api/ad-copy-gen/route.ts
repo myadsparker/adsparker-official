@@ -417,7 +417,7 @@ async function generateAdCopyForPersona(
       "min": 25,
       "max": 45
     },
-    "genders": ["All"],
+    "genders": ["All"], 
     "audience_tags": [],
     "audience_size_range": {
       "min": 1000000,

@@ -362,7 +362,7 @@
   align-items: center;
   justify-content: center;
   gap: 28px;
-  margin-top: 80px;
+  margin-block: 40px;
 }
 .nav_buttons_wrapper button {
   display: flex;

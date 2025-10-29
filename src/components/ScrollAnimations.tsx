@@ -16,7 +16,6 @@ export default function ScrollAnimations() {
 
     // Performance optimizations
     ScrollTrigger.defaults({
-      scroller: '#smooth-wrapper',
       toggleActions: 'play none none reverse',
     });
 

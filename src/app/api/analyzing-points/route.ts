@@ -26,6 +26,8 @@ interface AnalyzingPointsResult {
   adsGoalStrategy: {
     description: string;
   };
+  isMainProduct: boolean;
+  pageType: string;
 }
 
 // Firecrawl integration for URL parsing with screenshot
@@ -136,7 +138,7 @@ async function analyzeWebsiteContent(
   console.log(`🧠 Analyzing website content with AI...`);
 
   const prompt = `
-  Analyze the following website content and provide exactly 3 specific details, each in 100-120 words:
+  Analyze the following website content and provide exactly 3 specific details, each in 100-120 words, plus page type analysis:
 
   Website Content: ${content.substring(0, 5000)} // Limit content to avoid token limits
 
@@ -150,8 +152,23 @@ async function analyzeWebsiteContent(
     },
     "adsGoalStrategy": {
       "description": "Recommended advertising goals, target audience strategy, and campaign objectives (100-120 words)"
-    }
+    },
+    "isMainProduct": true/false,
+    "pageType": "homepage|product|about|contact|services|blog|pricing|faq|other"
   }
+
+  For isMainProduct: Set to true if this is clearly a product page (showing specific products, product details, product listings, e-commerce product pages, SaaS product pages, etc.). Set to false for informational pages, about pages, contact pages, blog posts, etc.
+
+  For pageType: Determine the type of page based on content analysis:
+  - "homepage" - Main landing page with overview of business
+  - "product" - Specific product or service page
+  - "about" - About us, company information
+  - "contact" - Contact information, contact forms
+  - "services" - Services offered page
+  - "blog" - Blog posts, articles, news
+  - "pricing" - Pricing plans, pricing information
+  - "faq" - Frequently asked questions
+  - "other" - Any other type of page
 
   Focus on actionable insights for advertising strategy. Each description should be exactly 100-120 words.
   `;
@@ -189,7 +206,12 @@ async function analyzeWebsiteContent(
   }
   cleanedText = cleanedText.trim();
 
-  return JSON.parse(cleanedText);
+  const parsedResult = JSON.parse(cleanedText);
+  console.log(
+    `📊 Page analysis: isMainProduct=${parsedResult.isMainProduct}, pageType=${parsedResult.pageType}`
+  );
+
+  return parsedResult;
 }
 
 export async function POST(req: Request) {
@@ -388,7 +410,7 @@ export async function POST(req: Request) {
         screenshot: permanentScreenshotUrl, // Use permanent Supabase URL instead of expiring Firecrawl URL
         description: `Successfully parsed and analyzed ${websiteUrl} using Firecrawl. Screenshot permanently saved to Supabase Storage for long-term access.`,
       },
-      ...analysisResult,
+      ...analysisResult, // This now includes isMainProduct and pageType from analyzeWebsiteContent
       businessName: businessName,
     };
 

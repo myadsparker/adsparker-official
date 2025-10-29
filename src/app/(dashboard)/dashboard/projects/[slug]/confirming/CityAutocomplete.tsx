@@ -18,6 +18,13 @@ export default function LocationDropdownMap({
   value = [],
   onChange,
 }: LocationDropdownMapProps) {
+  // Check if API key is available
+  if (!GOOGLE_KEY) {
+    console.error(
+      '❌ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY environment variable is not set!'
+    );
+  }
+
   const isLoaded = useGoogleMaps(GOOGLE_KEY);
 
   const [options, setOptions] = useState<Location[]>([]);
@@ -30,6 +37,13 @@ export default function LocationDropdownMap({
   const markersRef = useRef<google.maps.Marker[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Debug: Log when Google Maps is loaded
+  useEffect(() => {
+    if (isLoaded) {
+      console.log('✅ Google Maps Places API is loaded and ready');
+    }
+  }, [isLoaded]);
 
   // Sync with external value changes
   useEffect(() => {
@@ -108,79 +122,113 @@ export default function LocationDropdownMap({
   }, [map, selectedLocations.length]);
 
   const fetchPredictions = async (input: string): Promise<Location[]> => {
-    if (!input || !window.google?.maps?.places) {
+    if (!input) {
+      console.log('No input provided');
       return [];
     }
 
-    const svc = new window.google.maps.places.AutocompleteService();
-    const preds = await new Promise<
-      google.maps.places.AutocompletePrediction[]
-    >(resolve =>
-      svc.getPlacePredictions(
-        {
-          input,
-          types: ['geocode'],
-        },
-        r => {
-          resolve(r || []);
-        }
-      )
-    );
-
-    const placesSvc = new window.google.maps.places.PlacesService(
-      document.createElement('div')
-    );
-    const results: Location[] = [];
-    await Promise.all(
-      preds.map(
-        p =>
-          new Promise<void>(res => {
-            placesSvc.getDetails(
-              {
-                placeId: p.place_id,
-                fields: ['geometry', 'formatted_address'],
-              },
-              pl => {
-                if (pl?.geometry?.location) {
-                  results.push({
-                    description: p.description,
-                    lat: pl.geometry.location.lat(),
-                    lng: pl.geometry.location.lng(),
-                  });
-                }
-                res();
-              }
-            );
-          })
-      )
-    );
-    return results;
-  };
-
-  const handleSearch = useCallback(async (value: string) => {
-    setSearchValue(value);
-
-    if (!value || value.length < 2) {
-      setOptions([]);
-      setShowDropdown(false);
-      return;
+    if (!isLoaded) {
+      console.log('Google Maps not loaded yet');
+      return [];
     }
 
-    setIsSearching(true);
-    setShowDropdown(true);
+    if (!window.google?.maps?.places) {
+      console.error('Google Maps Places API not available');
+      return [];
+    }
 
     try {
-      const list = await fetchPredictions(value);
-      setOptions(list);
-      if (list.length > 0) {
-        setShowDropdown(true);
+      const svc = new window.google.maps.places.AutocompleteService();
+      const preds = await new Promise<
+        google.maps.places.AutocompletePrediction[]
+      >(resolve =>
+        svc.getPlacePredictions(
+          {
+            input,
+            types: ['geocode'],
+          },
+          r => {
+            console.log('Place predictions received:', r?.length || 0);
+            resolve(r || []);
+          }
+        )
+      );
+
+      if (!preds || preds.length === 0) {
+        console.log('No place predictions found');
+        return [];
       }
+
+      const placesSvc = new window.google.maps.places.PlacesService(
+        document.createElement('div')
+      );
+      const results: Location[] = [];
+      await Promise.all(
+        preds.map(
+          p =>
+            new Promise<void>(res => {
+              placesSvc.getDetails(
+                {
+                  placeId: p.place_id,
+                  fields: ['geometry', 'formatted_address'],
+                },
+                pl => {
+                  if (pl?.geometry?.location) {
+                    results.push({
+                      description: p.description,
+                      lat: pl.geometry.location.lat(),
+                      lng: pl.geometry.location.lng(),
+                    });
+                  }
+                  res();
+                }
+              );
+            })
+        )
+      );
+      console.log('Location results:', results.length);
+      return results;
     } catch (error) {
-      setOptions([]);
-    } finally {
-      setIsSearching(false);
+      console.error('Error fetching predictions:', error);
+      return [];
     }
-  }, []);
+  };
+
+  const handleSearch = useCallback(
+    async (value: string) => {
+      setSearchValue(value);
+
+      if (!isLoaded) {
+        console.log('Waiting for Google Maps to load...');
+        setOptions([]);
+        setShowDropdown(false);
+        return;
+      }
+
+      if (!value || value.length < 2) {
+        setOptions([]);
+        setShowDropdown(false);
+        return;
+      }
+
+      setIsSearching(true);
+      setShowDropdown(true);
+
+      try {
+        const list = await fetchPredictions(value);
+        setOptions(list);
+        if (list.length > 0) {
+          setShowDropdown(true);
+        }
+      } catch (error) {
+        console.error('Error in handleSearch:', error);
+        setOptions([]);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [isLoaded]
+  );
 
   const handleSelectLocation = useCallback(
     (location: Location) => {
@@ -234,13 +282,22 @@ export default function LocationDropdownMap({
             value={searchValue}
             onChange={e => handleSearch(e.target.value)}
             onFocus={handleInputFocus}
-            placeholder='Add location to target'
+            placeholder={
+              isLoaded ? 'Add location to target' : 'Loading Google Maps...'
+            }
+            disabled={!isLoaded}
             className='search_input'
-            style={{ fontSize: '16px' }}
+            style={{
+              fontSize: '16px',
+              opacity: isLoaded ? 1 : 0.6,
+              cursor: isLoaded ? 'text' : 'not-allowed',
+            }}
           />
           <div className='absolute right-4 top-1/2 transform -translate-y-1/2'>
             {isSearching ? (
               <div className='w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin'></div>
+            ) : !isLoaded ? (
+              <div className='w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin'></div>
             ) : (
               <svg
                 className='w-5 h-5 text-gray-400'

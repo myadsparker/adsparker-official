@@ -12,7 +12,6 @@ const config = {
   colors: {
     water: '#87CEEB',
     land: '#F5F5DC',
-    saudiArabia: '#E2B714',
     hover: '#D3D3D3',
   },
 };
@@ -24,7 +23,6 @@ const state = {
   isDragging: false,
   startX: 0,
   startY: 0,
-  saudiArabia: null,
 };
 
 const Globe: React.FC = () => {
@@ -127,15 +125,7 @@ const Globe: React.FC = () => {
       fill({ type: 'Sphere' }, config.colors.water);
       fill(landRef.current, config.colors.land);
 
-      if (state.saudiArabia) {
-        elementsRef.current.countryLabel.style(
-          'color',
-          config.colors.saudiArabia
-        );
-        fill(state.saudiArabia, config.colors.saudiArabia);
-      }
-
-      if (state.currentCountry && state.currentCountry !== state.saudiArabia) {
+      if (state.currentCountry) {
         elementsRef.current.countryLabel.style('color', 'white');
         fill(state.currentCountry, config.colors.hover);
       }
@@ -235,15 +225,6 @@ const Globe: React.FC = () => {
         landRef.current = feature(world, (world as any).objects.land);
         countriesRef.current = feature(world, (world as any).objects.countries);
         countryListRef.current = cList;
-
-        state.saudiArabia = countriesRef.current?.features.find(
-          (country: any) => {
-            const countryData = countryListRef.current?.find(
-              (c: any) => parseInt(c.id, 10) === parseInt(country.id, 10)
-            );
-            return countryData && countryData.name === 'Saudi Arabia';
-          }
-        );
 
         // Add resize observer for container size changes
         resizeObserverRef.current = new ResizeObserver(() => {

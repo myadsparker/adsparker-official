@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import './plan.css';
 import Stepper from '@/components/dashboard/Stepper';
@@ -63,11 +63,18 @@ export default function BudgetPage() {
   >(null);
   const [savingThumbnail, setSavingThumbnail] = useState(false);
   const [thumbnailImage, setThumbnailImage] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [analyzingPoints, setAnalyzingPoints] = useState<any>(null);
+  const [isMainProduct, setIsMainProduct] = useState<boolean | null>(null);
+  const [autoGeneratingImage, setAutoGeneratingImage] = useState(false);
+  const [websiteUrl, setWebsiteUrl] = useState<string>('');
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const hasAttemptedImageGen = useRef<boolean>(false);
 
   // Fetch project data including campaign proposal
   const fetchProjectData = async () => {
     try {
+      setLoading(true); // Start loading
       const response = await fetch(`/api/projects/${projectId}`);
       if (response.ok) {
         const data = await response.json();
@@ -101,9 +108,61 @@ export default function BudgetPage() {
         if (data?.adset_thumbnail_image) {
           setThumbnailImage(data.adset_thumbnail_image);
         }
+
+        // Set analyzing points and check isMainProduct
+        if (data?.analysing_points) {
+          const analyzingPointsData =
+            typeof data.analysing_points === 'string'
+              ? JSON.parse(data.analysing_points)
+              : data.analysing_points;
+          setAnalyzingPoints(analyzingPointsData);
+          setIsMainProduct(analyzingPointsData?.isMainProduct || false);
+        }
+
+        // Set website URL from url_analysis or campaignproposal
+        let foundWebsiteUrl = '';
+        if (data?.url_analysis) {
+          const urlAnalysis =
+            typeof data.url_analysis === 'string'
+              ? JSON.parse(data.url_analysis)
+              : data.url_analysis;
+          if (urlAnalysis?.website_url) {
+            foundWebsiteUrl = urlAnalysis.website_url;
+          }
+        }
+        // Fallback to campaignproposal website_url if not found in url_analysis
+        if (!foundWebsiteUrl && data?.campaignproposal) {
+          const proposal =
+            typeof data.campaignproposal === 'string'
+              ? JSON.parse(data.campaignproposal)
+              : data.campaignproposal;
+          if (proposal?.website_url) {
+            foundWebsiteUrl = proposal.website_url;
+          }
+        }
+        if (foundWebsiteUrl) {
+          setWebsiteUrl(foundWebsiteUrl);
+        }
+
+        // Set adsets from ad_set_proposals column
+        if (data?.ad_set_proposals) {
+          const adsets = Array.isArray(data.ad_set_proposals)
+            ? data.ad_set_proposals
+            : typeof data.ad_set_proposals === 'string'
+              ? JSON.parse(data.ad_set_proposals)
+              : [];
+
+          if (adsets.length > 0) {
+            setAdSets(adsets.slice(0, 10)); // Take first 10 ad sets
+            setSelectedAdSet(adsets[0]); // Select first ad set by default
+            console.log('✅ Loaded adsets from database:', adsets.length);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching project data:', error);
+    } finally {
+      setLoading(false); // End loading
     }
   };
 
@@ -131,76 +190,11 @@ export default function BudgetPage() {
 
   // Fetch ad sets on component mount
   useEffect(() => {
-    const fetchAdSets = async () => {
-      try {
-        setLoading(true);
-
-        // Step 1: Call audience-tag-gen API first
-        console.log('📋 Step 1: Calling audience-tag-gen API...');
-        try {
-          const audienceTagResponse = await fetch('/api/audience-tag-gen', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ project_id: projectId }),
-          });
-
-          if (!audienceTagResponse.ok) {
-            console.warn(
-              '⚠️ Audience tag generation failed with status:',
-              audienceTagResponse.status
-            );
-            // Continue with ad sets generation even if audience tags fail
-          } else {
-            const audienceTagResult = await audienceTagResponse.json();
-            if (audienceTagResult.success) {
-              console.log('✅ Audience tag generation completed successfully');
-              console.log('📊 Audience tag data received:', audienceTagResult);
-            } else {
-              console.warn(
-                '⚠️ Audience tag generation returned unsuccessful result'
-              );
-            }
-          }
-        } catch (audienceError) {
-          console.warn('⚠️ Audience tag generation error:', audienceError);
-          // Continue with ad sets generation even if audience tags fail
-        }
-
-        // Step 2: Call generate-adsets API after audience-tag-gen completes
-        console.log('📋 Step 2: Calling generate-adsets API...');
-        const response = await fetch(
-          `/api/projects/${projectId}/generate-adsets`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch ad sets');
-        }
-
-        const data = await response.json();
-        if (data.adsets && Array.isArray(data.adsets)) {
-          setAdSets(data.adsets.slice(0, 10)); // Take first 10 ad sets
-          if (data.adsets.length > 0) {
-            setSelectedAdSet(data.adsets[0]); // Select first ad set by default
-          }
-        }
-        console.log('✅ Ad sets generation completed successfully');
-      } catch (error) {
-        console.error('Error fetching ad sets:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (projectId) {
-      fetchAdSets();
+      // Reset attempt flag when project changes
+      hasAttemptedImageGen.current = false;
       fetchConnectedAccounts(); // Fetch connected accounts
-      fetchProjectData(); // Fetch campaign proposal data
+      fetchProjectData(); // Fetch campaign proposal data and adsets
       // Fetch initial performance data with default budget
       fetchPerformanceData(75);
     }
@@ -276,7 +270,90 @@ export default function BudgetPage() {
     }, 500); // 500ms delay
   };
 
-  // Handle AI image generation
+  // Handle automatic image generation based on page type
+  const handleAutoGenerateImage = useCallback(async () => {
+    if (
+      aiImages.length > 0 ||
+      autoGeneratingImage ||
+      hasAttemptedImageGen.current
+    ) {
+      // Already have images, generation in progress, or already attempted
+      return;
+    }
+
+    try {
+      hasAttemptedImageGen.current = true;
+      setAutoGeneratingImage(true);
+
+      // Determine which API to call based on isMainProduct
+      const apiEndpoint = isMainProduct
+        ? '/api/image-gen-product-seedream'
+        : '/api/image-gen-service';
+      console.log(`🚀 Calling ${apiEndpoint} for automatic image generation`);
+
+      const response = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate image');
+      }
+
+      const data = await response.json();
+      if (
+        data.success &&
+        (data.generated_image_url || data.generatedImageUrl)
+      ) {
+        // Refresh project data to get updated ai_images
+        await fetchProjectData();
+      } else {
+        // Reset attempt flag if generation failed, so user can retry manually
+        hasAttemptedImageGen.current = false;
+      }
+    } catch (error) {
+      console.error('Error auto-generating image:', error);
+      // Reset attempt flag on error so user can retry manually
+      hasAttemptedImageGen.current = false;
+    } finally {
+      setAutoGeneratingImage(false);
+    }
+  }, [
+    aiImages.length,
+    autoGeneratingImage,
+    isMainProduct,
+    projectId,
+    fetchProjectData,
+  ]);
+
+  // Auto-generate image when analyzing points are loaded
+  useEffect(() => {
+    if (
+      analyzingPoints &&
+      isMainProduct !== null &&
+      aiImages.length === 0 &&
+      !autoGeneratingImage &&
+      !hasAttemptedImageGen.current
+    ) {
+      console.log(
+        `🖼️ Auto-generating image for ${isMainProduct ? 'product' : 'service'} page`
+      );
+      handleAutoGenerateImage();
+    }
+  }, [
+    analyzingPoints,
+    isMainProduct,
+    aiImages.length,
+    autoGeneratingImage,
+    handleAutoGenerateImage,
+  ]);
+
+  // Handle manual AI image generation (for backward compatibility)
   const handleGenerateAiImage = async () => {
     if (aiImages.length >= 2) {
       alert('Maximum 2 AI images allowed per project');
@@ -475,7 +552,7 @@ export default function BudgetPage() {
 
   return (
     <div className='plan_container'>
-      <Stepper currentStepKey='step5' />
+      <Stepper currentStepKey='step4' />
       <div className='heading_block'>
         <h2>
           Set Your <span>Campaign Budget</span>
@@ -966,7 +1043,9 @@ export default function BudgetPage() {
             </div>
             <div className='post_details'>
               <div>
-                <p className='link'>https://www.tcs.com/</p>
+                <p className='link'>
+                  {websiteUrl || 'https://www.example.com/'}
+                </p>
                 <p className='link'>
                   {selectedAdSet
                     ? selectedAdSet.ad_copywriting_title
@@ -1241,6 +1320,40 @@ export default function BudgetPage() {
                         height={200}
                         style={{ objectFit: 'cover', borderRadius: '8px' }}
                       />
+                      <div className='image-hover-overlay'>
+                        <button
+                          className='image-preview-btn'
+                          onClick={e => {
+                            e.stopPropagation();
+                            setPreviewImage(imageUrl);
+                          }}
+                        >
+                          <svg
+                            width='20'
+                            height='20'
+                            viewBox='0 0 24 24'
+                            fill='none'
+                            xmlns='http://www.w3.org/2000/svg'
+                          >
+                            <path
+                              d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'
+                              stroke='white'
+                              strokeWidth='2'
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                            />
+                            <circle
+                              cx='12'
+                              cy='12'
+                              r='3'
+                              stroke='white'
+                              strokeWidth='2'
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                            />
+                          </svg>
+                        </button>
+                      </div>
                       <div
                         className='image-close-btn'
                         onClick={e => {
@@ -1265,17 +1378,14 @@ export default function BudgetPage() {
                       </div>
                     </div>
                   ))}
-                  {aiImages.length < 2 && (
-                    <div className='image-item add-image'>
-                      <button
-                        className='generate-btn'
-                        onClick={handleGenerateAiImage}
-                        disabled={generatingAiImage}
-                      >
-                        {generatingAiImage
-                          ? 'Generating...'
-                          : 'Generate AI Image'}
-                      </button>
+                  {autoGeneratingImage && aiImages.length === 0 && (
+                    <div className='image-item loading-image'>
+                      <div className='loading-dots'>
+                        <div className='dot'></div>
+                        <div className='dot'></div>
+                        <div className='dot'></div>
+                      </div>
+                      <p>Generating AI Image...</p>
                     </div>
                   )}
                 </div>
@@ -1311,6 +1421,40 @@ export default function BudgetPage() {
                         height={200}
                         style={{ objectFit: 'cover', borderRadius: '8px' }}
                       />
+                      <div className='image-hover-overlay'>
+                        <button
+                          className='image-preview-btn'
+                          onClick={e => {
+                            e.stopPropagation();
+                            setPreviewImage(imageUrl);
+                          }}
+                        >
+                          <svg
+                            width='20'
+                            height='20'
+                            viewBox='0 0 24 24'
+                            fill='none'
+                            xmlns='http://www.w3.org/2000/svg'
+                          >
+                            <path
+                              d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'
+                              stroke='white'
+                              strokeWidth='2'
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                            />
+                            <circle
+                              cx='12'
+                              cy='12'
+                              r='3'
+                              stroke='white'
+                              strokeWidth='2'
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                            />
+                          </svg>
+                        </button>
+                      </div>
                       <div
                         className='image-close-btn'
                         onClick={e => {
@@ -1360,6 +1504,51 @@ export default function BudgetPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div
+          className='image-preview-overlay'
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className='image-preview-content'
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              className='image-preview-close'
+              onClick={() => setPreviewImage(null)}
+            >
+              <svg
+                width='24'
+                height='24'
+                viewBox='0 0 24 24'
+                fill='none'
+                xmlns='http://www.w3.org/2000/svg'
+              >
+                <path
+                  d='M18 6L6 18M6 6l12 12'
+                  stroke='white'
+                  strokeWidth='2'
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                />
+              </svg>
+            </button>
+            <Image
+              src={previewImage}
+              alt='Preview'
+              width={1200}
+              height={800}
+              style={{
+                objectFit: 'contain',
+                maxWidth: '90vw',
+                maxHeight: '90vh',
+              }}
+            />
           </div>
         </div>
       )}

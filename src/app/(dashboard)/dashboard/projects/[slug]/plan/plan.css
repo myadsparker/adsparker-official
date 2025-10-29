@@ -400,6 +400,7 @@
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  max-width: 220px;
 }
 .meta_ad_post .post_details .cta {
   border: 1px solid #5a5b63;
@@ -776,14 +777,15 @@
 
 .image-item {
   position: relative;
-  border: 2px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
-  transition: border-color 0.2s;
+  transition: all 0.2s ease;
+  width: max-content;
+  cursor: pointer;
 }
-
-.image-item:hover {
-  border-color: #d1d5db;
+.image-item img {
+  width: 100px;
+  height: 100px;
 }
 
 .image-item.add-image {
@@ -841,11 +843,6 @@
 }
 
 /* Image Selection Styles */
-.image-item {
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
-}
 
 .image-item:hover {
   transform: scale(1.02);
@@ -886,6 +883,7 @@
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 2;
 }
 
 .image-close-btn:hover {
@@ -968,4 +966,186 @@
 .save-assign-btn:disabled {
   background: #9ca3af;
   cursor: not-allowed;
+}
+
+/* Loading dots animation */
+.loading-image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.loading-dots {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.loading-dots .dot {
+  width: 12px;
+  height: 12px;
+  background: #7e52e0;
+  border-radius: 50%;
+  animation: loading-dots 1.4s infinite ease-in-out both;
+}
+
+.loading-dots .dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dots .dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.loading-dots .dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes loading-dots {
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.loading-image p {
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Image Hover Overlay Styles */
+.image-hover-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 8px;
+  z-index: 1;
+}
+
+.image-item:hover .image-hover-overlay {
+  opacity: 1;
+}
+
+.image-preview-btn {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.image-preview-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.image-preview-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Image Preview Modal Styles */
+.image-preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.image-preview-content {
+  position: relative;
+  max-width: 95vw;
+  max-height: 95vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: zoomIn 0.2s ease;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.image-preview-content img {
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.image-preview-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  z-index: 10;
+}
+
+.image-preview-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.image-preview-close svg {
+  width: 12px;
+  height: 12px;
 }

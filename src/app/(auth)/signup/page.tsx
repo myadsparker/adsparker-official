@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -30,6 +31,7 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
@@ -149,9 +151,9 @@ export default function SignUpPage() {
 
   return (
     <div className='auth_form_container signup'>
-      <div className='auth_logo'>
+      <Link href='/' className='auth_logo'>
         <img src='/images/adsparker-logo.png' alt='AdSparker Logo' />
-      </div>
+      </Link>
 
       <h1 className='auth_title'>Create an account</h1>
       <p className='auth_description'>
@@ -243,8 +245,13 @@ export default function SignUpPage() {
 
         <div className='auth_form_options'>
           <label className='auth_remember_me'>
-            <input type='checkbox' />
-            Remember Me
+            <Checkbox
+              id='remember-me-signup'
+              checked={rememberMe}
+              onCheckedChange={checked => setRememberMe(checked === true)}
+              className='border-gray-300 data-[state=checked]:bg-[#7c3aed] data-[state=checked]:border-[#7c3aed]'
+            />
+            <span>Remember Me</span>
           </label>
           <Link href='/forgetpassword' className='auth_forgot_password'>
             Forgot Your Password?

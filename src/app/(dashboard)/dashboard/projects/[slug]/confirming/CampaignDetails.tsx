@@ -407,6 +407,21 @@ export default function CampaignDetails({
               )}
             </div>
           </div>
+
+          <p
+            style={{
+              marginTop: '12px',
+              fontSize: '14px',
+              color: '#666',
+              lineHeight: '1.5',
+            }}
+          >
+            Meta ads typically need 2–3 days to calibrate and scale. Run for{' '}
+            <span style={{ color: '#7E52E0', fontWeight: '500' }}>
+              at least 3 days
+            </span>{' '}
+            for optimal results.
+          </p>
         </div>
       </div>
     </>

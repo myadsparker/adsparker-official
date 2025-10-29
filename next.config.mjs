@@ -8,6 +8,12 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'img.logo.dev',
+      },
+    ],
   },
   webpack: (config, { isServer }) => {
     if (isServer) {

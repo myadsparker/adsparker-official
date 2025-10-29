@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,9 +87,9 @@ export default function LoginPage() {
 
   return (
     <div className='auth_form_container'>
-      <div className='auth_logo'>
+      <Link href='/' className='auth_logo'>
         <img src='/images/adsparker-logo.png' alt='AdSparker Logo' />
-      </div>
+      </Link>
 
       <h1 className='auth_title'>Log In</h1>
       <p className='auth_description'>
@@ -133,8 +135,13 @@ export default function LoginPage() {
 
         <div className='auth_form_options'>
           <label className='auth_remember_me'>
-            <input type='checkbox' />
-            Remember Me
+            <Checkbox
+              id='remember-me'
+              checked={rememberMe}
+              onCheckedChange={checked => setRememberMe(checked === true)}
+              className='border-gray-300 data-[state=checked]:bg-[#7c3aed] data-[state=checked]:border-[#7c3aed]'
+            />
+            <span>Remember Me</span>
           </label>
           <Link href='/forgetpassword' className='auth_forgot_password'>
             Forgot Your Password?

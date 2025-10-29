@@ -5,6 +5,17 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 const Header = () => {
+  const scrollToSection = (
+    sectionId: string,
+    e: React.MouseEvent<HTMLAnchorElement>
+  ) => {
+    e.preventDefault();
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'auto', block: 'start' });
+    }
+  };
+
   return (
     <header className='header-main'>
       <div className='container'>
@@ -19,11 +30,15 @@ const Header = () => {
           </Link>
           <div className='menu'>
             <Link href='/'>Home</Link>
-            <Link href='/'>Pricing</Link>
-            <Link href='/'>FAQ's</Link>
+            <a href='#pricing' onClick={e => scrollToSection('pricing', e)}>
+              Pricing
+            </a>
+            <a href='#faq' onClick={e => scrollToSection('faq', e)}>
+              FAQ's
+            </a>
           </div>
           <div className='cta'>
-            <Link href='/' className='sign_in'>
+            <Link href='/signup' className='sign_in'>
               Sign In
             </Link>
             <Link href='/login' className='get_started'>

@@ -74,7 +74,7 @@ export function Header() {
           {/* Desktop CTA */}
           <div className='hidden md:flex items-center gap-3 lg:gap-4'>
             <Link
-              href={'/login'}
+              href={'/signup'}
               className='text-white hover:bg-white/10 transition-colors duration-200 px-3 lg:px-4'
               style={{
                 fontFamily:
@@ -158,7 +158,7 @@ export function Header() {
               <div className='border-t border-white/20 pt-3 sm:pt-4 mt-2'>
                 <div className='flex flex-col gap-2 sm:gap-3'>
                   <Link
-                    href={'/login'}
+                    href={'/signup'}
                     className='text-white hover:bg-white/10 justify-start h-10 sm:h-11'
                     style={{
                       fontFamily:

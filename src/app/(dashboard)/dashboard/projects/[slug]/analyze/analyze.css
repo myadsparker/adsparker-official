@@ -41,6 +41,9 @@
   font-size: 24px;
   font-weight: 600;
   color: #343438;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 .analyze_container_left input {
   width: 100%;
@@ -72,6 +75,10 @@
   position: relative;
   overflow-y: auto;
   background-color: #fff;
+  /* Hardware acceleration for smooth scrolling */
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
+  will-change: scroll-position;
 }
 
 .analyze_container_right h3 {
@@ -85,6 +92,9 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 /* Loading and Error States */
@@ -147,6 +157,9 @@
   text-align: center;
   letter-spacing: 0.5px;
   animation: textFade 2s ease-in-out infinite;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 @keyframes textFade {
@@ -197,6 +210,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 .screenshot_container {
   background: #f8f9fa;
@@ -213,9 +229,15 @@
   font-size: 18px;
   font-weight: 600;
   color: #343438;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 .screenshot_container p {
   text-align: left;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 .website_screenshot {
   max-width: 100%;
@@ -264,6 +286,11 @@
     transform 0.3s ease,
     box-shadow 0.3s ease;
   background-color: #fff;
+  /* Hardware acceleration for smooth text rendering */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .key_box h4 {
@@ -272,18 +299,27 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 .key_box p {
   margin: 0;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.6;
   font-weight: 400;
   color: #686782;
   min-height: 24px;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 .key_box span {
   color: #686782;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 /* Additional Data Boxes */
@@ -298,6 +334,9 @@
   margin-bottom: 20px;
   padding-bottom: 8px;
   border-bottom: 2px solid #f0f0f0;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 .data_boxes {
@@ -330,6 +369,9 @@
   color: #343438;
   border-bottom: 2px solid #f0f0f0;
   padding-bottom: 8px;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 .data_box h5 {
@@ -343,39 +385,44 @@
   line-height: 1.5;
   color: #666;
   min-height: 20px;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
-/* GSAP Text Reveal Animation */
-.char {
-  display: inline-block;
-  transform-origin: center;
+/* Typewriter Text - Character by character typing */
+.typewriter-text {
+  opacity: 1;
+  white-space: normal;
+  word-wrap: break-word;
+  width: 100%;
+  min-height: 20px;
+  /* Hardware acceleration for smooth rendering */
+  transform: translateZ(0);
   backface-visibility: hidden;
-  will-change: transform, opacity; /* Optimize for animations */
-  transform-style: preserve-3d; /* Enable 3D transforms */
+  perspective: 1000px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Key box entrance animation */
-.key_box {
-  opacity: 0;
-  transform: translateY(30px);
-  animation: boxReveal 0.6s ease-out forwards;
-  will-change: transform, opacity; /* Optimize for animations */
+.typewriter-text.typewriter-animation {
+  /* Animation class for when typing completes */
+  opacity: 1;
 }
 
-@keyframes boxReveal {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Typing animation cursor */
-.typing_cursor::after {
+.typewriter-text.typing-cursor::after {
   content: '|';
-  animation: blink 1s infinite;
+  display: inline-block;
+  margin-left: 2px;
+  color: #686782;
+  animation: blink-cursor 1s infinite;
+  font-weight: 400;
+  /* Hardware acceleration for cursor */
+  transform: translateZ(0);
+  will-change: opacity;
 }
 
-@keyframes blink {
+@keyframes blink-cursor {
   0%,
   50% {
     opacity: 1;
@@ -386,50 +433,22 @@
   }
 }
 
-/* Fallback CSS animation for text reveal */
-.text-reveal-fallback .char {
-  animation: charReveal 0.05s ease-out forwards;
-  animation-fill-mode: both;
+/* Key box entrance animation */
+.key_box {
+  opacity: 0;
+  transform: translateY(30px) translateZ(0);
+  animation: boxReveal 0.6s ease-out forwards;
+  will-change: transform, opacity; /* Optimize for animations */
+  /* Hardware acceleration to prevent blurriness */
+  backface-visibility: hidden;
+  perspective: 1000px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.text-reveal-fallback .char:nth-child(1) {
-  animation-delay: 0s;
-}
-.text-reveal-fallback .char:nth-child(2) {
-  animation-delay: 0.02s;
-}
-.text-reveal-fallback .char:nth-child(3) {
-  animation-delay: 0.04s;
-}
-.text-reveal-fallback .char:nth-child(4) {
-  animation-delay: 0.06s;
-}
-.text-reveal-fallback .char:nth-child(5) {
-  animation-delay: 0.08s;
-}
-.text-reveal-fallback .char:nth-child(6) {
-  animation-delay: 0.1s;
-}
-.text-reveal-fallback .char:nth-child(7) {
-  animation-delay: 0.12s;
-}
-.text-reveal-fallback .char:nth-child(8) {
-  animation-delay: 0.14s;
-}
-.text-reveal-fallback .char:nth-child(9) {
-  animation-delay: 0.16s;
-}
-.text-reveal-fallback .char:nth-child(10) {
-  animation-delay: 0.18s;
-}
-
-@keyframes charReveal {
-  from {
-    opacity: 0;
-    transform: translateY(20px) rotateX(90deg);
-  }
+@keyframes boxReveal {
   to {
     opacity: 1;
-    transform: translateY(0) rotateX(0deg);
+    transform: translateY(0) translateZ(0);
   }
 }

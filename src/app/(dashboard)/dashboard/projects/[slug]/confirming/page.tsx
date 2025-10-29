@@ -27,7 +27,7 @@ export default function Confirming() {
       // Scroll to first error field instead of showing alert
       const firstErrorField = document.querySelector('.has-error');
       if (firstErrorField) {
-        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstErrorField.scrollIntoView({ behavior: 'auto', block: 'center' });
       } else {
         // If no error field found, show a general message
         alert('Please fill in all required fields before proceeding.');

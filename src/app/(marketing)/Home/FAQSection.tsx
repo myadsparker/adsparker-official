@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import './FAQSection.css';
 import Image from 'next/image';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -90,31 +91,6 @@ export default function FAQSection() {
       '-=0.4'
     );
 
-    // Add hover animations for FAQ items
-    faqItems.forEach((item, index) => {
-      if (!item) return;
-
-      const itemElement = item as HTMLElement;
-
-      itemElement.addEventListener('mouseenter', () => {
-        gsap.to(itemElement, {
-          duration: 0.3,
-          scale: 1.02,
-          y: -5,
-          ease: 'power2.out',
-        });
-      });
-
-      itemElement.addEventListener('mouseleave', () => {
-        gsap.to(itemElement, {
-          duration: 0.3,
-          scale: 1,
-          y: 0,
-          ease: 'power2.out',
-        });
-      });
-    });
-
     return () => {
       ScrollTrigger.getAll().forEach(trigger => trigger.kill());
     };
@@ -125,97 +101,91 @@ export default function FAQSection() {
   };
 
   return (
-    <section ref={sectionRef} className='faq_section'>
+    <section id='faq' ref={sectionRef} className='faq-section'>
       <Image
         src='/images/faq-section-bg.png'
         alt='FAQ Section Background'
         width={1000}
         height={1000}
-        className='faq_section_bg'
+        className='faq-section-bg'
       />
-      <div className='container'>
-        <div className='faq_heading'>
-          <div className='emoji_left'>
-            <Image
-              src='/images/emoji-left.png'
-              alt='emoji'
-              width={104}
-              height={104}
-            />
-          </div>
-          <div className='heading_text'>
-            <h2>
-              <span className='line1'>Frequently Asked</span>
-              <span className='line2'>Questions</span>
-            </h2>
-            <p>Have another question? Please contact our team!</p>
-          </div>
-          <div className='emoji_right'>
-            <Image
-              src='/images/emoji-right.png'
-              alt='emoji'
-              width={104}
-              height={104}
-            />
-          </div>
-        </div>
+      {/* Decorative elements */}
+      <div className='faq-decorative-circle-1'></div>
+      <div className='faq-decorative-circle-2'></div>
 
-        <div className='faq_items'>
-          {faqData.map((item, index) => (
-            <div
-              key={item.id}
-              ref={el => {
-                faqItemsRef.current[index] = el;
-              }}
-              className={`faq_item ${openItem === item.id ? 'open' : ''}`}
-              onClick={() => toggleFAQ(item.id)}
-            >
-              <div className='faq_question'>
-                <h3>{item.question}</h3>
-                <div className='faq_icon'>
-                  {openItem === item.id ? (
-                    <svg
-                      width='20'
-                      height='20'
-                      viewBox='0 0 20 20'
-                      fill='none'
-                      xmlns='http://www.w3.org/2000/svg'
-                    >
-                      <path
-                        d='M5 12L10 7L15 12'
-                        stroke='#E0E0E0'
-                        strokeWidth='2'
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      width='20'
-                      height='20'
-                      viewBox='0 0 20 20'
-                      fill='none'
-                      xmlns='http://www.w3.org/2000/svg'
-                    >
-                      <path
-                        d='M7 8L10 11L13 8'
-                        stroke='#E0E0E0'
-                        strokeWidth='2'
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                      />
-                    </svg>
-                  )}
-                </div>
+      <div className='faq-container'>
+        {/* Two-column FAQ layout */}
+        <div className='faq-content-wrapper'>
+          {/* Left Column - Question Prompt Box */}
+          <div className='faq-left-column'>
+            <div className='faq-question-box'>
+              <div>
+                <h3 className='faq-question-title'>Have other questions?</h3>
+                <p className='faq-question-text'>We're here to help!</p>
               </div>
-
-              {openItem === item.id && (
-                <div className='faq_answer'>
-                  <p>{item.answer}</p>
-                </div>
-              )}
+              <div className='faq-icon-button'>
+                <button className='faq-contact-button'>
+                  <svg
+                    width='20'
+                    height='20'
+                    viewBox='0 0 20 20'
+                    fill='none'
+                    xmlns='http://www.w3.org/2000/svg'
+                    className='faq-contact-icon'
+                  >
+                    <path
+                      d='M4.16675 15.8334L15.8334 4.16675M15.8334 4.16675H4.16675M15.8334 4.16675V15.8334'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                      strokeLinecap='round'
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
-          ))}
+          </div>
+
+          {/* Right Column - FAQ List */}
+          <div className='faq-right-column'>
+            {faqData.map((item, index) => (
+              <div
+                key={item.id}
+                ref={el => {
+                  faqItemsRef.current[index] = el;
+                }}
+                className={`faq-item ${openItem === item.id ? 'open' : ''}`}
+                onClick={() => toggleFAQ(item.id)}
+              >
+                <div className='faq-item-header'>
+                  <h3 className='faq-item-question'>{item.question}</h3>
+                  <div className='faq-item-icon'>
+                    <svg
+                      width='14'
+                      height='14'
+                      viewBox='0 0 14 14'
+                      fill='none'
+                      xmlns='http://www.w3.org/2000/svg'
+                      className={`faq-icon-svg ${openItem === item.id ? 'faq-icon-rotated' : ''}`}
+                    >
+                      <path
+                        d='M1 1L13 13M13 13V5M13 13H5'
+                        stroke='#767693'
+                        strokeWidth='2'
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                      />
+                    </svg>
+                  </div>
+                </div>
+
+                {openItem === item.id && (
+                  <div className='faq-item-answer'>
+                    <p className='faq-item-answer-text'>{item.answer}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

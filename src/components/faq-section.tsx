@@ -4,8 +4,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 export function FAQSection() {
+  const [openItem, setOpenItem] = useState<string | null>(null);
+
   const faqs = [
     {
       question: 'Do I need a Meta account?',
@@ -42,27 +46,16 @@ export function FAQSection() {
       answer:
         "Yes! AdSparkr manages both Facebook and Instagram campaigns through Meta's unified advertising platform. You can target audiences across both platforms simultaneously.",
     },
-    {
-      question: 'Is there a setup fee or contract?',
-      answer:
-        'No setup fees, no contracts. Start with the $19.99 weekly trial and cancel anytime. Monthly plans offer better value for ongoing campaigns.',
-    },
-    {
-      question: 'How quickly will I see results?',
-      answer:
-        'Most users see improved performance within 48-72 hours as our AI begins optimizing campaigns. Full optimization benefits typically appear within the first week of active management.',
-    },
-    {
-      question: 'What if I need help getting started?',
-      answer:
-        'All plans include support to help you connect your Meta account and launch your first campaigns. Monthly and Enterprise plans include priority support and dedicated assistance.',
-    },
   ];
+
+  const toggleItem = (index: string) => {
+    setOpenItem(openItem === index ? null : index);
+  };
 
   return (
     <section className='py-20 bg-gray-800'>
       <div className='container mx-auto px-4 sm:px-6 lg:px-8'>
-        <div className='max-w-4xl mx-auto'>
+        <div className='max-w-6xl mx-auto'>
           <div className='text-center mb-12'>
             <h2 className='text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-4 font-heading'>
               Frequently Asked Questions
@@ -72,32 +65,69 @@ export function FAQSection() {
             </p>
           </div>
 
-          <div className='bg-gray-800/50 rounded-2xl shadow-lg border border-gray-700/50 overflow-hidden'>
-            <Accordion type='single' collapsible className='w-full'>
-              {faqs.map((faq, index) => (
-                <AccordionItem
-                  key={index}
-                  value={`item-${index}`}
-                  className='border-b border-gray-700/50 last:border-b-0'
-                >
-                  <AccordionTrigger className='text-left text-lg sm:text-xl font-extrabold text-white hover:text-blue-400 px-6 py-5 hover:bg-gray-700/30 transition-colors duration-200 font-heading'>
-                    {faq.question}
-                  </AccordionTrigger>
-                  <AccordionContent className='text-gray-400 text-base leading-relaxed px-6 pb-5 font-body'>
-                    {faq.answer}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
+          {/* Two-column FAQ layout */}
+          <div className='flex flex-col lg:flex-row gap-6 items-start'>
+            {/* Left Column - Question Prompt Box */}
+            <div className='w-full lg:w-1/3 flex-shrink-0'>
+              <div className='bg-white rounded-2xl p-8 h-full relative min-h-[400px] flex flex-col justify-between'>
+                <div>
+                  <h3 className='text-4xl font-bold text-gray-800 mb-4 font-heading'>
+                    Have other questions?
+                  </h3>
+                  <p className='text-lg text-gray-500 font-body'>
+                    We're here to help!
+                  </p>
+                </div>
+                <div className='absolute bottom-6 right-6'>
+                  <button className='w-12 h-12 bg-[#8B5CF6] rounded-full flex items-center justify-center hover:bg-[#7C3AED] transition-colors'>
+                    <svg
+                      width='20'
+                      height='20'
+                      viewBox='0 0 20 20'
+                      fill='none'
+                      xmlns='http://www.w3.org/2000/svg'
+                      className='text-white'
+                    >
+                      <path
+                        d='M4.16675 15.8334L15.8334 4.16675M15.8334 4.16675H4.16675M15.8334 4.16675V15.8334'
+                        stroke='currentColor'
+                        strokeWidth='2'
+                        strokeLinecap='round'
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
 
-          <div className='text-center mt-12'>
-            <p className='text-gray-400 mb-4 font-body'>
-              Still have questions? We're here to help.
-            </p>
-            <button className='bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 font-body'>
-              Contact Support
-            </button>
+            {/* Right Column - FAQ List */}
+            <div className='w-full lg:w-2/3 space-y-3'>
+              <Accordion type='single' collapsible className='w-full'>
+                {faqs.map((faq, index) => (
+                  <AccordionItem
+                    key={index}
+                    value={`item-${index}`}
+                    className='border-none'
+                  >
+                    <AccordionTrigger className='bg-gray-100 hover:bg-gray-200 rounded-xl px-6 py-4 transition-colors duration-200'>
+                      <div className='flex items-center justify-between w-full'>
+                        <span className='text-gray-800 font-medium text-left flex-1 font-heading'>
+                          {faq.question}
+                        </span>
+                        <div className='ml-4 flex-shrink-0'>
+                          <ChevronDown className='w-5 h-5 text-gray-700' />
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className='bg-gray-100 rounded-b-xl px-6 pb-4'>
+                      <p className='text-gray-600 leading-relaxed font-body'>
+                        {faq.answer}
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
           </div>
         </div>
       </div>
