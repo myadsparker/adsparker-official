@@ -28,6 +28,13 @@ interface AnalyzingPointsResult {
   };
   isMainProduct: boolean;
   pageType: string;
+  brandColors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    description: string;
+  };
+  tone: string;
 }
 
 // Firecrawl integration for URL parsing with screenshot
@@ -137,57 +144,140 @@ async function analyzeWebsiteContent(
 ): Promise<Omit<AnalyzingPointsResult, 'parsingUrl'>> {
   console.log(`🧠 Analyzing website content with AI...`);
 
-  const prompt = `
-  Analyze the following website content and provide exactly 3 specific details, each in 100-120 words, plus page type analysis:
+  // Build messages array - include screenshot if available
+  const messages: any[] = [
+    {
+      role: 'system',
+      content:
+        'You are an expert digital marketing strategist and brand analyst. Analyze website content and screenshots to provide detailed insights for advertising strategy. ALWAYS respond with ONLY valid JSON, no markdown, no code blocks, no additional text.',
+    },
+  ];
 
-  Website Content: ${content.substring(0, 5000)} // Limit content to avoid token limits
+  // Add screenshot analysis if available
+  if (screenshot) {
+    messages.push({
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: `Analyze this website screenshot to extract brand colors and tone. Then analyze the website content below.
 
-  Please provide analysis in the following JSON format:
-  {
-    "productInformation": {
-      "description": "Detailed analysis of the product/service information, features, and offerings (100-120 words)"
-    },
-    "sellingPoints": {
-      "description": "Key selling points, unique value propositions, and competitive advantages (100-120 words)"
-    },
-    "adsGoalStrategy": {
-      "description": "Recommended advertising goals, target audience strategy, and campaign objectives (100-120 words)"
-    },
-    "isMainProduct": true/false,
-    "pageType": "homepage|product|about|contact|services|blog|pricing|faq|other"
+Website Screenshot URL: ${screenshot}
+
+Please analyze:
+1. The dominant brand colors in the screenshot (primary, secondary, accent colors in hex format)
+2. The overall brand tone/mood (e.g., professional, playful, modern, elegant, bold, minimal, etc.)
+3. Website content analysis as specified below`,
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: screenshot,
+          },
+        },
+        {
+          type: 'text',
+          text: `Website Content: ${content.substring(0, 5000)}
+
+Please provide analysis in the following JSON format:
+{
+  "productInformation": {
+    "description": "Detailed analysis of the product/service information, features, and offerings (100-120 words)"
+  },
+  "sellingPoints": {
+    "description": "Key selling points, unique value propositions, and competitive advantages (100-120 words)"
+  },
+  "adsGoalStrategy": {
+    "description": "Recommended advertising goals, target audience strategy, and campaign objectives (100-120 words)"
+  },
+  "isMainProduct": true/false,
+  "pageType": "homepage|product|about|contact|services|blog|pricing|faq|other",
+  "brandColors": {
+    "primary": "#hexcolor (dominant brand color from screenshot)",
+    "secondary": "#hexcolor (secondary brand color from screenshot)",
+    "accent": "#hexcolor (accent/brand color from screenshot)",
+    "description": "Brief description of the brand color palette (2-3 sentences)"
+  },
+  "tone": "professional|playful|modern|elegant|bold|minimal|energetic|calm|luxurious|friendly|authoritative|creative (based on visual design and content)"
+}`,
+        },
+      ],
+    });
+  } else {
+    // If no screenshot, just analyze content
+    messages.push({
+      role: 'user',
+      content: `Analyze the following website content and provide exactly 3 specific details, each in 100-120 words, plus page type analysis:
+
+Website Content: ${content.substring(0, 5000)}
+
+Please provide analysis in the following JSON format:
+{
+  "productInformation": {
+    "description": "Detailed analysis of the product/service information, features, and offerings (100-120 words)"
+  },
+  "sellingPoints": {
+    "description": "Key selling points, unique value propositions, and competitive advantages (100-120 words)"
+  },
+  "adsGoalStrategy": {
+    "description": "Recommended advertising goals, target audience strategy, and campaign objectives (100-120 words)"
+  },
+  "isMainProduct": true/false,
+  "pageType": "homepage|product|about|contact|services|blog|pricing|faq|other",
+  "brandColors": {
+    "primary": "#hexcolor (estimate from content if screenshot not available, or use common brand colors)",
+    "secondary": "#hexcolor",
+    "accent": "#hexcolor",
+    "description": "Brief description of the brand color palette (2-3 sentences)"
+  },
+  "tone": "professional|playful|modern|elegant|bold|minimal|energetic|calm|luxurious|friendly|authoritative|creative"
+}`,
+    });
   }
 
-  For isMainProduct: Set to true if this is clearly a product page (showing specific products, product details, product listings, e-commerce product pages, SaaS product pages, etc.). Set to false for informational pages, about pages, contact pages, blog posts, etc.
+  // Instructions for analysis
+  const additionalPrompt = `
 
-  For pageType: Determine the type of page based on content analysis:
-  - "homepage" - Main landing page with overview of business
-  - "product" - Specific product or service page
-  - "about" - About us, company information
-  - "contact" - Contact information, contact forms
-  - "services" - Services offered page
-  - "blog" - Blog posts, articles, news
-  - "pricing" - Pricing plans, pricing information
-  - "faq" - Frequently asked questions
-  - "other" - Any other type of page
+Set isMainProduct = true only if the page clearly shows a physical product for sale — such as clothing, electronics, accessories, furniture, or other tangible goods (e.g., t-shirts, shoes, phones, etc.).
+Set isMainProduct = false for pages about digital products, SaaS platforms, software tools, or services (e.g., web apps, subscriptions, consulting, or online platforms), as well as for informational pages like blogs, about, or contact pages.
 
-  Focus on actionable insights for advertising strategy. Each description should be exactly 100-120 words.
-  `;
+For pageType: Determine the type of page based on content analysis:
+- "homepage" - Main landing page with overview of business
+- "product" - Specific product or service page
+- "about" - About us, company information
+- "contact" - Contact information, contact forms
+- "services" - Services offered page
+- "blog" - Blog posts, articles, news
+- "pricing" - Pricing plans, pricing information
+- "faq" - Frequently asked questions
+- "other" - Any other type of page
+
+For brandColors: Extract the dominant colors from the screenshot. If analyzing from content only, make educated estimates based on industry and content tone.
+
+For tone: Analyze both the visual design (from screenshot) and content to determine the brand's communication style and emotional tone.
+
+Focus on actionable insights for advertising strategy. Each description should be exactly 100-120 words.`;
+
+  // Add the additional instructions to the last message
+  const lastMessage = messages[messages.length - 1];
+  if (Array.isArray(lastMessage.content)) {
+    // Find the last text element and append instructions
+    const textElements = lastMessage.content.filter(
+      (item: any) => item.type === 'text'
+    );
+    if (textElements.length > 0) {
+      const lastTextElement = textElements[textElements.length - 1];
+      lastTextElement.text += additionalPrompt;
+    }
+  } else if (typeof lastMessage.content === 'string') {
+    lastMessage.content += additionalPrompt;
+  }
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You are an expert digital marketing strategist. Analyze website content and provide detailed insights for advertising strategy. ALWAYS respond with ONLY valid JSON, no markdown, no code blocks, no additional text.',
-      },
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
+    messages: messages,
     temperature: 0.3,
-    max_tokens: 2000,
+    max_tokens: 2500,
     response_format: { type: 'json_object' },
   });
 
@@ -209,6 +299,9 @@ async function analyzeWebsiteContent(
   const parsedResult = JSON.parse(cleanedText);
   console.log(
     `📊 Page analysis: isMainProduct=${parsedResult.isMainProduct}, pageType=${parsedResult.pageType}`
+  );
+  console.log(
+    `🎨 Brand colors: primary=${parsedResult.brandColors?.primary}, tone=${parsedResult.tone}`
   );
 
   return parsedResult;

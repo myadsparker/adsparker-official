@@ -27,7 +27,14 @@ type ImageGenResponse = {
 async function generateImagePromptFromDescriptions(
   sellingPoints: string,
   adsGoalStrategy: string,
-  productInformation: string
+  productInformation: string,
+  brandColors?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    description?: string;
+  },
+  tone?: string
 ): Promise<{
   prompt: string;
   recommendedStyle: string;
@@ -91,6 +98,15 @@ async function generateImagePromptFromDescriptions(
         - Tagline: positioned cleanly without obscuring service
         - CTA button: clear and professional placement
         
+        ### BRAND GUIDELINES (STRICT)
+        - Color palette must follow brand colors when provided:
+          - Primary: ${brandColors?.primary || 'auto-detect'}
+          - Secondary: ${brandColors?.secondary || 'auto-detect'}
+          - Accent: ${brandColors?.accent || 'auto-detect'}
+        - Visual tone/mood must reflect: ${tone || 'professional'}
+        - Apply brand colors to background, accents, wardrobe/props, lighting color grading, and UI elements (CTA/button), while preserving realism.
+        - Avoid clashing colors or unrelated palettes.
+        
         ### OUTPUT FORMAT (JSON)
         {
           "prompt": "Detailed professional marketing ad prompt with clear service focus",
@@ -109,6 +125,9 @@ ADVERTISING STRATEGY: ${adsGoalStrategy}
 
 PRODUCT/SERVICE INFORMATION: ${productInformation}
 
+BRAND COLORS: ${brandColors?.primary || ''} ${brandColors?.secondary || ''} ${brandColors?.accent || ''}
+BRAND TONE: ${tone || ''}
+
 IMPORTANT: Create a prompt that generates a high-quality marketing ad creative that:
 1. Focuses CLEARLY on the main service described in the service information
 2. Includes only ONE human subject positioned symmetrically and relatable to the service
@@ -116,7 +135,8 @@ IMPORTANT: Create a prompt that generates a high-quality marketing ad creative t
 4. Looks like a REAL service photoshoot or campaign ad, not an AI-generated collage
 5. Service is the center of attention, clearly visible and hero of the shot
 6. Professional, cinematic quality like ads from major brands
-7. Includes tagline and CTA text elegantly integrated into the design`,
+7. Includes tagline and CTA text elegantly integrated into the design
+8. Enforce brand color palette across background, accents, UI, and color grading to reflect the specified brand tone.`,
         },
       ],
       response_format: { type: 'json_object' },
@@ -130,8 +150,15 @@ IMPORTANT: Create a prompt that generates a high-quality marketing ad creative t
     console.log(`📝 Tagline: "${result.tagline}"`);
     console.log(`📝 CTA: "${result.ctaText}"`);
 
+    const paletteInstruction = brandColors
+      ? ` Use the brand palette strictly: primary ${brandColors.primary || 'auto'}, secondary ${brandColors.secondary || 'auto'}, accent ${brandColors.accent || 'auto'}. Apply these to background, accents, props, wardrobe accents, and CTA/button. Avoid off-brand hues.`
+      : '';
+    const toneInstruction = tone
+      ? ` The overall mood must feel ${tone}. Reflect this tone through lighting, styling, depth of field, and color grading.`
+      : '';
+
     // Enhance the prompt with the base structure to ensure consistency
-    const enhancedPrompt = `Generate a high-quality marketing ad creative that focuses clearly on the main service. ${result.prompt} The composition should feel cinematic and professional, like a real service photoshoot or campaign ad. The service should be the center of attention, clearly visible and presented in a realistic environment that enhances its appeal. Include only one human subject, positioned symmetrically and visually connected to the service. The final image should look like a marketing-ready advertisement - elegant, persuasive, and visually focused on the service's story and audience. Include the tagline "${result.tagline}" and CTA button "${result.ctaText}" integrated elegantly into the design.`;
+    const enhancedPrompt = `Generate a high-quality marketing ad creative that focuses clearly on the main service. ${result.prompt} The composition should feel cinematic and professional, like a real service photoshoot or campaign ad. The service should be the center of attention, clearly visible and presented in a realistic environment that enhances its appeal. Include only one human subject, positioned symmetrically and visually connected to the service. The final image should look like a marketing-ready advertisement - elegant, persuasive, and visually focused on the service's story and audience. Include the tagline "${result.tagline}" and CTA button "${result.ctaText}" integrated elegantly into the design.${paletteInstruction}${toneInstruction}`;
 
     return {
       prompt: enhancedPrompt,
@@ -473,7 +500,9 @@ export async function POST(req: NextRequest) {
     const promptData = await generateImagePromptFromDescriptions(
       sellingPoints,
       adsGoalStrategy,
-      productInformation
+      productInformation,
+      analysingPoints.brandColors,
+      analysingPoints.tone
     );
 
     // Step 5: Extract logo URL only (no OG image extraction)
