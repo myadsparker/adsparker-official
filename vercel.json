@@ -1,0 +1,22 @@
+{
+  "functions": {
+    "src/app/api/analyzing-points/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/website-analysis/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/image-analysis/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/smart-extract/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/puppeteer-extract/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/firecrawl-extract/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}

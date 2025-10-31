@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 
+// Set max duration for Vercel (requires Pro plan for >10s, but this helps with serverless config)
+export const maxDuration = 60; // 60 seconds
+export const dynamic = 'force-dynamic';
+
 // Initialize services
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -402,11 +406,23 @@ export async function POST(req: Request) {
 
     console.log(`🎯 Analyzing website: ${websiteUrl}`);
 
-    // 4️⃣ Parse URL with Firecrawl (includes viewport screenshot)
+    // 4️⃣ Parse URL with Firecrawl (includes viewport screenshot) - with timeout
     console.log(`📋 Step 3: Parsing URL with Firecrawl...`);
     let screenshot, content;
     try {
-      const result = await parseUrlWithFirecrawl(websiteUrl);
+      // Add timeout to Firecrawl request
+      const firecrawlPromise = parseUrlWithFirecrawl(websiteUrl);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error('Firecrawl request timeout after 20 seconds')),
+          20000
+        )
+      );
+
+      const result = (await Promise.race([
+        firecrawlPromise,
+        timeoutPromise,
+      ])) as { screenshot: string; content: string };
       screenshot = result.screenshot; // This is a Firecrawl URL that expires!
       content = result.content;
       console.log(`✅ Firecrawl parsing completed successfully`);
@@ -439,7 +455,8 @@ export async function POST(req: Request) {
         const axios = (await import('axios')).default;
         const screenshotResponse = await axios.get(screenshot, {
           responseType: 'arraybuffer',
-          timeout: 15000,
+          timeout: 10000, // Reduced from 15s to 10s
+          maxContentLength: 10 * 1024 * 1024, // Limit to 10MB
         });
 
         const screenshotBuffer = Buffer.from(screenshotResponse.data);
@@ -486,16 +503,18 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5️⃣ AI Analysis for the three specific details
-    console.log(`📋 Step 4: AI analysis for specific details...`);
-    const analysisResult = await analyzeWebsiteContent(
-      content,
-      permanentScreenshotUrl
+    // 5️⃣ AI Analysis for the three specific details & Generate business name (parallel)
+    console.log(
+      `📋 Step 4: AI analysis for specific details and business name (parallel)...`
     );
 
-    // 6️⃣ Generate business name
-    console.log(`📋 Step 5: Generating business name...`);
-    const businessName = await generateBusinessName(content, websiteUrl);
+    // Run both OpenAI calls in parallel to save time
+    const [analysisResult, businessName] = await Promise.all([
+      analyzeWebsiteContent(content, permanentScreenshotUrl),
+      generateBusinessName(content, websiteUrl),
+    ]);
+
+    console.log(`✅ AI analysis and business name generation completed`);
 
     // 7️⃣ Compile final result with business name included
     const result: AnalyzingPointsResult & { businessName: string } = {

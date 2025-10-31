@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
 
     // Send reset email
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/updatepassword`,
+      redirectTo: 'https://adsparker.com/updatepassword',
     });
 
     setIsSubmitting(false);

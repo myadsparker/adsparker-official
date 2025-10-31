@@ -89,14 +89,13 @@ When deploying to Vercel, you need to add the environment variables in the Verce
 
 Add the following environment variables one by one:
 
-| Variable Name               | Value                                              | Environment                      |
-| --------------------------- | -------------------------------------------------- | -------------------------------- |
-| `NEXT_PUBLIC_SITE_URL`      | Your site URL (e.g., https://adsparker.vercel.app) | Production, Preview, Development |
-| `OPENAI_API_KEY`            | Your OpenAI API key (sk-proj-xxx)                  | Production, Preview, Development |
-| `NEXT_PUBLIC_SUPABASE_URL`  | Your Supabase project URL                          | Production, Preview, Development |
-| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key                     | Production, Preview, Development |
-| `GOOGLE_AI_API_KEY`         | Your Google AI API key (if using)                  | Production, Preview, Development |
-| `HERE_API_KEY`              | Your HERE Maps API key (if using)                  | Production, Preview, Development |
+| Variable Name               | Value                             | Environment                      |
+| --------------------------- | --------------------------------- | -------------------------------- |
+| `OPENAI_API_KEY`            | Your OpenAI API key (sk-proj-xxx) | Production, Preview, Development |
+| `NEXT_PUBLIC_SUPABASE_URL`  | Your Supabase project URL         | Production, Preview, Development |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key    | Production, Preview, Development |
+| `GOOGLE_AI_API_KEY`         | Your Google AI API key (if using) | Production, Preview, Development |
+| `HERE_API_KEY`              | Your HERE Maps API key (if using) | Production, Preview, Development |
 
 ### Step 3: Important Notes for Vercel
 
