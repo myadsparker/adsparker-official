@@ -71,16 +71,10 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     const supabase = createClientComponentClient();
 
-    // Use NEXT_PUBLIC_SITE_URL if origin is localhost
-    const origin = window.location.origin.includes('localhost')
-      ? process.env.NEXT_PUBLIC_SITE_URL
-      : window.location.origin;
-    const redirectTo = `${origin}/login-callback`;
-
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo,
+        redirectTo: 'https://adsparker.com/login-callback',
       },
     });
 

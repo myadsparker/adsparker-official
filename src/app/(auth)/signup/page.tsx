@@ -136,15 +136,10 @@ export default function SignUpPage() {
   const handleGoogleSignUp = async () => {
     setIsLoading(true);
 
-    // Use NEXT_PUBLIC_SITE_URL if origin is localhost
-    const origin = location.origin.includes('localhost')
-      ? process.env.NEXT_PUBLIC_SITE_URL
-      : location.origin;
-
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${origin}/signup-callback`,
+        redirectTo: 'https://adsparker.com/signup-callback',
       },
     });
 
