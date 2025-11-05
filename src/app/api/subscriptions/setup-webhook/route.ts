@@ -9,7 +9,7 @@ try {
     throw new Error('STRIPE_SECRET_KEY is not set');
   }
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2025-08-27.basil',
+    apiVersion: '2024-06-20',
   });
 } catch (error) {
   console.error('Failed to initialize Stripe:', error);
@@ -52,16 +52,39 @@ export async function POST(request: NextRequest) {
 
     const { webhook_url, enabled_events } = body;
 
-    // Get app URL with fallback
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                   process.env.NEXT_PUBLIC_SITE_URL || 
-                   'http://localhost:3000';
+    // Get app URL - try multiple methods
+    let appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                 process.env.NEXT_PUBLIC_SITE_URL;
+    
+    // If not in env, try to get from request headers (production detection)
+    if (!appUrl) {
+      const host = request.headers.get('host');
+      const protocol = request.headers.get('x-forwarded-proto') || 
+                      (request.headers.get('referer')?.startsWith('https') ? 'https' : 'http');
+      
+      if (host && !host.includes('localhost')) {
+        appUrl = `${protocol}://${host}`;
+      } else {
+        // Fallback to localhost only if truly local
+        appUrl = 'http://localhost:3000';
+      }
+    }
 
     // Default webhook URL if not provided
     const defaultWebhookUrl = `${appUrl}/api/subscriptions/webhook`;
 
     // Use provided URL or default
     const endpointUrl = webhook_url || defaultWebhookUrl;
+    
+    // Log for debugging
+    console.log('Webhook setup - Detected URL:', {
+      provided: webhook_url,
+      default: defaultWebhookUrl,
+      final: endpointUrl,
+      env_app_url: process.env.NEXT_PUBLIC_APP_URL,
+      env_site_url: process.env.NEXT_PUBLIC_SITE_URL,
+      host: request.headers.get('host'),
+    });
 
     // Default events to listen to
     const defaultEvents: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = [
@@ -134,7 +157,7 @@ export async function POST(request: NextRequest) {
         url: endpointUrl,
         enabled_events: eventsToListen,
         description: 'AdSparker Subscription Webhook',
-        api_version: '2025-08-27.basil',
+        api_version: '2024-06-20',
       });
     } catch (stripeError: any) {
       // Handle Stripe-specific errors

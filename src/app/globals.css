@@ -1301,7 +1301,7 @@ header .nav .sign_in:hover {
   height: 400px !important;
   display: block;
   position: absolute;
-  right: 50px;
+  right: -20px;
 }
 
 /* Auth pages header - non-sticky */
@@ -1709,6 +1709,9 @@ header .nav .sign_in:hover {
 .pricing_section .pricing_card.highlighted .card_title {
   background: linear-gradient(90deg, #937ce5 0%, #7e35e5 100%);
 }
+.pricing_section .card_title{
+  font-size: 12px;
+}
 .card_description {
   font-size: 16px;
   font-weight: 400;
@@ -1719,9 +1722,7 @@ header .nav .sign_in:hover {
 }
 
 .pricing_info {
-  margin-bottom: 32px;
-  border-bottom: 1px solid #494a4c40;
-  padding-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .price {
@@ -1823,7 +1824,15 @@ header .nav .sign_in:hover {
   cursor: pointer;
   transition: all 0.3s ease;
 }
-
+.pricing_cards .cta_button {
+  height: 32px;
+  font-size: 14px;
+  padding-block: 0;
+  border-radius: 6px;
+}
+.pricing_cards .card_description{
+  font-size: 12px;
+}
 .cta_button.primary {
   background: linear-gradient(90deg, #937ce5 0%, #7e35e5 100%);
 

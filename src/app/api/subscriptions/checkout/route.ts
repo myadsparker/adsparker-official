@@ -9,7 +9,7 @@ try {
     console.error('STRIPE_SECRET_KEY is not set in environment variables');
   } else {
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2025-08-27.basil',
+      apiVersion: '2024-06-20',
     });
   }
 } catch (error) {
@@ -198,14 +198,26 @@ export async function POST(request: NextRequest) {
       subscriptionId = newSubscription.id;
     }
 
-    // Get app URL with fallback
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                   process.env.NEXT_PUBLIC_SITE_URL || 
-                   'http://localhost:3000';
+    // Get app URL - try multiple methods
+    let appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                 process.env.NEXT_PUBLIC_SITE_URL;
+    
+    // If not in env, try to get from request headers (production detection)
+    if (!appUrl) {
+      const host = request.headers.get('host');
+      const protocol = request.headers.get('x-forwarded-proto') || 'https';
+      
+      if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+        appUrl = `${protocol}://${host}`;
+      } else {
+        // Fallback to localhost only if truly local
+        appUrl = 'http://localhost:3000';
+      }
+    }
 
     // Create Stripe checkout session
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
-      mode: planType === 'free_trial' ? 'setup' : 'subscription',
+      mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [
         {
@@ -222,19 +234,14 @@ export async function POST(request: NextRequest) {
         plan_type: planType,
         project_id: projectId || '',
       },
+      // Allow promotions to be added
+      allow_promotion_codes: true,
+      // For trial periods, collect payment method but don't charge immediately
+      payment_method_collection: planType === 'free_trial' ? 'always' : undefined,
     };
 
-    // For free trial, add subscription data
+    // For free trial, add subscription data with trial period
     if (planType === 'free_trial') {
-      sessionParams.subscription_data = {
-        trial_period_days: 7,
-        metadata: {
-          plan_type: 'free_trial',
-          project_id: projectId || '',
-        },
-      };
-      // Also set up subscription for monthly billing after trial
-      sessionParams.mode = 'subscription';
       sessionParams.subscription_data = {
         trial_period_days: 7,
         metadata: {

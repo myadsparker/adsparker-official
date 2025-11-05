@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
+  apiVersion: '2024-06-20',
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -180,7 +180,8 @@ async function handleSubscriptionUpdated(
     };
 
     // Update status based on Stripe subscription status
-    switch (subscription.status) {
+    const stripeStatus = subscription.status as string;
+    switch (stripeStatus) {
       case 'active':
         updateData.status = 'active';
         break;
@@ -208,11 +209,11 @@ async function handleSubscriptionUpdated(
       ).toISOString();
     }
 
-    // Update end date
-    if (subscription.current_period_end) {
-      updateData.end_date = new Date(
-        subscription.current_period_end * 1000
-      ).toISOString();
+    // Update end date - using type assertion for Stripe subscription
+    const subscriptionAny = subscription as any;
+    if (subscriptionAny.currentPeriodEnd || subscriptionAny.current_period_end) {
+      const periodEnd = subscriptionAny.currentPeriodEnd || subscriptionAny.current_period_end;
+      updateData.end_date = new Date(periodEnd * 1000).toISOString();
     }
 
     // Update cancel_at if subscription is set to cancel
@@ -276,14 +277,17 @@ async function handlePaymentSucceeded(
   supabase: any
 ) {
   try {
-    if (!invoice.subscription) {
+    // Access subscription property with type assertion
+    const invoiceAny = invoice as any;
+    const subscriptionId = invoiceAny.subscription
+      ? typeof invoiceAny.subscription === 'string'
+        ? invoiceAny.subscription
+        : invoiceAny.subscription.id
+      : null;
+
+    if (!subscriptionId) {
       return; // Not a subscription invoice
     }
-
-    const subscriptionId =
-      typeof invoice.subscription === 'string'
-        ? invoice.subscription
-        : invoice.subscription.id;
 
     const { data: existingSubscription } = await supabase
       .from('subscriptions')
@@ -332,14 +336,17 @@ async function handlePaymentFailed(
   supabase: any
 ) {
   try {
-    if (!invoice.subscription) {
+    // Access subscription property with type assertion
+    const invoiceAny = invoice as any;
+    const subscriptionId = invoiceAny.subscription
+      ? typeof invoiceAny.subscription === 'string'
+        ? invoiceAny.subscription
+        : invoiceAny.subscription.id
+      : null;
+
+    if (!subscriptionId) {
       return; // Not a subscription invoice
     }
-
-    const subscriptionId =
-      typeof invoice.subscription === 'string'
-        ? invoice.subscription
-        : invoice.subscription.id;
 
     const { data: existingSubscription } = await supabase
       .from('subscriptions')

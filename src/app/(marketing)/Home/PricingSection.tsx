@@ -227,7 +227,7 @@ export default function PricingSection() {
                 </div>
 
                 <div className='features_section'>
-                  <h4 className='features_title'>Features include:</h4>
+         
                   <ul className='features_list'>
                     {plan.features.map((feature, featureIndex) => (
                       <li key={featureIndex} className='feature_item'>
