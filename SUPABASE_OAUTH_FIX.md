@@ -2,9 +2,9 @@
 
 ## 🚨 The Problem
 
-Even though the code has `redirectTo: 'https://adsparker.com/login-callback'`, OAuth is still redirecting to `http://localhost:3000`.
+OAuth is redirecting to `http://localhost:3000` instead of your production domain.
 
-**Why?** The `redirectTo` parameter only controls where Supabase redirects AFTER receiving the OAuth callback from Google. The **initial redirect from Google back to Supabase** is controlled by Supabase's **Site URL** setting in the dashboard.
+**Why?** The **initial redirect from Google back to Supabase** is controlled by Supabase's **Site URL** setting in the dashboard, not your code. You need to configure this in the Supabase dashboard.
 
 ---
 
@@ -186,12 +186,40 @@ Before testing, make sure:
 
 ---
 
+## 📝 Code Configuration
+
+The app now uses `NEXT_PUBLIC_SITE_URL` environment variable for OAuth redirects:
+
+**Login/Signup/Forgot Password:**
+
+```typescript
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://adsparker.com';
+const redirectTo = `${siteUrl}/login-callback`;
+```
+
+**Environment Variable:**
+Add to your `.env.local`:
+
+```env
+NEXT_PUBLIC_SITE_URL=https://adsparker.com
+```
+
+**For Vercel:** Add this in Settings → Environment Variables
+
+---
+
 ## ✨ Summary
 
-The fix requires **zero code changes**. The issue is purely configuration:
+The fix requires **configuration in two places**:
 
-1. **Supabase Site URL** must be `https://adsparker.com`
-2. **Supabase Redirect URLs** must include your domain
-3. **Google OAuth** must allow Supabase callback URL
+1. **Supabase Dashboard:**
+   - **Site URL** must be `https://adsparker.com`
+   - **Redirect URLs** must include your domain
+
+2. **Environment Variables:**
+   - **NEXT_PUBLIC_SITE_URL** must be set in `.env.local` and Vercel
+
+3. **Google OAuth Console:**
+   - Must allow Supabase callback URL
 
 After these changes, OAuth will properly redirect to your production domain instead of localhost! 🎉

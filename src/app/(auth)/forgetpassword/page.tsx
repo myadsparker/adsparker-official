@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
+import { getSiteUrl } from '@/lib/utils';
 
 export default function ForgotPasswordPage() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -42,8 +43,9 @@ export default function ForgotPasswordPage() {
     }
 
     // Send reset email
+    const siteUrl = getSiteUrl();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://adsparker.com/updatepassword',
+      redirectTo: `${siteUrl}/updatepassword`,
     });
 
     setIsSubmitting(false);

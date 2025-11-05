@@ -15,6 +15,9 @@ In the root directory of your project (`E:\personal-work\adsparker-new-design\`)
 Add the following content to `.env.local`:
 
 ```env
+# Site URL (Required for OAuth redirects)
+NEXT_PUBLIC_SITE_URL=https://adsparker.com
+
 # OpenAI API Key (Required)
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
 
@@ -32,6 +35,7 @@ META_APP_SECRET=your_meta_app_secret
 # Stripe (if needed)
 STRIPE_SECRET_KEY=your_stripe_secret_key
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+STRIPE_WEBHOOK_SECRET=whsec_... (from Stripe webhook settings)
 
 # HERE Maps API Key (if needed)
 HERE_API_KEY=your_here_api_key
@@ -89,13 +93,14 @@ When deploying to Vercel, you need to add the environment variables in the Verce
 
 Add the following environment variables one by one:
 
-| Variable Name               | Value                             | Environment                      |
-| --------------------------- | --------------------------------- | -------------------------------- |
-| `OPENAI_API_KEY`            | Your OpenAI API key (sk-proj-xxx) | Production, Preview, Development |
-| `NEXT_PUBLIC_SUPABASE_URL`  | Your Supabase project URL         | Production, Preview, Development |
-| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key    | Production, Preview, Development |
-| `GOOGLE_AI_API_KEY`         | Your Google AI API key (if using) | Production, Preview, Development |
-| `HERE_API_KEY`              | Your HERE Maps API key (if using) | Production, Preview, Development |
+| Variable Name               | Value                                       | Environment                      |
+| --------------------------- | ------------------------------------------- | -------------------------------- |
+| `NEXT_PUBLIC_SITE_URL`      | Your site URL (e.g., https://adsparker.com) | Production, Preview, Development |
+| `OPENAI_API_KEY`            | Your OpenAI API key (sk-proj-xxx)           | Production, Preview, Development |
+| `NEXT_PUBLIC_SUPABASE_URL`  | Your Supabase project URL                   | Production, Preview, Development |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key              | Production, Preview, Development |
+| `GOOGLE_AI_API_KEY`         | Your Google AI API key (if using)           | Production, Preview, Development |
+| `HERE_API_KEY`              | Your HERE Maps API key (if using)           | Production, Preview, Development |
 
 ### Step 3: Important Notes for Vercel
 

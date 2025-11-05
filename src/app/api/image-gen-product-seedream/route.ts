@@ -45,7 +45,7 @@ async function generateImagePromptFromDescriptions(
       messages: [
         {
           role: 'system',
-          content: `You are a senior AI art director and Meta ad strategist who creates cinematic, professionally-shot marketing ad visuals.
+          content: `You are a senior AI art director and Meta ad strategist who creates compelling advertising creatives for social media campaigns.
         
         You will receive three business data points:
         - sellingPoints
@@ -53,56 +53,62 @@ async function generateImagePromptFromDescriptions(
         - productInformation
         
         From these, your task is to:
-        1. Create a **high-quality, professional marketing ad creative prompt** that focuses CLEARLY on the main product.
-        2. Extract a compelling, on-brand **tagline**.
-        3. Suggest a **CTA** (call-to-action) relevant to the business.
+        1. Create a **professional advertising creative prompt** that balances product focus with ad design elements
+        2. Extract a compelling, punchy **tagline**
+        3. Suggest a **CTA** (call-to-action) relevant to the business
         
-        ### CRITICAL IMAGE PROMPT RULES
+        ### CRITICAL AD CREATIVE RULES
+        
+        **ADVERTISING AESTHETIC (NOT PHOTOSHOOT):**
+        - Should look like a DESIGNED AD CREATIVE - blend of photography and graphic design
+        - Has that "polished advertising" feel - not just raw photography
+        - Strategic use of colors, overlays, and visual hierarchy
+        - Modern, eye-catching, and scroll-stopping on social feeds
         
         **PRODUCT FOCUS:**
-        - The PRODUCT must be the CENTER of attention, clearly visible and hero of the shot
-        - Product should be shown in its best light - realistic, appealing, and professional
-        - Describe the product's exact placement, angle, and how it's featured
+        - Product should be prominently featured but integrated into ad design
+        - Clear visibility with professional presentation
+        - Natural integration with visual elements and text
         
         **HUMAN SUBJECT:**
-        - Include ONLY ONE human subject that is symmetrical and visually connected to the product
-        - Gender and style should naturally match the product's nature and target audience (infer from productInformation)
-        - Human should be relatable to the product - using it, holding it, or positioned to enhance the product story
-        - Subject positioning should be balanced and symmetrical in the composition
+        - Include ONE human subject when relevant to product/service
+        - Should feel like they're part of the ad story, not just posing
+        - Gender and styling naturally match target audience
+        - Positioned to complement product and text placement
         
-        **PROFESSIONAL MARKETING AESTHETIC:**
-        - Must look like a REAL product photoshoot or campaign ad, not an AI-generated collage
-        - Cinematic and professional quality - like ads from major brands
-        - Clean, focused composition with premium lighting
-        - Realistic or stylized environment that enhances product appeal
-        - Avoid AI artifacts, distortions, or "uncanny valley" effects
+        **TEXT INTEGRATION & PLACEMENT:**
+        - Main headline/tagline: positioned strategically based on visual composition
+        - Supporting text: include 1-2 key selling points or offer details
+        - Text should have its own visual space - top, bottom, or side panels work best
+        - Consider color blocks, gradients, or subtle overlays behind text for readability
+        - CTA button: prominent but naturally placed
+        - Text hierarchy: headline > offer/detail > CTA
         
-        **COMPOSITION DETAILS to include:**
-        - Exact product placement and prominence
-        - Human subject: gender, age range, styling that matches target audience
-        - How the human interacts with or relates to the product
-        - Environment: specific setting that enhances brand story
-        - Lighting: professional studio or natural lighting style
-        - Camera angle: eye-level, slightly above, or hero angle
-        - Depth of field: shallow for product focus or deep for context
-        - Color palette: aligned with brand mood
-        - Overall emotional tone: premium, aspirational, relatable
+        **COMPOSITION ELEMENTS:**
+        - Layout: consider asymmetric design with clear zones for product, person, and text
+        - Color scheme: bold and brand-appropriate, creates visual impact
+        - Visual flow: guides eye from hook → product → offer → CTA
+        - Background: can be environmental OR designed (gradients, patterns, color blocks)
+        - Lighting: professional but with advertising polish (not just raw natural light)
+        - Depth and layers: create visual interest through overlapping elements
         
-        **TEXT INTEGRATION:**
-        - Tagline: positioned cleanly without obscuring product
-        - CTA button: clear and professional placement
+        **AD CREATIVE FEATURES:**
+        - Strategic color overlays or gradients for text sections
+        - Professional graphic design elements (shapes, lines, patterns) where appropriate
+        - Dynamic composition that feels intentionally designed
+        - Balance between photographic and graphic design elements
         
         ### OUTPUT FORMAT (JSON)
         {
-          "prompt": "Detailed professional marketing ad prompt with clear product focus",
-          "recommendedStyle": "cinematic / editorial / studio-shot / lifestyle",
-          "tagline": "short punchy tagline for ad",
-          "ctaText": "Shop Now / Try Free / Order Today / etc."
+          "prompt": "Detailed ad creative prompt with clear visual zones, text placement strategy, and advertising aesthetic",
+          "recommendedStyle": "advertising creative / social media ad / campaign design / lifestyle advertising",
+          "tagline": "punchy headline that hooks attention",
+          "ctaText": "Shop Now / Get Started / Claim Offer / etc."
         }`,
         },
         {
           role: 'user',
-          content: `Generate a professional marketing ad creative prompt for a Facebook/Instagram ad.
+          content: `Generate a professional advertising creative prompt for a Facebook/Instagram ad.
 
 SELLING POINTS: ${sellingPoints}
 
@@ -110,33 +116,42 @@ ADVERTISING STRATEGY: ${adsGoalStrategy}
 
 PRODUCT/SERVICE INFORMATION: ${productInformation}
 
-IMPORTANT: Create a prompt that generates a high-quality marketing ad creative that:
-1. Focuses CLEARLY on the main product described in the product information
-2. Includes only ONE human subject positioned symmetrically and relatable to the product
-3. Gender and style should naturally match the product's nature and target audience
-4. Looks like a REAL product photoshoot or campaign ad, not an AI-generated collage
-5. Product is the center of attention, clearly visible and hero of the shot
-6. Professional, cinematic quality like ads from major brands
-7. Includes tagline and CTA text elegantly integrated into the design`,
+IMPORTANT: Create a prompt that generates an advertising creative (NOT just a photoshoot) that:
+1. Looks like a DESIGNED AD - polished, intentional, scroll-stopping
+2. Product is prominently featured but part of cohesive ad design
+3. ONE human subject when relevant, naturally integrated
+4. Strategic text placement with clear visual zones
+5. Include headline/tagline + 1-2 supporting details (offer, benefit, feature)
+6. Text has proper hierarchy and readable placement (consider color blocks/overlays)
+7. Modern advertising aesthetic - balance of photography and graphic design
+8. Dynamic composition with visual flow toward CTA`,
         },
       ],
       response_format: { type: 'json_object' },
-      max_tokens: 1000,
+      max_tokens: 1200,
     });
 
     const result = JSON.parse(response.choices[0].message.content || '{}');
 
     console.log('✅ Image prompt generated from descriptions');
-    console.log(`🎨 Recommended style: ${result.recommendedStyle || 'photo'}`);
+    console.log(
+      `🎨 Recommended style: ${result.recommendedStyle || 'advertising creative'}`
+    );
     console.log(`📝 Tagline: "${result.tagline}"`);
     console.log(`📝 CTA: "${result.ctaText}"`);
 
-    // Enhance the prompt with the base structure to ensure consistency
-    const enhancedPrompt = `Generate a high-quality marketing ad creative that focuses clearly on the main product. ${result.prompt} The composition should feel cinematic and professional, like a real product photoshoot or campaign ad. The product should be the center of attention, clearly visible and presented in a realistic environment that enhances its appeal. Include only one human subject, positioned symmetrically and visually connected to the product. The final image should look like a marketing-ready advertisement - elegant, persuasive, and visually focused on the product's story and audience. Include the tagline "${result.tagline}" and CTA button "${result.ctaText}" integrated elegantly into the design.`;
+    // Enhance the prompt with advertising creative structure
+    const enhancedPrompt = `Create a modern advertising creative (not a photoshoot) for social media. ${result.prompt} 
+
+DESIGN APPROACH: The creative should look like a professionally designed ad with intentional visual zones - product area, text sections, and CTA placement. Use strategic color overlays or backgrounds for text readability. The composition should feel polished and designed, not just captured.
+
+TEXT ELEMENTS: Position the headline "${result.tagline}" prominently in a clear visual zone (top third, bottom third, or side panel work well). Include 1-2 supporting text elements extracted from the selling points (offers, benefits, features). Add CTA button "${result.ctaText}" in a natural, prominent position.
+
+VISUAL STYLE: Modern advertising aesthetic - balance photography with graphic design elements. Use colors, shapes, or gradients to create visual hierarchy. The final result should be scroll-stopping, eye-catching, and clearly look like a designed advertisement, not raw photography.`;
 
     return {
       prompt: enhancedPrompt,
-      recommendedStyle: result.recommendedStyle || 'photo',
+      recommendedStyle: result.recommendedStyle || 'advertising creative',
       tagline: result.tagline || 'Discover More',
       ctaText: result.ctaText || 'Learn More',
     };
@@ -144,8 +159,8 @@ IMPORTANT: Create a prompt that generates a high-quality marketing ad creative t
     console.error('❌ Error generating image prompt from descriptions:', err);
     return {
       prompt:
-        'Generate a high-quality marketing ad creative that focuses clearly on the main product. Include only one human subject, positioned symmetrically and visually connected to the product. The composition should feel cinematic and professional, like a real product photoshoot or campaign ad. The product should be the center of attention, clearly visible and presented in a realistic environment. The final image should look like a marketing-ready advertisement - elegant, persuasive, and visually focused. Include tagline "Discover More" and CTA button "Learn More" integrated elegantly into the design.',
-      recommendedStyle: 'photo',
+        'Create a modern advertising creative for social media. Feature the product prominently with one human subject when relevant. Design with clear visual zones: product area, text sections with strategic backgrounds, and CTA placement. Include headline "Discover More" in a prominent position, add 1-2 supporting benefit texts, and CTA button "Learn More". Use modern advertising aesthetic with color overlays and graphic design elements. Should look like a professionally designed ad, not just photography.',
+      recommendedStyle: 'advertising creative',
       tagline: 'Discover More',
       ctaText: 'Learn More',
     };

@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSiteUrl } from '@/lib/utils';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -71,10 +72,13 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     const supabase = createClientComponentClient();
 
+    const siteUrl = getSiteUrl();
+    const redirectTo = `${siteUrl}/login-callback`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://adsparker.com/login-callback',
+        redirectTo,
       },
     });
 

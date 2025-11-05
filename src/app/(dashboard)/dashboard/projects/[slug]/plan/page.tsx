@@ -70,6 +70,9 @@ export default function BudgetPage() {
   const [websiteUrl, setWebsiteUrl] = useState<string>('');
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const hasAttemptedImageGen = useRef<boolean>(false);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [publishingAds, setPublishingAds] = useState(false);
 
   // Fetch project data including campaign proposal
   const fetchProjectData = async () => {
@@ -188,6 +191,22 @@ export default function BudgetPage() {
     }
   };
 
+  // Fetch subscription status
+  const fetchSubscription = async () => {
+    try {
+      setSubscriptionLoading(true);
+      const response = await fetch('/api/subscriptions');
+      if (response.ok) {
+        const data = await response.json();
+        setSubscription(data.subscription);
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
   // Fetch ad sets on component mount
   useEffect(() => {
     if (projectId) {
@@ -197,13 +216,15 @@ export default function BudgetPage() {
       fetchProjectData(); // Fetch campaign proposal data and adsets
       // Fetch initial performance data with default budget
       fetchPerformanceData(75);
+      fetchSubscription(); // Fetch subscription status
     }
   }, [projectId]);
 
-  // Handle OAuth success message
+  // Handle OAuth success message and checkout success
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const metaConnected = urlParams.get('meta_connected');
+    const checkout = urlParams.get('checkout');
 
     if (metaConnected === 'true') {
       // Refresh connected accounts
@@ -212,6 +233,47 @@ export default function BudgetPage() {
       window.history.replaceState({}, '', window.location.pathname);
       // Show success message
       alert('Meta account connected successfully!');
+    }
+
+    if (checkout === 'success') {
+      // Get session ID from URL
+      const sessionId = urlParams.get('session_id');
+      
+      if (sessionId) {
+        // Verify session and update subscription
+        fetch('/api/subscriptions/verify-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              // Refresh subscription status
+              fetchSubscription();
+              // Show success message
+              alert('Subscription activated successfully! You can now publish ads.');
+            } else {
+              alert('Failed to verify subscription. Please contact support.');
+            }
+          })
+          .catch(error => {
+            console.error('Error verifying session:', error);
+            alert('Error verifying subscription. Please contact support.');
+          });
+      }
+      
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    if (checkout === 'cancelled') {
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+      // Show message
+      alert('Checkout was cancelled. You can try again when ready.');
     }
   }, []);
 
@@ -515,6 +577,119 @@ export default function BudgetPage() {
     });
   };
 
+  // Handle publish ads - check subscription and redirect to payment if needed
+  const handlePublishAdsFromButton = async () => {
+    try {
+      // Check subscription status first
+      const subscriptionResponse = await fetch('/api/subscriptions');
+      let subscriptionData = null;
+
+      if (subscriptionResponse.ok) {
+        subscriptionData = await subscriptionResponse.json();
+      }
+
+      const userSubscription = subscriptionData?.subscription;
+
+      // If no subscription, create free trial and proceed
+      if (!userSubscription) {
+        // Create free trial subscription
+        const createTrialResponse = await fetch('/api/subscriptions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            plan_type: 'free_trial',
+            card_required: true,
+            card_added: false,
+            trial_days: 7,
+          }),
+        });
+
+        if (createTrialResponse.ok) {
+          const trialData = await createTrialResponse.json();
+          // Refresh subscription status
+          await fetchSubscription();
+          
+          // For free trial, we still need card, so redirect to Stripe for card setup
+          // Create Stripe checkout session for trial (setup payment method)
+          const checkoutResponse = await fetch('/api/subscriptions/checkout', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              planType: 'free_trial',
+              projectId: projectId,
+            }),
+          });
+
+          if (checkoutResponse.ok) {
+            const checkoutData = await checkoutResponse.json();
+            if (checkoutData.url) {
+              window.location.href = checkoutData.url;
+            } else {
+              alert(checkoutData.error || 'Failed to create checkout session. Please try again.');
+            }
+          } else {
+            const errorData = await checkoutResponse.json().catch(() => ({}));
+            const errorMessage = errorData.error || errorData.details || 'Failed to create checkout session. Please try again.';
+            alert(`${errorMessage}\n\n${errorData.details ? `Details: ${errorData.details}` : ''}`);
+            console.error('Checkout error:', errorData);
+          }
+        } else {
+          alert('Failed to create free trial. Please try again.');
+        }
+        return;
+      }
+
+      // If subscription exists, check if it's expired or needs payment
+      if (userSubscription.status === 'trial_expired' || !userSubscription.card_added) {
+        // Redirect to Stripe checkout for payment
+        const checkoutResponse = await fetch('/api/subscriptions/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            planType: userSubscription.plan_type === 'trial_expired' ? 'monthly' : userSubscription.plan_type,
+            projectId: projectId,
+          }),
+        });
+
+        if (checkoutResponse.ok) {
+          const checkoutData = await checkoutResponse.json();
+          if (checkoutData.url) {
+            window.location.href = checkoutData.url;
+          } else {
+            alert(checkoutData.error || 'Failed to create checkout session. Please try again.');
+          }
+        } else {
+          const errorData = await checkoutResponse.json().catch(() => ({}));
+          const errorMessage = errorData.error || errorData.details || 'Failed to create checkout session. Please try again.';
+          alert(`${errorMessage}\n\n${errorData.details ? `Details: ${errorData.details}` : ''}`);
+          console.error('Checkout error:', errorData);
+        }
+        return;
+      }
+
+      // If subscription is active and card is added, proceed to publish ads
+      // This will be handled by the existing handlePublishAds function
+      // For now, show the modal to connect Meta account if needed
+      if (connectedAccounts.length === 0) {
+        setShowModal(true);
+        return;
+      }
+
+      // If Meta is connected and subscription is active, proceed with publishing
+      await handlePublishAds();
+    } catch (error) {
+      console.error('Error in publish ads flow:', error);
+      alert('An error occurred. Please try again.');
+    }
+  };
+
+  // Keep handleNext for modal access (can be used elsewhere)
   const handleNext = async () => {
     setShowModal(true);
   };
@@ -543,6 +718,152 @@ export default function BudgetPage() {
     } catch (error) {
       console.error('Error connecting Meta account:', error);
       alert('An error occurred while connecting Meta account.');
+    }
+  };
+
+  // Handle publish ads with subscription tracking
+  const handlePublishAds = async () => {
+    try {
+      setPublishingAds(true);
+
+      // Check if Meta account is connected
+      if (connectedAccounts.length === 0) {
+        alert('Please connect a Meta account first before publishing ads.');
+        setPublishingAds(false);
+        return;
+      }
+
+      // Check subscription and usage limits
+      const usageCheckResponse = await fetch('/api/subscriptions/check-usage', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          limit_type: 'ads_per_day',
+          project_id: projectId,
+          daily_budget: dailyBudget,
+        }),
+      });
+
+      const usageCheck = await usageCheckResponse.json();
+
+      if (!usageCheck.can_proceed) {
+        // Handle subscription needed or limits reached
+        if (usageCheck.reason === 'no_subscription') {
+          // Create free trial subscription
+          const createTrialResponse = await fetch('/api/subscriptions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              plan_type: 'free_trial',
+              card_required: true,
+              card_added: false,
+              trial_days: 7,
+            }),
+          });
+
+          if (createTrialResponse.ok) {
+            const trialData = await createTrialResponse.json();
+            setSubscription(trialData.subscription);
+            alert(
+              'Free trial started! You have 7 days to try our service. After 7 days, you will be billed $199/month unless cancelled.'
+            );
+            // Continue with publishing after trial creation
+          } else {
+            alert('Failed to create free trial. Please try again.');
+            setPublishingAds(false);
+            return;
+          }
+        } else {
+          // Limits reached or other issues
+          alert(usageCheck.message || 'Unable to publish ads. Please check your subscription limits.');
+          setPublishingAds(false);
+          return;
+        }
+      }
+
+      // Check daily budget limit
+      const budgetCheckResponse = await fetch('/api/subscriptions/check-usage', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          limit_type: 'daily_budget',
+          project_id: projectId,
+          daily_budget: dailyBudget,
+        }),
+      });
+
+      const budgetCheck = await budgetCheckResponse.json();
+      if (!budgetCheck.can_proceed) {
+        alert(budgetCheck.message || 'Daily budget exceeds your plan limit.');
+        setPublishingAds(false);
+        return;
+      }
+
+      // Get selected ad account
+      const selectedAccount = connectedAccounts[0];
+      const adAccountId = selectedAccount?.ad_accounts?.[0]?.id;
+
+      if (!adAccountId) {
+        alert('No ad account found. Please connect a Meta ad account.');
+        setPublishingAds(false);
+        return;
+      }
+
+      // Track ad publication
+      const publishResponse = await fetch('/api/subscriptions/publish-ad', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+          campaign_name: campaignProposal?.campaignName || 'Campaign',
+          ad_set_id: selectedAdSet?.ad_set_id || null,
+          ad_account_id: adAccountId,
+          daily_budget: dailyBudget,
+          metadata: {
+            ad_set_title: selectedAdSet?.ad_set_title || null,
+            ad_copywriting_title: selectedAdSet?.ad_copywriting_title || null,
+            ad_copywriting_body: selectedAdSet?.ad_copywriting_body || null,
+            audience_description: selectedAdSet?.audience_description || null,
+          },
+        }),
+      });
+
+      if (!publishResponse.ok) {
+        const errorData = await publishResponse.json();
+        alert(errorData.message || 'Failed to track ad publication.');
+        setPublishingAds(false);
+        return;
+      }
+
+      const publishData = await publishResponse.json();
+
+      // Refresh subscription status
+      await fetchSubscription();
+
+      // Show success message
+      alert(
+        `Ads published successfully! ${
+          subscription?.plan_type === 'free_trial'
+            ? `Your free trial is active. You will be billed $199/month after 7 days unless cancelled.`
+            : ''
+        }`
+      );
+
+      // Close modal
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error publishing ads:', error);
+      alert('An error occurred while publishing ads. Please try again.');
+    } finally {
+      setPublishingAds(false);
     }
   };
 
@@ -1106,8 +1427,8 @@ export default function BudgetPage() {
           </svg>
           Back
         </button>
-        <button onClick={handleNext} className='next'>
-          Next
+        <button onClick={handlePublishAdsFromButton} className='next'>
+          Publish Ads
           <svg
             width='20'
             height='20'
@@ -1251,6 +1572,129 @@ export default function BudgetPage() {
                   Meta accounts.
                 </p>
               </div>
+
+              {/* Subscription Status */}
+              {subscription && (
+                <div className='subscription-status' style={{
+                  marginTop: '20px',
+                  padding: '16px',
+                  backgroundColor: '#f0f9ff',
+                  borderRadius: '8px',
+                  border: '1px solid #bae6fd'
+                }}>
+                  <h4 style={{ marginBottom: '8px', fontSize: '14px', fontWeight: '600' }}>
+                    Current Plan: {subscription.plan_type === 'free_trial' ? 'Free Trial (7 Days)' : subscription.plan_type === 'monthly' ? 'Monthly Plan' : subscription.plan_type === 'annual' ? 'Annual Plan' : 'Enterprise Plan'}
+                  </h4>
+                  {subscription.plan_type === 'free_trial' && subscription.trial_end_date && (
+                    <p style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
+                      Trial ends: {new Date(subscription.trial_end_date).toLocaleDateString()}
+                      {!subscription.card_added && (
+                        <span style={{ color: '#dc2626', fontWeight: '600', display: 'block', marginTop: '4px' }}>
+                          Card required - You will be billed $199/month after trial unless cancelled
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {subscription.plan_type === 'monthly' && (
+                    <p style={{ fontSize: '12px', color: '#666' }}>
+                      Billed: $199/month | Daily budget cap: $150 | Unlimited projects
+                    </p>
+                  )}
+                  {subscription.plan_type === 'annual' && (
+                    <p style={{ fontSize: '12px', color: '#666' }}>
+                      Billed: $109/month (annually) | Daily budget cap: $150 | Unlimited projects
+                    </p>
+                  )}
+                  {subscription.plan_type === 'enterprise' && (
+                    <p style={{ fontSize: '12px', color: '#666' }}>
+                      Custom pricing | Unlimited accounts | No budget cap
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Publish Ads Button */}
+              {connectedAccounts.length > 0 && (
+                <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+                  <button
+                    onClick={handlePublishAds}
+                    disabled={publishingAds || subscriptionLoading}
+                    style={{
+                      width: '100%',
+                      padding: '12px 24px',
+                      backgroundColor: '#7e52e0',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      cursor: publishingAds || subscriptionLoading ? 'not-allowed' : 'pointer',
+                      opacity: publishingAds || subscriptionLoading ? 0.6 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    {publishingAds ? (
+                      <>
+                        <svg
+                          className="animate-spin"
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            strokeDasharray="32"
+                            strokeDashoffset="32"
+                            strokeLinecap="round"
+                          >
+                            <animate
+                              attributeName="stroke-dasharray"
+                              dur="1s"
+                              values="0 32;16 16;0 32;0 32"
+                              repeatCount="indefinite"
+                            />
+                            <animate
+                              attributeName="stroke-dashoffset"
+                              dur="1s"
+                              values="0;-16;-32;-32"
+                              repeatCount="indefinite"
+                            />
+                          </circle>
+                        </svg>
+                        Publishing Ads...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M5 12h14M12 5v14"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        Publish Ads
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1298,7 +1742,7 @@ export default function BudgetPage() {
             <div className='upload-instructions'>
               <p>Maximum 20 files per upload</p>
               <p>
-                Images (PNG, JPG, JPEG) 20 MB max. Videos (MP4, MOV) 200 MB max
+                Images (PNG, JPG, JPEG) 2 MB max. Videos (MP4, MOV) 20MB max
               </p>
             </div>
 

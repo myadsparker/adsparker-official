@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { getSiteUrl } from '@/lib/utils';
 
 interface FormData {
   name: string;
@@ -136,10 +137,13 @@ export default function SignUpPage() {
   const handleGoogleSignUp = async () => {
     setIsLoading(true);
 
+    const siteUrl = getSiteUrl();
+    const redirectTo = `${siteUrl}/signup-callback`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://adsparker.com/signup-callback',
+        redirectTo,
       },
     });
 
