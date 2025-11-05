@@ -17,7 +17,6 @@
     "@canvasjs/react-charts": "^1.0.2",
     "@emotion/is-prop-valid": "latest",
     "@google/generative-ai": "^0.24.1",
-    "@harshit_01/ai-bg-remover": "^1.0.2",
     "@hookform/resolvers": "^3.9.1",
     "@huggingface/inference": "^4.8.0",
     "@imgly/background-removal-node": "^1.4.5",
