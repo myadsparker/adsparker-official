@@ -426,37 +426,37 @@ export default function BannerSection() {
                 </div>
                 <div className='row' ref={row2Ref}>
                   <Image
-                    src='/images/home-banner/asset-1.png'
+                    src='/images/home-banner/asset-7.png'
                     alt='Product 1'
                     width={140}
                     height={180}
                   />
                   <Image
-                    src='/images/home-banner/asset-2.png'
+                    src='/images/home-banner/asset-8.png'
                     alt='Product 2'
                     width={140}
                     height={180}
                   />
                   <Image
-                    src='/images/home-banner/asset-3.png'
+                    src='/images/home-banner/asset-9.png'
                     alt='Product 3'
                     width={140}
                     height={180}
                   />
                   <Image
-                    src='/images/home-banner/asset-4.png'
+                    src='/images/home-banner/asset-10.png'
                     alt='Product 3'
                     width={140}
                     height={180}
                   />
                   <Image
-                    src='/images/home-banner/asset-5.png'
+                    src='/images/home-banner/asset-11.png'
                     alt='Product 3'
                     width={140}
                     height={180}
                   />
                   <Image
-                    src='/images/home-banner/asset-6.png'
+                    src='/images/home-banner/asset-12.png'
                     alt='Product 3'
                     width={140}
                     height={180}
@@ -464,25 +464,19 @@ export default function BannerSection() {
                 </div>
                 <div className='row' ref={row3Ref}>
                   <Image
-                    src='/images/home-banner/asset-1.png'
+                    src='/images/home-banner/asset-13.png'
                     alt='Product 1'
                     width={140}
                     height={180}
                   />
                   <Image
-                    src='/images/home-banner/asset-2.png'
+                    src='/images/home-banner/asset-11.png'
                     alt='Product 2'
                     width={140}
                     height={180}
                   />
                   <Image
-                    src='/images/home-banner/asset-3.png'
-                    alt='Product 3'
-                    width={140}
-                    height={180}
-                  />
-                  <Image
-                    src='/images/home-banner/asset-4.png'
+                    src='/images/home-banner/asset-10.png'
                     alt='Product 3'
                     width={140}
                     height={180}
@@ -494,7 +488,13 @@ export default function BannerSection() {
                     height={180}
                   />
                   <Image
-                    src='/images/home-banner/asset-6.png'
+                    src='/images/home-banner/asset-7.png'
+                    alt='Product 3'
+                    width={140}
+                    height={180}
+                  />
+                  <Image
+                    src='/images/home-banner/asset-4.png'
                     alt='Product 3'
                     width={140}
                     height={180}
