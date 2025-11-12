@@ -2,8 +2,8 @@
 
 import { Tabs } from 'antd';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ProjectSection from './ProjectSection';
-import { supabase } from '@/lib/supabase';
 
 const tabItems = [
   { label: 'Draft', key: 'draft' },
@@ -12,17 +12,31 @@ const tabItems = [
 ];
 
 export default function ProjectTabs() {
+  const searchParams = useSearchParams();
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(6);
+  const [activeTab, setActiveTab] = useState<string>('draft');
+
+  useEffect(() => {
+    // Get active tab from URL query parameter
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['draft', 'running', 'finished'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchProjects = async () => {
       try {
         setLoading(true);
-        const { data } = await supabase.from('projects').select('*');
-        console.log('Fetched projects:', data);
-        setProjects(data || []);
+        const response = await fetch('/api/projects');
+        if (!response.ok) {
+          throw new Error('Failed to fetch projects');
+        }
+        const data = await response.json();
+        console.log('Fetched projects:', data.projects);
+        setProjects(data.projects || []);
       } catch (error) {
         console.error('Error fetching projects:', error);
       } finally {
@@ -71,7 +85,8 @@ export default function ProjectTabs() {
 
   return (
     <Tabs
-      defaultActiveKey='draft'
+      activeKey={activeTab}
+      onChange={setActiveTab}
       centered
       items={tabItems.map(tab => {
         const projectCount = grouped[tab.key as keyof typeof grouped].length;

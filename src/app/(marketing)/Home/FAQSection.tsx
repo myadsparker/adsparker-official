@@ -5,6 +5,7 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import './FAQSection.css';
 import Image from 'next/image';
+import ContactUsModal from '@/components/ContactUsModal';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -57,6 +58,7 @@ const faqData = [
 
 export default function FAQSection() {
   const [openItem, setOpenItem] = useState<number | null>(1); // First item open by default
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const faqItemsRef = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -124,7 +126,10 @@ export default function FAQSection() {
                 <p className='faq-question-text'>We're here to help!</p>
               </div>
               <div className='faq-icon-button'>
-                <button className='faq-contact-button'>
+                <button 
+                  className='faq-contact-button'
+                  onClick={() => setIsContactModalOpen(true)}
+                >
                   <svg
                     width='20'
                     height='20'
@@ -188,6 +193,10 @@ export default function FAQSection() {
           </div>
         </div>
       </div>
+      <ContactUsModal 
+        isOpen={isContactModalOpen} 
+        onClose={() => setIsContactModalOpen(false)} 
+      />
     </section>
   );
 }

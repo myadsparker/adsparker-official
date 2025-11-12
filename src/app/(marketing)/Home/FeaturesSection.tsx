@@ -349,11 +349,12 @@ export default function FeaturesSection() {
                   fill='white'
                 />
               </svg>
-              Existing users
+              Early Access Users
+
             </p>
             <p className='count'>214K+</p>
             <p className='description'>
-              Serving global clients in over 80 countries.
+              Now onboarding early adopters across 100+ countries — including users from the U.S., UAE, UK, Canada, and India.
             </p>
           </div>
           <div className='stat_item'>
@@ -372,11 +373,11 @@ export default function FeaturesSection() {
                   fill='#7E52E0'
                 />
               </svg>
-              Industries
+              Industries We Support
             </p>
             <p className='count'>40+</p>
             <p className='description'>
-              Supporting 40+ industries with tailored ad solutions.
+              Built for  e-commerce stores, SaaS startups, coaches, consultants, real estate agents, educational platforms, marketing agencies and everything in between.
             </p>
           </div>
           <div className='stat_item'>
@@ -401,11 +402,11 @@ export default function FeaturesSection() {
                   fill='#7E52E0'
                 />
               </svg>
-              Total Advertising Spend
+              Test Campaigns Run
             </p>
-            <p className='count'>$1.3 M</p>
+            <p className='count'>80+</p>
             <p className='description'>
-              Over $1.37M in ads generated using Meta AI tools.
+              Dozens of test campaigns launched using Meta AI for Google and Facebook ads — focused on lead generation, conversions, and app installs.
             </p>
           </div>
           <div className='stat_item'>
@@ -432,11 +433,11 @@ export default function FeaturesSection() {
                   stroke-linejoin='round'
                 />
               </svg>
-              Existing users
+              Built for Founders
             </p>
-            <p className='count'>214K+</p>
+            <p className='count'>$1.3 M</p>
             <p className='description'>
-              Trusted by thousands of advertisers worldwide.
+              Designed for creators, consultants, and growth-stage startups who want plug-and-play ad campaigns without hiring a full team.
             </p>
           </div>
         </div>

@@ -35,7 +35,9 @@ export default function LoginPage() {
       // Optional: capture redirect from middleware (/login?redirect=/dashboard/settings)
       const searchParams = new URLSearchParams(window.location.search);
       const redirectTo =
-        searchParams.get('redirect') || '/dashboard/projects/new';
+        searchParams.get('redirectedFrom') ||
+        searchParams.get('redirect') ||
+        '/dashboard/projects/new';
 
       const res = await fetch('/api/login', {
         method: 'POST',

@@ -1,5 +1,6 @@
 import Header from '../../../components/marketing/Header';
 import Footer from '../../../components/marketing/Footer';
+import WhatsAppButton from '../../../components/marketing/WhatsAppButton';
 import BannerSection from './BannerSection';
 import StepsSection from './StepsSection';
 import FeaturesSection from './FeaturesSection';
@@ -18,6 +19,7 @@ export default function HomePage() {
       <TestimonialsSection />
       <FAQSection />
       <Footer />
+      <WhatsAppButton />
     </>
   );
 }

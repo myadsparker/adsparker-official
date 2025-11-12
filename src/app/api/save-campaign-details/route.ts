@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { project_id, startDate, endDate, selectedGoal, selectedCta } = body;
+    const { project_id, startDate, endDate, selectedGoal, selectedCta, businessSummary } = body;
 
     // Validate required fields
     if (
@@ -41,6 +41,7 @@ export async function POST(req: Request) {
       end_date: endDate,
       ad_goal: selectedGoal,
       cta_button_text: selectedCta,
+      business_summary: businessSummary || '',
       updated_at: new Date().toISOString(),
     };
 

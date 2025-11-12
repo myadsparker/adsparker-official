@@ -14,7 +14,8 @@ export async function middleware(req: NextRequest) {
   // Protect all /dashboard routes
   if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
     const loginUrl = new URL('/login', req.url);
-    loginUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname);
+    const redirectTarget = `${req.nextUrl.pathname}${req.nextUrl.search}`;
+    loginUrl.searchParams.set('redirectedFrom', redirectTarget);
     return NextResponse.redirect(loginUrl);
   }
 

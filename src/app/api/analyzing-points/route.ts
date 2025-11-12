@@ -30,6 +30,9 @@ interface AnalyzingPointsResult {
   adsGoalStrategy: {
     description: string;
   };
+  businessSummary: {
+    description: string;
+  };
   isMainProduct: boolean;
   pageType: string;
   brandColors: {
@@ -194,6 +197,9 @@ Please provide analysis in the following JSON format:
   "adsGoalStrategy": {
     "description": "Recommended advertising goals, target audience strategy, and campaign objectives (100-120 words)"
   },
+  "businessSummary": {
+    "description": "Comprehensive and detailed summary of the business including what they do, their mission, target market, core value proposition, products/services offered, key differentiators, target audience demographics, brand positioning, and unique selling points (MINIMUM 150 words)"
+  },
   "isMainProduct": true/false,
   "pageType": "homepage|product|about|contact|services|blog|pricing|faq|other",
   "brandColors": {
@@ -211,7 +217,7 @@ Please provide analysis in the following JSON format:
     // If no screenshot, just analyze content
     messages.push({
       role: 'user',
-      content: `Analyze the following website content and provide exactly 3 specific details, each in 100-120 words, plus page type analysis:
+      content: `Analyze the following website content and provide exactly 4 specific details, each in 100-120 words, plus page type analysis:
 
 Website Content: ${content.substring(0, 5000)}
 
@@ -225,6 +231,9 @@ Please provide analysis in the following JSON format:
   },
   "adsGoalStrategy": {
     "description": "Recommended advertising goals, target audience strategy, and campaign objectives (100-120 words)"
+  },
+  "businessSummary": {
+    "description": "Comprehensive and detailed summary of the business including what they do, their mission, target market, core value proposition, products/services offered, key differentiators, target audience demographics, brand positioning, and unique selling points (MINIMUM 150 words)"
   },
   "isMainProduct": true/false,
   "pageType": "homepage|product|about|contact|services|blog|pricing|faq|other",
@@ -260,7 +269,17 @@ For brandColors: Extract the dominant colors from the screenshot. If analyzing f
 
 For tone: Analyze both the visual design (from screenshot) and content to determine the brand's communication style and emotional tone.
 
-Focus on actionable insights for advertising strategy. Each description should be exactly 100-120 words.`;
+For businessSummary: Provide a comprehensive overview of the business with MINIMUM 150 words. Include:
+- What they do (products/services)
+- Company mission and values
+- Target customer demographics
+- Unique selling points and differentiators
+- Core value proposition and benefits
+- Brand positioning in the market
+- Key features and benefits
+This should provide a detailed and complete picture of the business.
+
+Focus on actionable insights for advertising strategy. productInformation, sellingPoints, and adsGoalStrategy should each be exactly 100-120 words. businessSummary MUST be MINIMUM 150 words.`;
 
   // Add the additional instructions to the last message
   const lastMessage = messages[messages.length - 1];
@@ -281,7 +300,7 @@ Focus on actionable insights for advertising strategy. Each description should b
     model: 'gpt-4o',
     messages: messages,
     temperature: 0.3,
-    max_tokens: 2500,
+    max_tokens: 2800, // Increased to accommodate 150+ word business summary
     response_format: { type: 'json_object' },
   });
 

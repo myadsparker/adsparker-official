@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { planType, projectId } = body;
+    const { planType, projectId, immediatePayment } = body;
 
     if (!planType) {
       return NextResponse.json(
@@ -233,6 +233,7 @@ export async function POST(request: NextRequest) {
         subscription_id: subscriptionId || '',
         plan_type: planType,
         project_id: projectId || '',
+        immediate_payment: immediatePayment ? 'true' : 'false',
       },
       // Allow promotions to be added
       allow_promotion_codes: true,
@@ -247,6 +248,16 @@ export async function POST(request: NextRequest) {
         metadata: {
           plan_type: 'free_trial',
           project_id: projectId || '',
+        },
+      };
+    } 
+    // For monthly/annual with immediate payment, don't add trial
+    else if ((planType === 'monthly' || planType === 'annual') && immediatePayment) {
+      sessionParams.subscription_data = {
+        metadata: {
+          plan_type: planType,
+          project_id: projectId || '',
+          immediate_payment: 'true',
         },
       };
     }

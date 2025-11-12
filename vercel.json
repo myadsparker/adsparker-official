@@ -17,6 +17,9 @@
     },
     "src/app/api/firecrawl-extract/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/upload-file/route.ts": {
+      "maxDuration": 60
     }
   }
 }

@@ -3,8 +3,21 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Menu, X } from 'lucide-react';
 
 const Header = () => {
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    document.body.style.overflow = isMenuOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMenuOpen]);
+
+  const toggleMenu = () => setIsMenuOpen(prev => !prev);
+  const closeMenu = () => setIsMenuOpen(false);
+
   const scrollToSection = (
     sectionId: string,
     e: React.MouseEvent<HTMLAnchorElement>
@@ -12,24 +25,39 @@ const Header = () => {
     e.preventDefault();
     const element = document.getElementById(sectionId);
     if (element) {
-      element.scrollIntoView({ behavior: 'auto', block: 'start' });
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+    closeMenu();
   };
 
   return (
     <header className='header-main'>
       <div className='container'>
         <div className='nav'>
-          <Link href='/'>
+          <button
+            type='button'
+            className='mobile-menu-toggle'
+            aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={isMenuOpen}
+            onClick={toggleMenu}
+          >
+            {isMenuOpen ? <X size={20} strokeWidth={2.5} /> : <Menu size={20} strokeWidth={2.5} />}
+          </button>
+
+          <Link href='/' className='logo-link' onClick={closeMenu}>
             <Image
               src='/images/adsparker-logo.png'
               alt='Adsparker Logo'
               width={150}
               height={40}
+              priority
             />
           </Link>
+
           <div className='menu'>
-            <Link href='/'>Home</Link>
+            <Link href='/' onClick={closeMenu}>
+              Home
+            </Link>
             <a href='#pricing' onClick={e => scrollToSection('pricing', e)}>
               Pricing
             </a>
@@ -37,11 +65,37 @@ const Header = () => {
               FAQ's
             </a>
           </div>
+
           <div className='cta'>
-            <Link href='/signup' className='sign_in'>
-              Sign In
+            <Link href='/login' className='sign_in' onClick={closeMenu}>
+              Login
             </Link>
-            <Link href='/login' className='get_started'>
+            <Link href='/signup' className='get_started' onClick={closeMenu}>
+              Get Started
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className={`mobile-menu ${isMenuOpen ? 'open' : ''}`}>
+        <div className='mobile-menu__panel'>
+          <nav className='mobile-menu__links'>
+            <Link href='/' onClick={closeMenu}>
+              Home
+            </Link>
+            <a href='#pricing' onClick={e => scrollToSection('pricing', e)}>
+              Pricing
+            </a>
+            <a href='#faq' onClick={e => scrollToSection('faq', e)}>
+              FAQ's
+            </a>
+          </nav>
+
+          <div className='mobile-menu__cta'>
+            <Link href='/login' className='sign_in' onClick={closeMenu}>
+              Login
+            </Link>
+            <Link href='/signup' className='get_started' onClick={closeMenu}>
               Get Started
             </Link>
           </div>

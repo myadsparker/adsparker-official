@@ -16,10 +16,14 @@ export default function Confirming() {
   const [formData, setFormData] = useState<any>(null);
   const [isFormValid, setIsFormValid] = useState(false);
   const [businessName, setBusinessName] = useState<string>('');
+  const [businessSummary, setBusinessSummary] = useState<string>('');
 
   const handleFormDataChange = useCallback((data: any) => {
     setFormData(data.formData);
     setIsFormValid(data.isValid);
+    if (data.businessSummary !== undefined) {
+      setBusinessSummary(data.businessSummary);
+    }
   }, []);
 
   const handleNext = async () => {
@@ -48,6 +52,7 @@ export default function Confirming() {
           endDate: formData?.endDate,
           selectedGoal: formData?.selectedGoal,
           selectedCta: formData?.selectedCta,
+          businessSummary: businessSummary,
         }),
       });
 
@@ -87,6 +92,9 @@ export default function Confirming() {
 
         setProjectData(project);
 
+        // Debug: Log the analysing_points structure
+        console.log('📋 Analysing points data:', project.analysing_points);
+
         // Check if business name is already available in project data
         if (project.analysing_points?.businessName) {
           setBusinessName(project.analysing_points.businessName);
@@ -94,6 +102,21 @@ export default function Confirming() {
             '✅ Business name found in project data:',
             project.analysing_points.businessName
           );
+        }
+
+        // Check if business summary is already available in project data
+        if (project.analysing_points?.businessSummary?.description) {
+          setBusinessSummary(project.analysing_points.businessSummary.description);
+          console.log(
+            '✅ Business summary found in project data:',
+            project.analysing_points.businessSummary.description.substring(0, 100) + '...'
+          );
+        } else if (project.campaign_proposal?.business_summary) {
+          // Fallback: Check if it was previously saved in campaign_proposal
+          setBusinessSummary(project.campaign_proposal.business_summary);
+          console.log('✅ Business summary loaded from campaign_proposal');
+        } else {
+          console.log('⚠️ Business summary not found in analysing_points or campaign_proposal');
         }
 
         // No API calls needed here - all APIs are now called from their respective pages
@@ -123,6 +146,20 @@ export default function Confirming() {
         } else {
           setProjectData(updatedProject);
           console.log('✅ Project data refreshed successfully!');
+
+          // Update businessSummary from refreshed data
+          if (updatedProject?.analysing_points?.businessSummary?.description) {
+            setBusinessSummary(updatedProject.analysing_points.businessSummary.description);
+            console.log('✅ Business summary updated from refreshed data');
+          } else if (updatedProject?.campaign_proposal?.business_summary) {
+            setBusinessSummary(updatedProject.campaign_proposal.business_summary);
+            console.log('✅ Business summary loaded from campaign_proposal (refreshed)');
+          }
+
+          // Update businessName from refreshed data
+          if (updatedProject?.analysing_points?.businessName) {
+            setBusinessName(updatedProject.analysing_points.businessName);
+          }
         }
       } catch (err) {
         console.error('Failed to load project:', err);
@@ -139,13 +176,14 @@ export default function Confirming() {
   return (
     <div>
       <Stepper currentStepKey='step3' />
-      <div className='mt-8'>
+      <div className='mt-8 campain_details_screen'>
         <CampaignDetails
           projectData={projectData}
           loading={loading}
           campaignName={
             businessName || projectData?.campaign_proposal?.campaignName
           }
+          businessSummary={businessSummary}
           onFormDataChange={handleFormDataChange}
         />
       </div>

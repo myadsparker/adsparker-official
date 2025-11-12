@@ -29,11 +29,13 @@
 .projects_screen {
   padding: 40px 20px;
 }
+
 .projects_screen .ant-tabs-nav-list {
   background-color: #fff;
   border-radius: 90px;
   padding: 6px;
 }
+
 .projects_screen .ant-tabs-tab {
   padding-inline: 25px;
   height: 45px;
@@ -42,21 +44,26 @@
   margin: 0 !important;
   transition: all 0.2s ease;
 }
+
 .projects_screen .ant-tabs-tab .ant-tabs-tab-btn {
   text-shadow: none;
   color: #343438;
   font-size: 14px;
   font-weight: 500;
 }
+
 .projects_screen .ant-tabs-tab-active {
   background: #7a3ff3;
 }
+
 .projects_screen .ant-tabs-tab-active .ant-tabs-tab-btn {
   color: #fff !important;
 }
+
 .projects_screen .ant-tabs-ink-bar {
   display: none;
 }
+
 .tabs {
   box-sizing: border-box;
   display: flex;
@@ -73,6 +80,7 @@
   margin-bottom: 40px;
   min-width: 320px;
 }
+
 .tabs button {
   background: transparent;
   color: #343438;
@@ -80,6 +88,7 @@
   height: 45px;
   flex: 0 0 50%;
 }
+
 .tabs .data-\[state\=active\]\:bg-background[data-state='active'] {
   display: flex;
   flex-direction: row;
@@ -272,4 +281,34 @@
 
 .load-more-button:active {
   transform: translateY(0);
+}
+
+
+@media (max-width: 576px) {
+  .ad-board-header {
+    padding-inline: 0;
+  }
+
+  .ad-board-title {
+    font-size: 24px;
+  }
+
+  .ad-board-subtitle {
+    font-size: 16px;
+  }
+
+  .projects_screen .ant-tabs-tab {
+    padding-inline: 20px;
+    height: 40PX;
+  }
+
+  .project-card {
+    margin: 0;
+  }
+
+  .projects-grid {
+    grid-template-columns: 1fr;
+    padding-inline: 0;
+    margin-top: 20px;
+  }
 }

@@ -51,7 +51,7 @@ For each ad set, create:
 1. ad_set_title: A specific, defining name for the target audience segment this ad is designed for
 2. audience_description: Specific target audience description (1-2 sentences)
 3. audience_explanation: Why this audience is relevant for ${businessName} (2-3 sentences)
-4. audience_tags: 15-20 relevant interest tags for Facebook targeting
+4. audience_tags: EXACTLY 20-25 relevant interest tags for Facebook targeting (minimum 20 tags required for each ad set)
 5. ad_copywriting_title: Compelling headline (5-10 words)
 6. ad_copywriting_body: Engaging ad copy (2-3 paragraphs, 100-150 words)
 7. age_range: Realistic age range based on persona (min: 20-30, max: 40-65)

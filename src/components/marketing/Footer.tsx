@@ -1,7 +1,11 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
 import Image from 'next/image';
+import ContactUsModal from '@/components/ContactUsModal';
 
 const Footer = () => {
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   return (
     <>
       <div className='footer_ad'>
@@ -110,7 +114,15 @@ const Footer = () => {
                 <h4 className='company_heading'>Company</h4>
                 <ul className='company_links'>
                   <li>
-                    <a href='#'>Contact Us</a>
+                    <a 
+                      href='#' 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsContactModalOpen(true);
+                      }}
+                    >
+                      Contact Us
+                    </a>
                   </li>
                   <li>
                     <a href='#'>Join Us</a>
@@ -130,6 +142,10 @@ const Footer = () => {
           </div>
         </div>
       </footer>
+      <ContactUsModal 
+        isOpen={isContactModalOpen} 
+        onClose={() => setIsContactModalOpen(false)} 
+      />
     </>
   );
 };

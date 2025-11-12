@@ -6,19 +6,23 @@ body {
   max-width: 1280px;
   margin-inline: auto;
 }
+
 * {
   color: #121212;
 }
+
 .container {
   width: 100%;
   max-width: 1200px;
   margin-inline: auto;
 }
+
 h1,
 h2,
 h3 {
   font-weight: 600;
 }
+
 .primary_btn,
 button {
   color: #fff;
@@ -51,6 +55,85 @@ button span {
   max-width: 1280px;
   margin-inline: auto;
 }
+
+.dashboard_header_mobile {
+  display: none;
+}
+
+.mobile_menu_button {
+  width: 48px;
+  height: 48px;
+  padding: 3px;
+  border: none;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+
+
+.mobile_brand img {
+  display: block;
+  width: 120px;
+  height: auto;
+}
+
+.mobile_actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mobile_notification_button {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.notification_icon_wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.mobile_notification_dot {
+  position: absolute;
+  top: -4px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #ff5e5e;
+  box-shadow: 0 6px 14px rgba(255, 94, 94, 0.4);
+  border: 2px solid #ffffff;
+}
+
+.mobile_create_button {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 32px;
+  gap: 3px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  height: 40px;
+  background: #7a3ff3;
+  border-radius: 100px;
+  flex: none;
+  order: 0;
+  flex-grow: 0;
+}
+
 .menu_right .create_button {
   display: flex;
   flex-direction: row;
@@ -68,9 +151,11 @@ button span {
   order: 0;
   flex-grow: 0;
 }
+
 .profile_dropdown_trigger span {
   color: #121212;
 }
+
 .profile_right {
   box-sizing: border-box;
   display: flex;
@@ -84,6 +169,7 @@ button span {
   order: 2;
   flex-grow: 0;
 }
+
 .menu_right {
   display: flex;
   align-items: center;
@@ -166,4 +252,30 @@ button span {
 
 .dropdown_item svg {
   color: inherit;
+}
+
+@media (max-width: 768px) {
+  .dashboard_header {
+    display: none;
+  }
+
+  .dashboard_header_mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 12px;
+    max-width: 600px;
+    margin-inline: auto;
+  }
+
+  .menu_right .create_button {
+    display: none;
+  }
+}
+
+@media (max-width: 575px) {
+  .stepper {
+    padding-inline: 16px;
+    gap: 0;
+  }
 }

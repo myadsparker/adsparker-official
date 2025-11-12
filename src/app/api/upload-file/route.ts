@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Configure route to handle larger payloads for video uploads
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '25mb',
+    },
+  },
+};
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -19,10 +28,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file type (images only)
-    if (!file.type.startsWith('image/')) {
+    // Validate file type (images and videos)
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    
+    if (!isImage && !isVideo) {
       return NextResponse.json(
-        { error: 'Only image files are allowed' },
+        { error: 'Only image and video files are allowed' },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size
+    const maxImageSize = 2 * 1024 * 1024; // 2 MB
+    const maxVideoSize = 20 * 1024 * 1024; // 20 MB
+    
+    if (isImage && file.size > maxImageSize) {
+      return NextResponse.json(
+        { error: 'Image file size must be less than 2MB' },
+        { status: 400 }
+      );
+    }
+    
+    if (isVideo && file.size > maxVideoSize) {
+      return NextResponse.json(
+        { error: 'Video file size must be less than 20MB' },
         { status: 400 }
       );
     }
@@ -106,6 +136,8 @@ export async function POST(req: NextRequest) {
       success: true,
       fileUrl: publicUrlData.publicUrl,
       fileName: file.name,
+      fileType: isVideo ? 'video' : 'image',
+      mimeType: file.type,
     });
   } catch (error: any) {
     console.error('Error in upload-file:', error);

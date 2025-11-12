@@ -1,6 +1,10 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+
 export default function ProjectCard({ project }: { project: any }) {
+  const router = useRouter();
+
   const getStatusLabel = (status: string) => {
     switch (status?.toUpperCase()) {
       case 'PENDING':
@@ -38,8 +42,32 @@ export default function ProjectCard({ project }: { project: any }) {
     );
   };
 
+  const isRunning = project.status === 'RUNNING' || project.status === 'ACTIVE';
+  const projectId = project.project_id || project.id;
+
+  const handleCardClick = () => {
+    if (isRunning) {
+      router.push(`/dashboard/projects/${projectId}/dashboard`);
+    } else {
+      router.push(`/dashboard/projects/${projectId}/plan`);
+    }
+  };
+
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isRunning) {
+      router.push(`/dashboard/projects/${projectId}/dashboard`);
+    } else {
+      router.push(`/dashboard/projects/${projectId}/plan`);
+    }
+  };
+
   return (
-    <div className='project-card'>
+    <div
+      className='project-card'
+      onClick={handleCardClick}
+      style={{ cursor: 'pointer' }}
+    >
       <div className='project-card-header'>
         <div className='project-status'>
           <div className='status-dot'></div>
@@ -69,7 +97,12 @@ export default function ProjectCard({ project }: { project: any }) {
       </div>
 
       <div className='project-actions'>
-        <button className='edit-button'>Edit Campaign</button>
+        <button
+          className='edit-button'
+          onClick={handleButtonClick}
+        >
+          {isRunning ? 'View Dashboard' : 'Edit Campaign'}
+        </button>
       </div>
     </div>
   );

@@ -3,8 +3,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import './plan.css';
 import Stepper from '@/components/dashboard/Stepper';
-import { Slider } from 'antd';
+import { Slider, Dropdown } from 'antd';
 import Image from 'next/image';
+import toast from 'react-hot-toast';
 import {
   LineChart,
   Line,
@@ -38,6 +39,7 @@ export default function BudgetPage() {
   const projectId = params.slug as string;
   const [adSets, setAdSets] = useState<AdSet[]>([]);
   const [selectedAdSet, setSelectedAdSet] = useState<AdSet | null>(null);
+  const [selectedAdSetIndex, setSelectedAdSetIndex] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [dailyBudget, setDailyBudget] = useState(75);
   const [performanceData, setPerformanceData] = useState<any>(null);
@@ -70,9 +72,14 @@ export default function BudgetPage() {
   const [websiteUrl, setWebsiteUrl] = useState<string>('');
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const hasAttemptedImageGen = useRef<boolean>(false);
+  const isPublishingAdsRef = useRef<boolean>(false);
   const [subscription, setSubscription] = useState<any>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [publishingAds, setPublishingAds] = useState(false);
+  const [selectedAdAccountId, setSelectedAdAccountId] = useState<string | null>(null);
+  const [pages, setPages] = useState<any[]>([]);
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [loadingPages, setLoadingPages] = useState(false);
 
   // Fetch project data including campaign proposal
   const fetchProjectData = async () => {
@@ -156,8 +163,10 @@ export default function BudgetPage() {
               : [];
 
           if (adsets.length > 0) {
-            setAdSets(adsets.slice(0, 10)); // Take first 10 ad sets
-            setSelectedAdSet(adsets[0]); // Select first ad set by default
+            const trimmedAdSets = adsets.slice(0, 10);
+            setAdSets(trimmedAdSets); // Take first 10 ad sets
+            setSelectedAdSet(trimmedAdSets[0]); // Select first ad set by default
+            setSelectedAdSetIndex(0);
             console.log('✅ Loaded adsets from database:', adsets.length);
           }
         }
@@ -169,25 +178,75 @@ export default function BudgetPage() {
     }
   };
 
+  // Helper function to get all ad accounts from connected accounts
+  const getAllAdAccounts = (accounts: any[]) => {
+    const adAccounts: any[] = [];
+    accounts.forEach((account) => {
+      if (account?.ad_accounts && Array.isArray(account.ad_accounts)) {
+        account.ad_accounts.forEach((adAccount: any) => {
+          adAccounts.push({
+            id: adAccount.id || adAccount.account_id,
+            account_id: adAccount.account_id || (adAccount.id ? adAccount.id.replace(/^act_/, '') : null),
+            name: adAccount.name || 'Unnamed Account',
+            account_status: adAccount.account_status,
+            currency: adAccount.currency,
+            timezone_id: adAccount.timezone_id,
+            disable_reason: adAccount.disable_reason,
+          });
+        });
+      }
+    });
+    return adAccounts;
+  };
+
   // Fetch connected Meta accounts
   const fetchConnectedAccounts = async () => {
     try {
       setLoadingAccounts(true);
-      const response = await fetch(`/api/projects/${projectId}`);
+      const response = await fetch('/api/meta/accounts');
       if (response.ok) {
         const data = await response.json();
-        if (data?.meta_accounts) {
-          const accounts =
-            typeof data.meta_accounts === 'string'
-              ? JSON.parse(data.meta_accounts)
-              : data.meta_accounts;
-          setConnectedAccounts(accounts);
+        const accounts = Array.isArray(data?.accounts)
+          ? data.accounts
+          : [];
+        setConnectedAccounts(accounts);
+
+        // Auto-select first ad account if available
+        const allAdAccounts = getAllAdAccounts(accounts);
+        if (allAdAccounts.length > 0 && !selectedAdAccountId) {
+          setSelectedAdAccountId(allAdAccounts[0].id);
         }
       }
     } catch (error) {
       console.error('Error fetching connected accounts:', error);
     } finally {
       setLoadingAccounts(false);
+    }
+  };
+
+  // Fetch Facebook Pages
+  const fetchPages = async () => {
+    try {
+      setLoadingPages(true);
+      const response = await fetch('/api/meta/pages');
+      if (response.ok) {
+        const data = await response.json();
+        const pagesList = Array.isArray(data?.pages) ? data.pages : [];
+        setPages(pagesList);
+
+        // Auto-select first page if available
+        if (pagesList.length > 0 && !selectedPageId) {
+          setSelectedPageId(pagesList[0].id);
+        }
+      } else {
+        console.error('Failed to fetch pages:', await response.json());
+        setPages([]);
+      }
+    } catch (error) {
+      console.error('Error fetching pages:', error);
+      setPages([]);
+    } finally {
+      setLoadingPages(false);
     }
   };
 
@@ -213,6 +272,7 @@ export default function BudgetPage() {
       // Reset attempt flag when project changes
       hasAttemptedImageGen.current = false;
       fetchConnectedAccounts(); // Fetch connected accounts
+      fetchPages(); // Fetch Facebook pages
       fetchProjectData(); // Fetch campaign proposal data and adsets
       // Fetch initial performance data with default budget
       fetchPerformanceData(75);
@@ -229,16 +289,28 @@ export default function BudgetPage() {
     if (metaConnected === 'true') {
       // Refresh connected accounts
       fetchConnectedAccounts();
+      // Also fetch pages
+      fetchPages();
       // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
       // Show success message
-      alert('Meta account connected successfully!');
+      toast.success('Meta account connected successfully!', {
+        duration: 4000,
+        style: {
+          background: '#10b981',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
     }
 
     if (checkout === 'success') {
       // Get session ID from URL
       const sessionId = urlParams.get('session_id');
-      
+
       if (sessionId) {
         // Verify session and update subscription
         fetch('/api/subscriptions/verify-session', {
@@ -254,17 +326,47 @@ export default function BudgetPage() {
               // Refresh subscription status
               fetchSubscription();
               // Show success message
-              alert('Subscription activated successfully! You can now publish ads.');
+              toast.success('Subscription activated successfully! You can now publish ads.', {
+                duration: 4000,
+                style: {
+                  background: '#10b981',
+                  color: '#fff',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                },
+              });
             } else {
-              alert('Failed to verify subscription. Please contact support.');
+              toast.error('Failed to verify subscription. Please contact support.', {
+                duration: 5000,
+                style: {
+                  background: '#dc2626',
+                  color: '#fff',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                },
+              });
             }
           })
           .catch(error => {
             console.error('Error verifying session:', error);
-            alert('Error verifying subscription. Please contact support.');
+            toast.error('Error verifying subscription. Please contact support.', {
+              duration: 5000,
+              style: {
+                background: '#dc2626',
+                color: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+            });
           });
       }
-      
+
       // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
     }
@@ -273,13 +375,24 @@ export default function BudgetPage() {
       // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
       // Show message
-      alert('Checkout was cancelled. You can try again when ready.');
+      toast.error('Checkout was cancelled. You can try again when ready.', {
+        duration: 4000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
     }
   }, []);
 
   // Handle ad set selection
-  const handleAdSetClick = (adSet: AdSet) => {
+  const handleAdSetClick = (adSet: AdSet, index: number) => {
     setSelectedAdSet(adSet);
+    setSelectedAdSetIndex(index);
   };
 
   // Handle collapsible toggle
@@ -372,8 +485,63 @@ export default function BudgetPage() {
         data.success &&
         (data.generated_image_url || data.generatedImageUrl)
       ) {
+        // Get the generated image URL
+        const generatedImageUrl = data.generated_image_url || data.generatedImageUrl;
+
         // Refresh project data to get updated ai_images
         await fetchProjectData();
+
+        // Set as thumbnail automatically
+        if (generatedImageUrl) {
+          try {
+            const thumbnailResponse = await fetch(
+              `/api/projects/${projectId}/save-thumbnail`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  thumbnail_image_url: generatedImageUrl,
+                }),
+              }
+            );
+
+            if (thumbnailResponse.ok) {
+              const thumbnailData = await thumbnailResponse.json();
+              if (thumbnailData.success) {
+                // Update local state
+                setThumbnailImage(generatedImageUrl);
+                // Show success toast
+                toast.success('AI image generated and set as thumbnail!', {
+                  duration: 4000,
+                  style: {
+                    background: '#10b981',
+                    color: '#fff',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                  },
+                });
+              }
+            }
+          } catch (thumbnailError) {
+            console.error('Error setting thumbnail:', thumbnailError);
+            // Still show success for image generation
+            toast.success('AI image generated successfully!', {
+              duration: 4000,
+              style: {
+                background: '#10b981',
+                color: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+            });
+          }
+        }
       } else {
         // Reset attempt flag if generation failed, so user can retry manually
         hasAttemptedImageGen.current = false;
@@ -418,7 +586,17 @@ export default function BudgetPage() {
   // Handle manual AI image generation (for backward compatibility)
   const handleGenerateAiImage = async () => {
     if (aiImages.length >= 2) {
-      alert('Maximum 2 AI images allowed per project');
+      toast.error('Maximum 2 AI images allowed per project', {
+        duration: 4000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
       return;
     }
 
@@ -442,10 +620,32 @@ export default function BudgetPage() {
       if (data.success && data.generation?.finalImageUrl) {
         // Refresh project data to get updated ai_images
         await fetchProjectData();
+        // Show success toast
+        toast.success('AI image generated successfully!', {
+          duration: 4000,
+          style: {
+            background: '#10b981',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
       }
     } catch (error) {
       console.error('Error generating AI image:', error);
-      alert('Failed to generate AI image');
+      toast.error('Failed to generate AI image', {
+        duration: 5000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
     } finally {
       setGeneratingAiImage(false);
     }
@@ -479,10 +679,31 @@ export default function BudgetPage() {
       if (data.success) {
         // Refresh project data to get updated files
         await fetchProjectData();
+        toast.success('File uploaded successfully!', {
+          duration: 4000,
+          style: {
+            background: '#10b981',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
       }
     } catch (error) {
       console.error('Error uploading file:', error);
-      alert('Failed to upload file');
+      toast.error('Failed to upload file', {
+        duration: 5000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
     } finally {
       setUploadingFile(false);
     }
@@ -491,7 +712,17 @@ export default function BudgetPage() {
   // Handle saving thumbnail image
   const handleSaveThumbnail = async () => {
     if (!selectedThumbnailImage) {
-      alert('Please select an image first');
+      toast.error('Please select an image first', {
+        duration: 4000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
       return;
     }
 
@@ -517,14 +748,34 @@ export default function BudgetPage() {
 
       const data = await response.json();
       if (data.success) {
-        alert('Thumbnail image saved successfully!');
+        toast.success('Thumbnail image saved successfully!', {
+          duration: 4000,
+          style: {
+            background: '#10b981',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
         setThumbnailImage(selectedThumbnailImage);
         setShowImageModal(false);
         setSelectedThumbnailImage(null);
       }
     } catch (error) {
       console.error('Error saving thumbnail:', error);
-      alert('Failed to save thumbnail image');
+      toast.error('Failed to save thumbnail image', {
+        duration: 5000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
     } finally {
       setSavingThumbnail(false);
     }
@@ -577,8 +828,46 @@ export default function BudgetPage() {
     });
   };
 
+  // Refresh ad accounts from Meta Graph API
+  const refreshAdAccounts = async () => {
+    try {
+      setLoadingAccounts(true);
+      console.log('🔄 Refreshing ad accounts from Meta...');
+
+      const response = await fetch('/api/meta/refresh-accounts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Ad accounts refreshed:', data);
+
+        // Refresh the connected accounts list (this will auto-select first account)
+        await fetchConnectedAccounts();
+        // Also fetch pages
+        await fetchPages();
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Failed to refresh ad accounts:', errorData);
+        // Don't show alert here, just log - modal will still open
+      }
+    } catch (error) {
+      console.error('Error refreshing ad accounts:', error);
+      // Don't block modal opening if refresh fails
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
+
   // Handle publish ads - check subscription and redirect to payment if needed
   const handlePublishAdsFromButton = async () => {
+    // Refresh ad accounts from Meta before opening modal
+    await refreshAdAccounts();
+    setShowModal(true);
+    return;
     try {
       // Check subscription status first
       const subscriptionResponse = await fetch('/api/subscriptions');
@@ -610,7 +899,7 @@ export default function BudgetPage() {
           const trialData = await createTrialResponse.json();
           // Refresh subscription status
           await fetchSubscription();
-          
+
           // For free trial, we still need card, so redirect to Stripe for card setup
           // Create Stripe checkout session for trial (setup payment method)
           const checkoutResponse = await fetch('/api/subscriptions/checkout', {
@@ -629,16 +918,46 @@ export default function BudgetPage() {
             if (checkoutData.url) {
               window.location.href = checkoutData.url;
             } else {
-              alert(checkoutData.error || 'Failed to create checkout session. Please try again.');
+              toast.error(checkoutData.error || 'Failed to create checkout session. Please try again.', {
+                duration: 5000,
+                style: {
+                  background: '#dc2626',
+                  color: '#fff',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                },
+              });
             }
           } else {
             const errorData = await checkoutResponse.json().catch(() => ({}));
             const errorMessage = errorData.error || errorData.details || 'Failed to create checkout session. Please try again.';
-            alert(`${errorMessage}\n\n${errorData.details ? `Details: ${errorData.details}` : ''}`);
+            toast.error(`${errorMessage}${errorData.details ? `\n\nDetails: ${errorData.details}` : ''}`, {
+              duration: 5000,
+              style: {
+                background: '#dc2626',
+                color: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+            });
             console.error('Checkout error:', errorData);
           }
         } else {
-          alert('Failed to create free trial. Please try again.');
+          toast.error('Failed to create free trial. Please try again.', {
+            duration: 5000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          });
         }
         return;
       }
@@ -662,12 +981,32 @@ export default function BudgetPage() {
           if (checkoutData.url) {
             window.location.href = checkoutData.url;
           } else {
-            alert(checkoutData.error || 'Failed to create checkout session. Please try again.');
+            toast.error(checkoutData.error || 'Failed to create checkout session. Please try again.', {
+              duration: 5000,
+              style: {
+                background: '#dc2626',
+                color: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+            });
           }
         } else {
           const errorData = await checkoutResponse.json().catch(() => ({}));
           const errorMessage = errorData.error || errorData.details || 'Failed to create checkout session. Please try again.';
-          alert(`${errorMessage}\n\n${errorData.details ? `Details: ${errorData.details}` : ''}`);
+          toast.error(`${errorMessage}${errorData.details ? `\n\nDetails: ${errorData.details}` : ''}`, {
+            duration: 5000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          });
           console.error('Checkout error:', errorData);
         }
         return;
@@ -685,12 +1024,24 @@ export default function BudgetPage() {
       await handlePublishAds();
     } catch (error) {
       console.error('Error in publish ads flow:', error);
-      alert('An error occurred. Please try again.');
+      toast.error('An error occurred. Please try again.', {
+        duration: 5000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
     }
   };
 
   // Keep handleNext for modal access (can be used elsewhere)
   const handleNext = async () => {
+    // Refresh ad accounts from Meta before opening modal
+    await refreshAdAccounts();
     setShowModal(true);
   };
 
@@ -711,24 +1062,62 @@ export default function BudgetPage() {
         window.location.href = data.oauthUrl;
       } else {
         console.error('Failed to initiate Meta OAuth:', data.error);
-        alert(
-          `Failed to connect Meta account: ${data.error || 'Unknown error'}`
+        toast.error(
+          `Failed to connect Meta account: ${data.error || 'Unknown error'}`,
+          {
+            duration: 5000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          }
         );
       }
     } catch (error) {
       console.error('Error connecting Meta account:', error);
-      alert('An error occurred while connecting Meta account.');
+      toast.error('An error occurred while connecting Meta account.', {
+        duration: 5000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
     }
   };
 
   // Handle publish ads with subscription tracking
   const handlePublishAds = async () => {
+    // Prevent multiple simultaneous calls using ref (synchronous check)
+    if (isPublishingAdsRef.current) {
+      console.log('⚠️ Publish ads already in progress, ignoring duplicate call');
+      return;
+    }
+
     try {
+      isPublishingAdsRef.current = true;
       setPublishingAds(true);
 
       // Check if Meta account is connected
       if (connectedAccounts.length === 0) {
-        alert('Please connect a Meta account first before publishing ads.');
+        toast.error('Please connect a Meta account first before publishing ads.', {
+          duration: 5000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
         setPublishingAds(false);
         return;
       }
@@ -768,18 +1157,49 @@ export default function BudgetPage() {
           if (createTrialResponse.ok) {
             const trialData = await createTrialResponse.json();
             setSubscription(trialData.subscription);
-            alert(
-              'Free trial started! You have 7 days to try our service. After 7 days, you will be billed $199/month unless cancelled.'
+            toast.success(
+              'Free trial started! You have 7 days to try our service. After 7 days, you will be billed $199/month unless cancelled.',
+              {
+                duration: 6000,
+                style: {
+                  background: '#10b981',
+                  color: '#fff',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                },
+              }
             );
             // Continue with publishing after trial creation
           } else {
-            alert('Failed to create free trial. Please try again.');
+            toast.error('Failed to create free trial. Please try again.', {
+              duration: 5000,
+              style: {
+                background: '#dc2626',
+                color: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+            });
             setPublishingAds(false);
             return;
           }
         } else {
           // Limits reached or other issues
-          alert(usageCheck.message || 'Unable to publish ads. Please check your subscription limits.');
+          toast.error(usageCheck.message || 'Unable to publish ads. Please check your subscription limits.', {
+            duration: 5000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          });
           setPublishingAds(false);
           return;
         }
@@ -800,69 +1220,257 @@ export default function BudgetPage() {
 
       const budgetCheck = await budgetCheckResponse.json();
       if (!budgetCheck.can_proceed) {
-        alert(budgetCheck.message || 'Daily budget exceeds your plan limit.');
+        toast.error(budgetCheck.message || 'Daily budget exceeds your plan limit.', {
+          duration: 5000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
         setPublishingAds(false);
         return;
       }
 
       // Get selected ad account
-      const selectedAccount = connectedAccounts[0];
-      const adAccountId = selectedAccount?.ad_accounts?.[0]?.id;
-
-      if (!adAccountId) {
-        alert('No ad account found. Please connect a Meta ad account.');
+      if (!selectedAdAccountId) {
+        toast.error('Please select an ad account to publish ads.', {
+          duration: 5000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
         setPublishingAds(false);
         return;
       }
 
-      // Track ad publication
-      const publishResponse = await fetch('/api/subscriptions/publish-ad', {
+      // Get selected page
+      if (!selectedPageId && pages.length > 0) {
+        toast.error('Please select a Facebook Page to publish ads.', {
+          duration: 5000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
+        setPublishingAds(false);
+        return;
+      }
+
+      // Ensure ad account ID has 'act_' prefix if needed
+      const adAccountId = selectedAdAccountId.startsWith('act_')
+        ? selectedAdAccountId
+        : `act_${selectedAdAccountId}`;
+
+      // Step 1: Actually create ads in Meta using Meta Graph API
+      console.log('🚀 Publishing ads to Meta...');
+      const metaPublishResponse = await fetch('/api/meta/publish-ads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          project_id: projectId,
-          campaign_name: campaignProposal?.campaignName || 'Campaign',
-          ad_set_id: selectedAdSet?.ad_set_id || null,
-          ad_account_id: adAccountId,
-          daily_budget: dailyBudget,
-          metadata: {
-            ad_set_title: selectedAdSet?.ad_set_title || null,
-            ad_copywriting_title: selectedAdSet?.ad_copywriting_title || null,
-            ad_copywriting_body: selectedAdSet?.ad_copywriting_body || null,
-            audience_description: selectedAdSet?.audience_description || null,
-          },
+          projectId: projectId,
+          campaignName: campaignProposal?.campaignName || 'Campaign',
+          adSets: adSets.length > 0 ? adSets : (selectedAdSet ? [selectedAdSet] : []),
+          adAccountId: adAccountId,
+          pageId: selectedPageId || null,
+          dailyBudget: dailyBudget,
+          objective: campaignProposal?.ad_goal === 'Leads' ? 'OUTCOME_LEADS' : 'OUTCOME_TRAFFIC',
+          websiteUrl: websiteUrl || campaignProposal?.website_url || null,
         }),
       });
 
-      if (!publishResponse.ok) {
-        const errorData = await publishResponse.json();
-        alert(errorData.message || 'Failed to track ad publication.');
+      if (!metaPublishResponse.ok) {
+        const errorData = await metaPublishResponse.json();
+        console.error('❌ Meta publish error:', errorData);
+
+        // Check if it's a Facebook page error
+        if (errorData.error === 'Facebook Page is required' || errorData.message?.includes('Facebook Page')) {
+          toast.error(
+            errorData.message || 'Facebook Page is required',
+            {
+              duration: 5000,
+              style: {
+                background: '#dc2626',
+                color: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+              iconTheme: {
+                primary: '#fff',
+                secondary: '#dc2626',
+              },
+            }
+          );
+        } else {
+          // Show other errors with red toast
+          toast.error(
+            errorData.error || errorData.details || errorData.message || 'Failed to publish ads to Meta. Please check your ad account and try again.',
+            {
+              duration: 5000,
+              style: {
+                background: '#dc2626',
+                color: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+              iconTheme: {
+                primary: '#fff',
+                secondary: '#dc2626',
+              },
+            }
+          );
+        }
         setPublishingAds(false);
         return;
       }
 
-      const publishData = await publishResponse.json();
+      const metaPublishData = await metaPublishResponse.json();
+      console.log('✅ Meta publish response:', metaPublishData);
+
+      if (!metaPublishData.success || !metaPublishData.campaign) {
+        toast.error(
+          metaPublishData.message || 'Failed to create campaign in Meta. Some ad sets may have failed.',
+          {
+            duration: 5000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+            iconTheme: {
+              primary: '#fff',
+              secondary: '#dc2626',
+            },
+          }
+        );
+        setPublishingAds(false);
+        return;
+      }
+
+      // Step 2: Track ad publication in our database
+      const createdAdSets = metaPublishData.adSets || [];
+      const campaignId = metaPublishData.campaign?.id;
+
+      // Show errors for failed ad sets
+      if (metaPublishData.errors && metaPublishData.errors.length > 0) {
+        metaPublishData.errors.forEach((error: any) => {
+          const errorMessage = error.error || error.details?.error_user_msg || error.details?.message || 'Failed to create ad set';
+          toast.error(
+            `${error.adSetTitle || 'Ad Set'}: ${errorMessage}`,
+            {
+              duration: 6000,
+              style: {
+                background: '#dc2626',
+                color: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+              iconTheme: {
+                primary: '#fff',
+                secondary: '#dc2626',
+              },
+            }
+          );
+        });
+      }
+
+      // Track each created ad set
+      for (const createdAdSet of createdAdSets) {
+        const trackResponse = await fetch('/api/subscriptions/publish-ad', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            project_id: projectId,
+            campaign_name: campaignProposal?.campaignName || 'Campaign',
+            ad_set_id: createdAdSet.id,
+            ad_account_id: adAccountId,
+            daily_budget: createdAdSet.daily_budget || dailyBudget,
+            metadata: {
+              campaign_id: campaignId,
+              ad_set_name: createdAdSet.name,
+              meta_campaign_id: campaignId,
+            },
+          }),
+        });
+
+        if (!trackResponse.ok) {
+          console.error('Failed to track ad set:', createdAdSet.id);
+        }
+      }
 
       // Refresh subscription status
       await fetchSubscription();
 
       // Show success message
-      alert(
-        `Ads published successfully! ${
-          subscription?.plan_type === 'free_trial'
-            ? `Your free trial is active. You will be billed $199/month after 7 days unless cancelled.`
-            : ''
-        }`
-      );
+      const successMessage = `Campaign created successfully in Meta! Campaign: ${metaPublishData.campaign.name}, Ad Sets Created: ${createdAdSets.length} out of ${metaPublishData.totalRequested}. All ad sets are PAUSED - activate them in Meta Ads Manager to start running.`;
+      const trialMessage = subscription?.plan_type === 'free_trial'
+        ? ' Your free trial is active. You will be billed $199/month after 7 days unless cancelled.'
+        : '';
+
+      toast.success(successMessage + trialMessage, {
+        duration: 6000,
+        style: {
+          background: '#10b981',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
 
       // Close modal
       setShowModal(false);
+
+      // Redirect to running projects tab after successful publishing
+      router.push('/dashboard/projects?tab=running');
     } catch (error) {
       console.error('Error publishing ads:', error);
-      alert('An error occurred while publishing ads. Please try again.');
+      toast.error(
+        'An error occurred while publishing ads. Please try again.',
+        {
+          duration: 5000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#dc2626',
+          },
+        }
+      );
     } finally {
+      isPublishingAdsRef.current = false;
       setPublishingAds(false);
     }
   };
@@ -1094,11 +1702,9 @@ export default function BudgetPage() {
             ) : (
               adSets.map((adSet, index) => (
                 <button
-                  key={adSet.ad_set_id}
-                  className={
-                    selectedAdSet?.ad_set_id === adSet.ad_set_id ? 'active' : ''
-                  }
-                  onClick={() => handleAdSetClick(adSet)}
+                  key={adSet.ad_set_id ?? `adset-${index}`}
+                  className={selectedAdSetIndex === index ? 'active' : ''}
+                  onClick={() => handleAdSetClick(adSet, index)}
                 >
                   {`Ad Set - ${String(index + 1).padStart(2, '0')}`}
                 </button>
@@ -1259,7 +1865,7 @@ export default function BudgetPage() {
                       }}
                     >
                       {selectedAdSet.audience_tags &&
-                      Array.isArray(selectedAdSet.audience_tags) ? (
+                        Array.isArray(selectedAdSet.audience_tags) ? (
                         selectedAdSet.audience_tags.map(
                           (tag: string, index: number) => (
                             <span
@@ -1517,23 +2123,36 @@ export default function BudgetPage() {
                   )}
                 </div>
                 <div className='right'>
-                  <button onClick={handleConnectMetaAccount}>
-                    <svg
-                      xmlns='http://www.w3.org/2000/svg'
-                      width='24'
-                      height='24'
-                      viewBox='0 0 24 24'
-                      fill='none'
-                      stroke='currentColor'
-                      stroke-width='2'
-                      stroke-linecap='round'
-                      strokeLinejoin='round'
-                    >
-                      <path d='M5 12h14' />
-                      <path d='M12 5v14' />
-                    </svg>
-                    Connect Ad Account
-                  </button>
+                  {(() => {
+                    const allAdAccounts = getAllAdAccounts(connectedAccounts);
+                    const hasAdAccounts = allAdAccounts.length > 0;
+                    return (
+                      <button
+                        onClick={handleConnectMetaAccount}
+                        disabled={hasAdAccounts}
+                        style={{
+                          opacity: hasAdAccounts ? 0.5 : 1,
+                          cursor: hasAdAccounts ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        <svg
+                          xmlns='http://www.w3.org/2000/svg'
+                          width='24'
+                          height='24'
+                          viewBox='0 0 24 24'
+                          fill='none'
+                          stroke='currentColor'
+                          stroke-width='2'
+                          stroke-linecap='round'
+                          strokeLinejoin='round'
+                        >
+                          <path d='M5 12h14' />
+                          <path d='M12 5v14' />
+                        </svg>
+                        Connect Ad Account
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
               <div className='note'>
@@ -1573,43 +2192,164 @@ export default function BudgetPage() {
                 </p>
               </div>
 
-              {/* Subscription Status */}
-              {subscription && (
-                <div className='subscription-status' style={{
-                  marginTop: '20px',
-                  padding: '16px',
-                  backgroundColor: '#f0f9ff',
-                  borderRadius: '8px',
-                  border: '1px solid #bae6fd'
-                }}>
-                  <h4 style={{ marginBottom: '8px', fontSize: '14px', fontWeight: '600' }}>
-                    Current Plan: {subscription.plan_type === 'free_trial' ? 'Free Trial (7 Days)' : subscription.plan_type === 'monthly' ? 'Monthly Plan' : subscription.plan_type === 'annual' ? 'Annual Plan' : 'Enterprise Plan'}
-                  </h4>
-                  {subscription.plan_type === 'free_trial' && subscription.trial_end_date && (
-                    <p style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
-                      Trial ends: {new Date(subscription.trial_end_date).toLocaleDateString()}
-                      {!subscription.card_added && (
-                        <span style={{ color: '#dc2626', fontWeight: '600', display: 'block', marginTop: '4px' }}>
-                          Card required - You will be billed $199/month after trial unless cancelled
+
+
+              {/* Ad Account Selector */}
+              {connectedAccounts.length > 0 && (() => {
+                const allAdAccounts = getAllAdAccounts(connectedAccounts);
+                return allAdAccounts.length > 0 ? (
+                  <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '10px',
+                      fontSize: '15px',
+                      fontWeight: '600',
+                      color: '#343438',
+                      letterSpacing: '0.01em'
+                    }}>
+                      Ad Account
+                    </label>
+                    <Dropdown
+                      menu={{
+                        items: allAdAccounts.map((adAccount) => ({
+                          key: adAccount.id,
+                          label: `${adAccount.name} (${adAccount.id}) ${adAccount.currency ? `- ${adAccount.currency}` : ''}${adAccount.account_status === 1 ? ' ✓' : ' ⚠'}`,
+                        })),
+                        onClick: (e) => {
+                          setSelectedAdAccountId(e.key);
+                        },
+                        style: {
+                          maxHeight: '300px',
+                          overflowY: 'auto',
+                        },
+                      }}
+                      placement="bottomLeft"
+                      arrow
+                      trigger={['click']}
+                    >
+                      <div className="dropdown_input" style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        height: '48px',
+                        borderRadius: '6px',
+                        border: '1px solid #d9d9d9',
+                        paddingInline: '16px',
+                        backgroundColor: 'white',
+                        color: '#343438',
+                        fontWeight: '400',
+                        cursor: 'pointer',
+                      }}>
+                        <span style={{ color: selectedAdAccountId ? 'inherit' : '#999' }}>
+                          {selectedAdAccountId
+                            ? (() => {
+                              const selected = allAdAccounts.find(acc => acc.id === selectedAdAccountId);
+                              return selected
+                                ? `${selected.name} (${selected.id}) ${selected.currency ? `- ${selected.currency}` : ''}${selected.account_status === 1 ? ' ✓' : ' ⚠'}`
+                                : 'Select Ad Account';
+                            })()
+                            : 'Select Ad Account'}
                         </span>
-                      )}
-                    </p>
-                  )}
-                  {subscription.plan_type === 'monthly' && (
-                    <p style={{ fontSize: '12px', color: '#666' }}>
-                      Billed: $199/month | Daily budget cap: $150 | Unlimited projects
-                    </p>
-                  )}
-                  {subscription.plan_type === 'annual' && (
-                    <p style={{ fontSize: '12px', color: '#666' }}>
-                      Billed: $109/month (annually) | Daily budget cap: $150 | Unlimited projects
-                    </p>
-                  )}
-                  {subscription.plan_type === 'enterprise' && (
-                    <p style={{ fontSize: '12px', color: '#666' }}>
-                      Custom pricing | Unlimited accounts | No budget cap
-                    </p>
-                  )}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </div>
+                    </Dropdown>
+                    {selectedAdAccountId && (() => {
+                      const selected = allAdAccounts.find(acc => acc.id === selectedAdAccountId);
+                      return selected && selected.account_status !== 1 ? (
+                        <p style={{
+                          marginTop: '8px',
+                          fontSize: '12px',
+                          color: '#dc2626'
+                        }}>
+                          ⚠ This ad account may be disabled or restricted. Please check your Meta Ads Manager.
+                        </p>
+                      ) : null;
+                    })()}
+                  </div>
+                ) : null;
+              })()}
+
+              {/* Facebook Page Selector */}
+              {pages.length > 0 && (
+                <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '10px',
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    color: '#343438',
+                    letterSpacing: '0.01em'
+                  }}>
+                    Facebook Page
+                  </label>
+                  <Dropdown
+                    menu={{
+                      items: pages.map((page) => ({
+                        key: page.id,
+                        label: `${page.name}${page.category ? ` (${page.category})` : ''}`,
+                      })),
+                      onClick: (e) => {
+                        setSelectedPageId(e.key);
+                      },
+                      style: {
+                        maxHeight: '300px',
+                        overflowY: 'auto',
+                      },
+                    }}
+                    placement="bottomLeft"
+                    arrow
+                    trigger={['click']}
+                  >
+                    <div className="dropdown_input" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      height: '48px',
+                      borderRadius: '6px',
+                      border: '1px solid #d9d9d9',
+                      paddingInline: '16px',
+                      backgroundColor: 'white',
+                      color: '#343438',
+                      fontWeight: '400',
+                      cursor: 'pointer',
+                    }}>
+                      <span style={{ color: selectedPageId ? 'inherit' : '#999' }}>
+                        {selectedPageId
+                          ? (() => {
+                            const selected = pages.find(p => p.id === selectedPageId);
+                            return selected
+                              ? `${selected.name}${selected.category ? ` (${selected.category})` : ''}`
+                              : 'Select Facebook Page';
+                          })()
+                          : 'Select Facebook Page'}
+                      </span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </div>
+                  </Dropdown>
                 </div>
               )}
 
@@ -1617,8 +2357,9 @@ export default function BudgetPage() {
               {connectedAccounts.length > 0 && (
                 <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
                   <button
+                    className='publish_modal_btn'
                     onClick={handlePublishAds}
-                    disabled={publishingAds || subscriptionLoading}
+                    disabled={publishingAds || subscriptionLoading || !selectedAdAccountId || (pages.length > 0 && !selectedPageId)}
                     style={{
                       width: '100%',
                       padding: '12px 24px',
@@ -1638,57 +2379,12 @@ export default function BudgetPage() {
                   >
                     {publishingAds ? (
                       <>
-                        <svg
-                          className="animate-spin"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <circle
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                            strokeDasharray="32"
-                            strokeDashoffset="32"
-                            strokeLinecap="round"
-                          >
-                            <animate
-                              attributeName="stroke-dasharray"
-                              dur="1s"
-                              values="0 32;16 16;0 32;0 32"
-                              repeatCount="indefinite"
-                            />
-                            <animate
-                              attributeName="stroke-dashoffset"
-                              dur="1s"
-                              values="0;-16;-32;-32"
-                              repeatCount="indefinite"
-                            />
-                          </circle>
-                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M4 11a9 9 0 0 1 9 9" /><path d="M4 4a16 16 0 0 1 16 16" /><circle cx="5" cy="19" r="1" /></svg>
                         Publishing Ads...
                       </>
                     ) : (
                       <>
-                        <svg
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M5 12h14M12 5v14"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M4 11a9 9 0 0 1 9 9" /><path d="M4 4a16 16 0 0 1 16 16" /><circle cx="5" cy="19" r="1" /></svg>
                         Publish Ads
                       </>
                     )}

@@ -15,6 +15,17 @@ const nextConfig = {
       },
     ],
   },
+  // Increase body size limit for API routes to support video uploads
+  api: {
+    bodyParser: {
+      sizeLimit: '25mb',
+    },
+  },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '25mb',
+    },
+  },
   webpack: (config, { isServer }) => {
     if (isServer) {
       // Exclude native binaries from webpack bundling

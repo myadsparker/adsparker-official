@@ -25,7 +25,6 @@ const pricingPlans = [
       'AI Ad Copy',
       'Live Data Insights',
       'Top-performing Audiences',
-      'Top-performing Audiences',
     ],
     limitations: ['Only one Facebook account', 'Daily Budget Cap: $150'],
     buttonText: 'Get Started Now',
@@ -47,7 +46,6 @@ const pricingPlans = [
       'Performance Forecasts',
       'AI Ad Copy',
       'Live Data Insights',
-      'Top-performing Audiences',
       'Top-performing Audiences',
     ],
     limitations: ['Only one Facebook account', 'Daily Budget Cap: $150'],
@@ -71,7 +69,6 @@ const pricingPlans = [
       'Performance Forecasts',
       'AI Ad Copy',
       'Live Data Insights',
-      'Top-performing Audiences',
       'Top-performing Audiences',
     ],
     limitations: ['Only one Facebook account', 'Daily Budget Cap: $150'],
@@ -103,7 +100,6 @@ const pricingPlans = [
 export default function PricingSection() {
   const router = useRouter();
   const sectionRef = useRef<HTMLElement>(null);
-  const headingRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
 
   const handleGetStarted = () => {
@@ -112,10 +108,9 @@ export default function PricingSection() {
 
   useEffect(() => {
     const section = sectionRef.current;
-    const heading = headingRef.current;
     const cards = cardsRef.current;
 
-    if (!section || !heading || !cards.length) return;
+    if (!section || !cards.length) return;
 
     // Viewport entrance animations
     const tl = gsap.timeline({
@@ -126,13 +121,6 @@ export default function PricingSection() {
         toggleActions: 'play none none reverse',
       },
     });
-
-    // Animate heading
-    tl.fromTo(
-      heading,
-      { y: 50, opacity: 0 },
-      { duration: 0.8, y: 0, opacity: 1, ease: 'power3.out' }
-    );
 
     // Animate cards with stagger and enhanced effects
     tl.fromTo(
@@ -145,8 +133,7 @@ export default function PricingSection() {
         scale: 1,
         ease: 'back.out(1.7)',
         stagger: 0.15,
-      },
-      '-=0.4'
+      }
     );
 
     // Add hover animations for cards
@@ -182,7 +169,7 @@ export default function PricingSection() {
   return (
     <section id='pricing' ref={sectionRef} className='pricing_section'>
       <div className='container'>
-        <div ref={headingRef} className='pricing_heading'>
+        <div className='pricing_heading'>
           <h2>Hire Your AI Ad Manager Today</h2>
           <p>
             Know exactly what you're paying for, with no surprises or hidden
@@ -227,7 +214,7 @@ export default function PricingSection() {
                 </div>
 
                 <div className='features_section'>
-         
+
                   <ul className='features_list'>
                     {plan.features.map((feature, featureIndex) => (
                       <li key={featureIndex} className='feature_item'>

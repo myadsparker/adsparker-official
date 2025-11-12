@@ -1,6 +1,6 @@
 'use client';
 import { Dropdown, DatePicker } from 'antd';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import dayjs from 'dayjs';
 import LocationDropdownMap from './CityAutocomplete';
@@ -15,6 +15,7 @@ interface CampaignDetailsProps {
   projectData: any;
   loading: boolean;
   campaignName?: string;
+  businessSummary?: string;
   onFormDataChange?: (data: any) => void;
 }
 
@@ -29,6 +30,7 @@ export default function CampaignDetails({
   projectData,
   loading,
   campaignName,
+  businessSummary: initialBusinessSummary,
   onFormDataChange,
 }: CampaignDetailsProps) {
   const {
@@ -55,6 +57,9 @@ export default function CampaignDetails({
   });
 
   const [selectedLocations, setSelectedLocations] = useState<Location[]>([]);
+  const [businessSummary, setBusinessSummary] = useState<string>(
+    initialBusinessSummary || ''
+  );
 
   const watchedValues = watch();
 
@@ -173,6 +178,7 @@ export default function CampaignDetails({
         formData: watchedValues,
         isValid: isFormValid(),
         errors: formErrors,
+        businessSummary: businessSummary,
       });
     }
   };
@@ -182,6 +188,25 @@ export default function CampaignDetails({
     setTouched(prev => ({ ...prev, [fieldName]: true }));
     setTimeout(notifyParent, 0);
   };
+
+  // Handle business summary change
+  const handleBusinessSummaryChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    setBusinessSummary(e.target.value);
+  };
+
+  // Sync businessSummary with prop when it changes
+  useEffect(() => {
+    if (initialBusinessSummary && initialBusinessSummary !== businessSummary) {
+      setBusinessSummary(initialBusinessSummary);
+    }
+  }, [initialBusinessSummary]);
+
+  // Notify parent when businessSummary changes
+  useEffect(() => {
+    notifyParent();
+  }, [businessSummary]);
 
   return (
     <>
@@ -200,6 +225,35 @@ export default function CampaignDetails({
           <div className='field'>
             <label>Project Name</label>
             <input type='text' value={campaignName || 'Loading...'} readOnly />
+          </div>
+
+          <div className='field'>
+            <label>Business Summary </label>
+            <textarea
+              value={businessSummary}
+              onChange={handleBusinessSummaryChange}
+              placeholder='Enter a comprehensive summary of your business '
+              rows={10}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #e0e0e0',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                resize: 'vertical',
+                lineHeight: '1.5',
+                minHeight: '200px',
+              }}
+            />
+            <p style={{ 
+              fontSize: '12px', 
+              color: '#666', 
+              marginTop: '4px',
+              fontStyle: 'italic'
+            }}>
+              Word count: {businessSummary.trim() ? businessSummary.trim().split(/\s+/).length : 0} words
+            </p>
           </div>
 
           <div className='field'>

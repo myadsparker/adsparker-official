@@ -4,6 +4,7 @@ import { Outfit } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from 'react-hot-toast';
+import { Toaster as CustomToaster } from '@/components/ui/toaster';
 import ScrollAnimations from '@/components/ScrollAnimations';
 import 'antd/dist/reset.css';
 
@@ -34,6 +35,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Toaster position='top-right' /> {/* Required */}
+          <CustomToaster />
           <ScrollAnimations />
           {children}
         </ThemeProvider>

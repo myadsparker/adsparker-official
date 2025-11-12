@@ -21,16 +21,16 @@ export default function Stepper({ currentStepKey }: StepperProps) {
                 (isCompleted || isActive
                   ? 'border-purple-600'
                   : 'border-gray-300 bg-white') +
-                ' flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all duration-300 ease-in-out'
+                ' flex h-4 w-4 sm:h-6 sm:w-6 items-center justify-center rounded-full border sm:border-2 transition-all duration-300 ease-in-out'
               }
             >
               {/* active/completed visual indicator */}
               {isCompleted ? (
-                <span className='text-sm text-purple-600'>✓</span>
+                <span className='text-[10px] sm:text-sm leading-none text-purple-600'>✓</span>
               ) : (
                 <span>
                   {isActive ? (
-                    <div className='h-3 w-3 rounded-full bg-purple-600' />
+                    <div className='h-2 w-2 sm:h-3 sm:w-3 rounded-full bg-purple-600' />
                   ) : null}
                 </span>
               )}
@@ -41,7 +41,7 @@ export default function Stepper({ currentStepKey }: StepperProps) {
               <div
                 className={
                   (isCompleted ? 'bg-purple-600' : 'bg-gray-200') +
-                  ' mx-1 h-0.5 w-40 transition-all duration-300 ease-in-out'
+                  ' mx-1 h-0.5 w-12 sm:w-20 md:w-32 lg:w-40 transition-all duration-300 ease-in-out'
                 }
               />
             )}

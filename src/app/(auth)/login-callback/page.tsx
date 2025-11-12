@@ -25,7 +25,9 @@ function AuthCallbackContent() {
       }
 
       const redirectedFrom =
-        searchParams.get('redirectedFrom') || '/dashboard/projects/new';
+        searchParams.get('redirectedFrom') ||
+        searchParams.get('redirect') ||
+        '/dashboard/projects/new';
       router.replace(redirectedFrom);
     };
 

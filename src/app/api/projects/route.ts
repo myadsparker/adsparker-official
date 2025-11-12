@@ -1,5 +1,4 @@
 // app/api/projects/route.ts
-import { supabase } from '@/lib/supabase';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 
@@ -65,34 +64,40 @@ export async function POST(req: Request) {
   return NextResponse.json({ id: data.project_id });
 }
 
-// get data from project by project id
-export async function GET(
-  request: Request,
-  { params }: { params: { projectId: string } }
-) {
+// get all projects for the authenticated user
+export async function GET(request: Request) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    const supabase = createServerSupabaseClient();
 
+    // Get current user
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user_id = session.user.id;
+
+    // Fetch all projects for this user
     const { data, error } = await supabase
       .from('projects')
       .select('*')
-      .eq('project_id', params.projectId)
-      .single();
+      .eq('user_id', user_id)
+      .order('created_at', { ascending: false });
 
     if (error) {
+      console.error('Error fetching projects:', error);
       throw error;
     }
 
-    if (!data) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(data);
+    return NextResponse.json({ projects: data || [] });
   } catch (error: any) {
-    console.error('Error fetching project data:', error);
+    console.error('Error fetching projects:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch project data' },
+      { error: error.message || 'Failed to fetch projects' },
       { status: error.status || 500 }
     );
   }

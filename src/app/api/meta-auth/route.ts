@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       const oauthParams = new URLSearchParams({
         client_id: process.env.META_APP_ID!,
         redirect_uri: redirectUri,
-        scope: 'email,ads_management,business_management,ads_read',
+        scope: 'email,ads_management,business_management,ads_read,pages_show_list,pages_read_engagement,pages_manage_ads',
         response_type: 'code',
         state: JSON.stringify({
           projectId,

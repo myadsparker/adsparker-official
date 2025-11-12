@@ -35,7 +35,7 @@ export default function ProjectSection({
             transition={{ duration: 0.3 }}
           >
             {visibleProjects.map(proj => (
-              <ProjectCard key={proj.id} project={proj} />
+              <ProjectCard key={proj.project_id || proj.id} project={proj} />
             ))}
           </motion.div>
 
