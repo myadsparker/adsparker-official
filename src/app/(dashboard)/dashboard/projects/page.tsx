@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import ProjectTabs from './ProjectTabs';
 import './projects.css';
 
@@ -13,7 +14,13 @@ export default function DashboardPage() {
           campaigns.
         </p>
       </div>
-      <ProjectTabs />
+      <Suspense fallback={
+        <div className='flex justify-center items-center h-64'>
+          <div className='text-gray-500'>Loading projects...</div>
+        </div>
+      }>
+        <ProjectTabs />
+      </Suspense>
     </main>
   );
 }
