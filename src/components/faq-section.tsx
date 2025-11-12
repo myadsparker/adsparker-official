@@ -14,17 +14,17 @@ export function FAQSection() {
     {
       question: 'Do I need a Meta account?',
       answer:
-        "Yes, you'll need an existing Facebook Business account with access to Meta Ads Manager. AdSparkr connects securely via OAuth to manage your campaigns.",
+        "Yes, you'll need an existing Facebook Business account with access to Meta Ads Manager. AdSparker connects securely via OAuth to manage your campaigns.",
     },
     {
       question: 'Will it optimize existing ads?',
       answer:
-        'AdSparkr can optimize campaigns launched both through our platform and externally through Meta Ads Manager. Our AI analyzes all your active campaigns and provides optimization suggestions.',
+        'AdSparker can optimize campaigns launched both through our platform and externally through Meta Ads Manager. Our AI analyzes all your active campaigns and provides optimization suggestions.',
     },
     {
       question: 'Can I edit ads after launch?',
       answer:
-        'Yes! You can edit live campaigns directly from the AdSparkr dashboard - headlines, descriptions, images, targeting, and budgets. Changes sync instantly with Meta Ads Manager.',
+        'Yes! You can edit live campaigns directly from the AdSparker dashboard - headlines, descriptions, images, targeting, and budgets. Changes sync instantly with Meta Ads Manager.',
     },
     {
       question: "What's included in the $19.99 trial?",
@@ -32,19 +32,19 @@ export function FAQSection() {
         "The first week includes up to 3 active campaigns, AI ad generation, basic optimization, and full dashboard access. After the trial, it's $59/week or you can upgrade to monthly billing.",
     },
     {
-      question: 'How does AdSparkr achieve 3x better ROI?',
+      question: 'How does AdSparker achieve 3x better ROI?',
       answer:
         "Our GPT-4o AI is trained on patterns from Meta's top-performing ads across industries. It continuously optimizes targeting, budget allocation, and ad creative based on real-time performance data - something that's impossible to do manually at scale.",
     },
     {
       question: 'What happens to my ads if I cancel?',
       answer:
-        'Your campaigns continue running in Meta Ads Manager as normal. AdSparkr simply stops providing optimization suggestions and automated management. You retain full control of your ads.',
+        'Your campaigns continue running in Meta Ads Manager as normal. AdSparker simply stops providing optimization suggestions and automated management. You retain full control of your ads.',
     },
     {
       question: 'Do you support Instagram ads too?',
       answer:
-        "Yes! AdSparkr manages both Facebook and Instagram campaigns through Meta's unified advertising platform. You can target audiences across both platforms simultaneously.",
+        "Yes! AdSparker manages both Facebook and Instagram campaigns through Meta's unified advertising platform. You can target audiences across both platforms simultaneously.",
     },
   ];
 
@@ -61,7 +61,7 @@ export function FAQSection() {
               Frequently Asked Questions
             </h2>
             <p className='text-lg text-gray-400 font-body'>
-              Everything you need to know about AdSparkr
+              Everything you need to know about AdSparker
             </p>
           </div>
 

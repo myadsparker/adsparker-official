@@ -14,7 +14,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'AdSparkr - AI-Powered Meta Ads Platform',
+  title: 'AdSparker - AI-Powered Meta Ads Platform',
   description:
     'Launch and optimize Meta Ads to boost sales and maximize ROI with AI-powered automation.',
   generator: 'v0.dev',

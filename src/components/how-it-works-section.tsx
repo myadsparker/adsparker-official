@@ -20,7 +20,7 @@ export function HowItWorksSection() {
       step: 'Step 2',
       title: 'Describe Your Business',
       description:
-        'Tell AdSparkr about your product, target audience, and goals. Our GPT-4o AI instantly understands your business.',
+        'Tell AdSparker about your product, target audience, and goals. Our GPT-4o AI instantly understands your business.',
     },
     {
       icon: Target,
@@ -40,7 +40,7 @@ export function HowItWorksSection() {
       step: 'Step 4',
       title: 'Smart Optimization, Always On',
       description:
-        'AI monitors performance 24/7, reallocates budget, updates copy, and pauses underperforming ads — even ones not launched on AdSparkr.',
+        'AI monitors performance 24/7, reallocates budget, updates copy, and pauses underperforming ads — even ones not launched on AdSparker.',
     },
   ];
 

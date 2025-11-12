@@ -184,7 +184,7 @@ export function PerformanceForecastSection() {
             </h2>
 
             <p className='text-xl text-gray-400 mb-8 leading-relaxed'>
-              AdSparkr's advanced forecasting estimates Meta ad performance
+              AdSparker's advanced forecasting estimates Meta ad performance
               based on your budget. With a single click, it handles bid
               adjustments, budget distribution, and audience testing around the
               clock—keeping campaigns optimized while you focus on growing your

@@ -17,7 +17,7 @@ export function Footer() {
                   fontWeight: 600,
                 }}
               >
-                AdSparkr
+                AdSparker
               </span>
             </div>
             <p
@@ -166,7 +166,7 @@ export function Footer() {
               fontWeight: 400,
             }}
           >
-            © 2024 AdSparkr. All rights reserved.
+            © 2024 AdSparker. All rights reserved.
           </p>
           <div className='flex gap-6 mt-4 sm:mt-0'>
             <a

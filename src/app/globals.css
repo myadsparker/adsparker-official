@@ -2773,6 +2773,7 @@ header .nav .sign_in:hover {
   .globe-container {
     max-width: 100%;
     overflow: hidden;
+    bottom: -200px;
   }
 
   .globe-canvas {

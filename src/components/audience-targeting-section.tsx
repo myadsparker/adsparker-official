@@ -118,7 +118,7 @@ export function AudienceTargetingSection() {
           </h2>
 
           <p className='text-gray-300 text-base md:text-lg leading-relaxed max-w-3xl mx-auto'>
-            Worried about reaching the right audience? AdSparkr ensures your ads
+            Worried about reaching the right audience? AdSparker ensures your ads
             land in front of high-intent buyers—anywhere in the world.
           </p>
 

@@ -86,7 +86,7 @@ export function OutperformSection() {
                   color: 'white',
                 }}
               >
-                AdSparkr
+                  AdSparker
               </span>
             </h2>
             <p
@@ -190,7 +190,7 @@ export function OutperformSection() {
                         <Zap className='h-4 w-4 text-white' />
                       </div>
                       <span className='text-white font-medium'>
-                        AdSparkr AI Dashboard
+                        AdSparker AI Dashboard
                       </span>
                     </div>
                     <div className='flex space-x-1'>

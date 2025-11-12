@@ -157,7 +157,7 @@ export function FeatureGrid() {
       icon: Zap,
       title: 'One-Click Campaign Creation',
       description:
-        'Describe your product and audience. AdSparkr instantly generates ad copy, creatives, and targeting using GPT-4o.',
+        'Describe your product and audience. AdSparker instantly generates ad copy, creatives, and targeting using GPT-4o.',
       gradient: 'from-blue-500 to-blue-600',
       category: 'launch',
     },
@@ -173,7 +173,7 @@ export function FeatureGrid() {
       icon: Edit3,
       title: 'Editable Live Campaigns',
       description:
-        'Edit already published campaigns (headlines, descriptions, images, targeting) directly from the AdSparkr dashboard.',
+        'Edit already published campaigns (headlines, descriptions, images, targeting) directly from the AdSparker dashboard.',
       gradient: 'from-purple-500 to-purple-600',
       category: 'optimize',
     },
@@ -482,7 +482,7 @@ export function FeatureGrid() {
           <div className='mt-20 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl p-8 border border-blue-500/30'>
             <div className='text-center mb-8'>
               <h3 className='text-2xl font-bold text-white mb-4 font-heading'>
-                Manual vs AdSparkr
+                Manual vs AdSparker
               </h3>
               <p className='text-gray-300 font-body'>
                 See why AI-powered campaigns outperform traditional management
@@ -505,7 +505,7 @@ export function FeatureGrid() {
 
               <div className='bg-green-500/10 border border-green-500/30 rounded-xl p-6'>
                 <h4 className='text-lg font-semibold text-green-300 mb-4 font-heading'>
-                  AdSparkr AI Management
+                  AdSparker AI Management
                 </h4>
                 <ul className='space-y-2 text-gray-400 font-body'>
                   <li>• Launch campaigns in 60 seconds</li>

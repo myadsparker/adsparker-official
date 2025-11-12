@@ -25,7 +25,7 @@ export function AdGenerationSection() {
             </h2>
 
             <p className='text-xl text-gray-400 mb-8 leading-relaxed'>
-              You don't need to prepare ad creatives in advance—AdSparkr
+              You don't need to prepare ad creatives in advance—AdSparker
               generates high-performing images tailored for Meta ads to capture
               your ideal audience and drive growth.
             </p>

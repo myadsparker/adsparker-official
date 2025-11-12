@@ -349,10 +349,9 @@ export default function FeaturesSection() {
                   fill='white'
                 />
               </svg>
-              Early Access Users
-
+              Countries We Support
             </p>
-            <p className='count'>214K+</p>
+            <p className='count'>100+</p>
             <p className='description'>
               Now onboarding early adopters across 100+ countries — including users from the U.S., UAE, UK, Canada, and India.
             </p>
@@ -433,9 +432,9 @@ export default function FeaturesSection() {
                   stroke-linejoin='round'
                 />
               </svg>
-              Built for Founders
+              Money saved for founders
             </p>
-            <p className='count'>$1.3 M</p>
+            <p className='count'>$1.3 M+</p>
             <p className='description'>
               Designed for creators, consultants, and growth-stage startups who want plug-and-play ad campaigns without hiring a full team.
             </p>

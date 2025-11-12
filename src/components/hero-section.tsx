@@ -222,7 +222,7 @@ export function HeroSection() {
                 '0 0 20px rgba(255, 255, 255, 0.3), 0 0 40px rgba(255, 255, 255, 0.2), 0 0 60px rgba(255, 255, 255, 0.1)',
             }}
           >
-            See AdSparkr in Action
+            See AdSparker in Action
           </h2>
 
           <p
@@ -265,7 +265,7 @@ export function HeroSection() {
               {/* Actual video element (hidden for now, replace with real video) */}
               <video
                 className='w-full h-full object-cover opacity-0'
-                poster='/adsparkr-demo-thumbnail.png'
+                poster='/adsparker-demo-thumbnail.png'
                 preload='metadata'
               >
                 <source src='/demo-video.mp4' type='video/mp4' />

@@ -27,7 +27,7 @@ export function Header() {
                 fontWeight: 600,
               }}
             >
-              AdSparkr
+              AdSparker
             </span>
           </Link>
 

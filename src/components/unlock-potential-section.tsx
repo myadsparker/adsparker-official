@@ -81,7 +81,7 @@ export function UnlockPotentialSection() {
                     "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif",
                 }}
               >
-                AdSparkr gives you the tools to grow. Simple, powerful, and
+                AdSparker gives you the tools to grow. Simple, powerful, and
                 built for results.
               </p>
             </motion.div>
@@ -219,7 +219,7 @@ export function UnlockPotentialSection() {
                     "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif",
                 }}
               >
-                Start Growing with AdSparkr
+                Start Growing with AdSparker
                 <ArrowRight className='ml-2 h-5 w-5' />
               </Button>
             </motion.div>

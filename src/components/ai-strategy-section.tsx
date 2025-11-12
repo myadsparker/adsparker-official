@@ -25,7 +25,7 @@ export function AiStrategySection() {
             </h2>
 
             <p className='text-xl text-gray-400 mb-8 leading-relaxed'>
-              Stop endlessly creating useless ad plans. With AdSparkr, you can
+              Stop endlessly creating useless ad plans. With AdSparker, you can
               generate smart Meta Ads plans in seconds. It maximizes the ability
               of your ad creatives and continuously optimizes them for better
               performance, delivering more results with less effort.
@@ -36,7 +36,7 @@ export function AiStrategySection() {
               size='lg'
               className='bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg font-semibold hidden lg:block'
             >
-              Try AdSparkr Now
+              Try AdSparker Now
               <ArrowRight className='ml-2 h-5 w-5' />
             </Button>
           </div>
@@ -130,7 +130,7 @@ export function AiStrategySection() {
               size='lg'
               className='bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg font-semibold w-full mt-6 lg:hidden'
             >
-              Try AdSparkr Now
+              Try AdSparker Now
               <ArrowRight className='ml-2 h-5 w-5' />
             </Button>
           </div>

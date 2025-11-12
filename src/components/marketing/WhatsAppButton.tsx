@@ -9,7 +9,7 @@ interface WhatsAppButtonProps {
 
 export default function WhatsAppButton({ 
   phoneNumber = '1234567890', // Replace with actual WhatsApp number
-  message = 'Hello! I would like to know more about AdSparkr.'
+  message = 'Hello! I would like to know more about AdSparker.'
 }: WhatsAppButtonProps) {
   const handleClick = () => {
     const encodedMessage = encodeURIComponent(message);
