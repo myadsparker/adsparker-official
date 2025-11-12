@@ -3442,6 +3442,15 @@ header .nav .sign_in:hover {
     font-size: 24px;
   }
 
+  .faq-question-box {
+    padding: 24px !important;
+  }
+
+  .faq-contact-button {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
   .emoji_left img,
   .emoji_right img {
     width: 40px;
@@ -3456,7 +3465,7 @@ header .nav .sign_in:hover {
   }
 
   .faq-question-title {
-    font-size: 28px !important;
+    font-size: 24px !important;
   }
 
   .footer_ad_content h3 {
