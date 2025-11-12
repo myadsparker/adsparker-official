@@ -3402,6 +3402,19 @@ header .nav .sign_in:hover {
 
   .pricing_section {
     margin-top: 60px;
+    padding-top: 40px;
+  }
+
+  .pricing_heading {
+    margin-bottom: 32px;
+  }
+
+  .pricing_heading h2 {
+    font-size: 24px;
+  }
+
+  .pricing_heading p {
+    font-size: 16px;
   }
 
   .steps_left {
@@ -3422,11 +3435,11 @@ header .nav .sign_in:hover {
   }
 
   .heading_text .line1 {
-    font-size: 28px;
+    font-size: 24px;
   }
 
   .heading_text .line2 {
-    font-size: 28px;
+    font-size: 24px;
   }
 
   .emoji_left img,
