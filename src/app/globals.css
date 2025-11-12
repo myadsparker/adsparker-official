@@ -729,12 +729,16 @@ header .nav .logo-link {
 
 .mobile-menu {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(17, 24, 39, 0.45);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
   z-index: 900;
+  backdrop-filter: blur(4px);
 }
 
 .mobile-menu.open {
@@ -743,49 +747,134 @@ header .nav .logo-link {
 }
 
 .mobile-menu__panel {
-  position: absolute;
-  top: 96px;
-  left: 20px;
-  right: 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 100%;
   background: #ffffff;
-  border-radius: 24px;
-  padding: 28px 24px;
-  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.18);
+  padding: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  transform: translateY(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 901;
+  overflow-y: auto;
+  max-height: 100vh;
+}
+
+.mobile-menu.open .mobile-menu__panel {
+  transform: translateY(0);
+}
+
+.mobile-menu__panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.mobile-menu__panel-header .logo-link {
+  display: flex;
+  align-items: center;
+}
+
+.mobile-menu__close-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #17181c;
+  transition: background-color 0.2s ease;
+}
+
+.mobile-menu__close-button:hover {
+  background: #f5f5f5;
+}
+
+.mobile-menu__panel-content {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .mobile-menu__links {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 0;
+  margin-bottom: 24px;
 }
 
 .mobile-menu__links a {
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  font-size: 16px;
   font-weight: 500;
   color: #17181c;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.mobile-menu__links a:hover {
+  background: #f5f5f5;
+  color: #774be5;
 }
 
 .mobile-menu__cta {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
 }
 
 .mobile-menu__cta .sign_in,
 .mobile-menu__cta .get_started {
   width: 100%;
   justify-content: center;
+  height: 48px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .mobile-menu__cta .sign_in {
   background: #252627;
+  color: #ffffff;
 }
 
 .mobile-menu__cta .sign_in:hover {
   background: #3a3b3d;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 38, 39, 0.2);
+}
+
+.mobile-menu__cta .get_started {
+  background: #774be5;
+  color: #ffffff;
+}
+
+.mobile-menu__cta .get_started:hover {
+  background: #6b3fd1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(119, 75, 229, 0.3);
 }
 
 @media (min-width: 769px) {
@@ -888,10 +977,17 @@ header .nav .sign_in:hover {
   }
 
   .mobile-menu__panel {
-    top: 80px;
-    left: 16px;
-    right: 16px;
-    padding: 24px 20px;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  .mobile-menu__panel-header {
+    padding: 16px 20px;
+  }
+
+  .mobile-menu__panel-content {
+    padding: 0;
   }
 }
 
@@ -3143,10 +3239,47 @@ header .nav .sign_in:hover {
     padding-block: 120px 40px;
   }
 
+  .home_banner .content_left .features_extra .row {
+    gap: 12px;
+  }
+
+  .mobile-menu__cta {
+    padding: 20px;
+    flex-direction: row;
+  }
+
+  .mobile-menu__links {
+    margin-bottom: 0;
+  }
+
+  .mobile-menu__cta a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 90px !important;
+    height: 36px !important;
+  }
+
+  .home_banner .content_left .features_extra .row .feature {
+    font-size: 11px;
+    gap: 6px;
+  }
+
   .home_banner .content_right .product_marquee_container {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     height: 400px;
+  }
+
+  .dots-navigation {
+    top: 12px;
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .dots-navigation .dot {
+    width: 12px;
+    height: 12px;
   }
 
   .home_banner .content_left .features_extra .row {

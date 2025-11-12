@@ -69,6 +69,7 @@
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
     "embla-carousel-react": "latest",
+    "form-data": "^4.0.4",
     "framer-motion": "latest",
     "google-trends-api": "^4.9.2",
     "gsap": "^3.13.0",

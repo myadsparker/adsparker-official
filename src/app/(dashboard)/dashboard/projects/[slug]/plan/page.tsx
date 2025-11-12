@@ -81,6 +81,29 @@ export default function BudgetPage() {
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [loadingPages, setLoadingPages] = useState(false);
 
+  // Calculate number of ad sets to show based on budget
+  const getAdSetLimit = (budget: number): number => {
+    if (budget < 50) {
+      return 3;
+    } else if (budget >= 50 && budget <= 125) {
+      return 6;
+    } else {
+      return 10; // All ad sets for budget > $125
+    }
+  };
+
+  // Get filtered ad sets based on budget
+  const getFilteredAdSets = (): AdSet[] => {
+    const limit = getAdSetLimit(dailyBudget);
+    return adSets.slice(0, limit);
+  };
+
+  // Calculate budget per ad set
+  const getBudgetPerAdSet = (): number => {
+    const filteredCount = getFilteredAdSets().length;
+    return filteredCount > 0 ? dailyBudget / filteredCount : dailyBudget;
+  };
+
   // Fetch project data including campaign proposal
   const fetchProjectData = async () => {
     try {
@@ -165,7 +188,10 @@ export default function BudgetPage() {
           if (adsets.length > 0) {
             const trimmedAdSets = adsets.slice(0, 10);
             setAdSets(trimmedAdSets); // Take first 10 ad sets
-            setSelectedAdSet(trimmedAdSets[0]); // Select first ad set by default
+            // Select first ad set from filtered list based on current budget
+            const initialLimit = getAdSetLimit(dailyBudget);
+            const initialFiltered = trimmedAdSets.slice(0, initialLimit);
+            setSelectedAdSet(initialFiltered[0] || trimmedAdSets[0]); // Select first ad set by default
             setSelectedAdSetIndex(0);
             console.log('✅ Loaded adsets from database:', adsets.length);
           }
@@ -433,6 +459,14 @@ export default function BudgetPage() {
   // Handle slider change with debouncing
   const handleSliderChange = (value: number) => {
     setDailyBudget(value);
+
+    // Update selected ad set index if current selection is beyond limit
+    const newLimit = getAdSetLimit(value);
+    if (selectedAdSetIndex >= newLimit) {
+      setSelectedAdSetIndex(0);
+      const filtered = adSets.slice(0, newLimit);
+      setSelectedAdSet(filtered[0] || null);
+    }
 
     // Clear existing timer
     if (debounceTimer.current) {
@@ -1276,6 +1310,21 @@ export default function BudgetPage() {
 
       // Step 1: Actually create ads in Meta using Meta Graph API
       console.log('🚀 Publishing ads to Meta...');
+
+      // Get campaign name with better fallback logic
+      // Priority: businessName from analysing_points (most reliable, extracted from website analysis)
+      const getCampaignName = () => {
+        // Priority 1: businessName from analysing_points (most reliable source)
+        if (analyzingPoints?.businessName) {
+          return analyzingPoints.businessName;
+        }
+        // Priority 2: Last resort
+        return 'Campaign';
+      };
+
+      const finalCampaignName = getCampaignName();
+      console.log('📢 Campaign name to publish:', finalCampaignName);
+
       const metaPublishResponse = await fetch('/api/meta/publish-ads', {
         method: 'POST',
         headers: {
@@ -1283,8 +1332,11 @@ export default function BudgetPage() {
         },
         body: JSON.stringify({
           projectId: projectId,
-          campaignName: campaignProposal?.campaignName || 'Campaign',
-          adSets: adSets.length > 0 ? adSets : (selectedAdSet ? [selectedAdSet] : []),
+          campaignName: finalCampaignName,
+          adSets: getFilteredAdSets().map(adSet => ({
+            ...adSet,
+            daily_budget: getBudgetPerAdSet(), // Set budget per ad set based on filtered count
+          })),
           adAccountId: adAccountId,
           pageId: selectedPageId || null,
           dailyBudget: dailyBudget,
@@ -1406,7 +1458,7 @@ export default function BudgetPage() {
           },
           body: JSON.stringify({
             project_id: projectId,
-            campaign_name: campaignProposal?.campaignName || 'Campaign',
+            campaign_name: finalCampaignName,
             ad_set_id: createdAdSet.id,
             ad_account_id: adAccountId,
             daily_budget: createdAdSet.daily_budget || dailyBudget,
@@ -1560,6 +1612,12 @@ export default function BudgetPage() {
               </span>
               Your budget works - more budget, better results!
             </div>
+            <div style={{ marginTop: '12px', fontSize: '14px', color: '#666', textAlign: 'center' }}>
+              <strong>{getFilteredAdSets().length}</strong> ad{getFilteredAdSets().length !== 1 ? 's' : ''} will be published
+              {getFilteredAdSets().length < adSets.length && (
+                <span> ({adSets.length - getFilteredAdSets().length} hidden due to budget)</span>
+              )}
+            </div>
           </div>
         </div>
         <div className='chart_row'>
@@ -1700,7 +1758,7 @@ export default function BudgetPage() {
             {loading ? (
               <div>Loading ad sets...</div>
             ) : (
-              adSets.map((adSet, index) => (
+              getFilteredAdSets().map((adSet, index) => (
                 <button
                   key={adSet.ad_set_id ?? `adset-${index}`}
                   className={selectedAdSetIndex === index ? 'active' : ''}
@@ -1739,7 +1797,7 @@ export default function BudgetPage() {
 
                   <p className='description '>
                     Ad Spent:
-                    <span>${(dailyBudget / 10).toFixed(2)}</span>
+                    <span>${getBudgetPerAdSet().toFixed(2)}</span>
                   </p>
                 </div>
                 <div className='collapsible'>

@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
         projectThumbnailImage = projectData.adset_thumbnail_image;
         console.log('📸 Found project thumbnail image:', projectThumbnailImage);
       } else {
-        console.log('⚠️ No thumbnail image found in project, will use ad set creative data');
+        console.log('⚠️ No adset_thumbnail_image found in project');
       }
     } catch (error) {
       console.log('⚠️ Could not fetch project thumbnail:', error);
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Step 1: Create Campaign
-    console.log('📢 Creating campaign...');
+    console.log('📢 Creating campaign with name:', campaignName);
     const campaignResponse = await fetch(
       `https://graph.facebook.com/v18.0/${formattedAdAccountId}/campaigns`,
       {
@@ -257,84 +257,189 @@ export async function POST(request: NextRequest) {
     const campaignId = campaignData.id;
 
     // Step 1.5: Upload image once (same image for all ads)
-    // Get image URL - priority order:
-    // 1. adset_thumbnail_image from project (first priority)
-    // 2. adsparker_gen_creative_asset from adSets
-    // 3. Other fallbacks
+    // ONLY use adset_thumbnail_image from project - no fallbacks
     let imageUrl: string | null = null;
+    let imageHash: string | null = null;
 
-    // First priority: Use project thumbnail image (adset_thumbnail_image from project table)
+    // ONLY use adset_thumbnail_image from project table - no fallbacks
     if (projectThumbnailImage) {
       imageUrl = projectThumbnailImage;
-      console.log('📸 Using adset_thumbnail_image from project (first priority):', imageUrl);
-    }
+      console.log('📸 Using adset_thumbnail_image from project:', imageUrl);
 
-    // Second priority: Check adsparker_gen_creative_asset from adSets
-    if (!imageUrl) {
-      for (const adSet of adSets) {
-        if (adSet?.adsparker_gen_creative_asset) {
-          imageUrl = adSet.adsparker_gen_creative_asset;
-          console.log('📸 Using adsparker_gen_creative_asset from adSet:', imageUrl);
-          break;
+      // Verify the image URL is accessible before uploading
+      try {
+        console.log('🔍 Verifying image URL is accessible...');
+        const imageCheckResponse = await fetch(imageUrl, { method: 'HEAD' });
+        if (!imageCheckResponse.ok) {
+          console.warn(`⚠️ Image URL returned status ${imageCheckResponse.status}, but continuing anyway...`);
+        } else {
+          console.log('✅ Image URL is accessible');
         }
+      } catch (checkError) {
+        console.warn('⚠️ Could not verify image URL accessibility, but continuing...', checkError);
       }
-    }
 
-    // Fallback to other creative data
-    if (!imageUrl) {
-      imageUrl = (adSets[0]?.creative_meta_data_1x1?.url) ||
-        (adSets[0]?.creative_meta_data_9x16?.url) ||
-        null;
-      if (imageUrl) {
-        console.log('📸 Using fallback creative image:', imageUrl);
-      }
-    }
-
-    let imageHash: string | null = null;
-    if (imageUrl) {
       try {
         console.log('📤 Uploading image to Meta (will be used for all ads)...');
-        // Use GET request with url parameter for uploading from URL
-        const uploadParams: URLSearchParams = new URLSearchParams({
-          url: imageUrl,
-          access_token: accessToken,
-        });
+        console.log(`🔗 Image URL: ${imageUrl}`);
 
-        const imageUploadResponse: Response = await fetch(
-          `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adimages?${uploadParams.toString()}`,
-          {
-            method: 'GET',
+        // Method 1: Try URL method first (faster if it works)
+        let imageUploadData: any = null;
+        let uploadMethod = 'URL';
+
+        try {
+          const uploadParams: URLSearchParams = new URLSearchParams({
+            url: imageUrl,
+            access_token: accessToken,
+          });
+
+          const urlUploadResponse: Response = await fetch(
+            `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adimages?${uploadParams.toString()}`,
+            {
+              method: 'GET',
+            }
+          );
+          imageUploadData = await urlUploadResponse.json();
+          console.log(`📤 URL upload response:`, JSON.stringify(imageUploadData, null, 2));
+
+          if (urlUploadResponse.ok && imageUploadData.data && imageUploadData.data.length > 0) {
+            // Success with URL method
+            imageHash = imageUploadData.data[0].hash;
+            const imageId = imageUploadData.data[0].id;
+            console.log(`✅ Image uploaded successfully using URL method!`);
+            console.log(`   - Image Hash: ${imageHash}`);
+            console.log(`   - Image ID: ${imageId}`);
+          } else {
+            // URL method failed, try binary upload
+            console.log(`⚠️ URL method failed, trying binary upload method...`);
+            uploadMethod = 'BINARY';
+            throw new Error('URL method failed, trying binary');
           }
-        );
-        const imageUploadData: any = await imageUploadResponse.json();
+        } catch (urlError) {
+          // If URL method fails, download image and upload as binary
+          if (uploadMethod === 'BINARY' || !imageUploadData?.data?.length) {
+            console.log(`📥 Downloading image from URL for binary upload...`);
+            console.log(`🔗 Image URL: ${imageUrl}`);
 
-        if (imageUploadResponse.ok && imageUploadData.data && imageUploadData.data.length > 0) {
-          // Meta returns: { data: [{ hash: "...", id: "..." }] }
-          imageHash = imageUploadData.data[0].hash;
-          console.log(`✅ Image uploaded successfully, hash: ${imageHash}`);
-        } else {
-          console.error(`⚠️ Failed to upload image:`, imageUploadData);
-          // Continue without image if upload fails
+            // Download the image
+            const imageResponse = await fetch(imageUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': 'image/*',
+              },
+            });
+
+            if (!imageResponse.ok) {
+              throw new Error(`Failed to download image: ${imageResponse.status} ${imageResponse.statusText}`);
+            }
+
+            // Get content type from response
+            const contentType = imageResponse.headers.get('content-type') || 'image/png';
+            console.log(`📥 Response status: ${imageResponse.status}, Content-Type: ${contentType}`);
+
+            // Convert response to buffer
+            const imageBuffer = await imageResponse.arrayBuffer();
+            console.log(`📥 Image downloaded: ${imageBuffer.byteLength} bytes`);
+
+            if (imageBuffer.byteLength === 0) {
+              throw new Error('Downloaded image is empty (0 bytes)');
+            }
+
+            if (imageBuffer.byteLength < 100) {
+              // If file is very small, it might be an error page or redirect
+              const text = new TextDecoder().decode(imageBuffer);
+              console.error(`⚠️ Downloaded content appears to be text, not image:`, text.substring(0, 200));
+              throw new Error('Downloaded content is not a valid image');
+            }
+
+            console.log(`📤 Uploading image as binary data to Meta...`);
+
+            // Convert to Node.js Buffer
+            const Buffer = require('buffer').Buffer;
+            const nodeBuffer = Buffer.from(imageBuffer);
+
+            // Use form-data package for proper multipart/form-data upload
+            const FormData = require('form-data');
+            const formData = new FormData();
+
+            // Append the buffer as a file stream
+            // Facebook expects the field name to be 'bytes' or the file itself
+            formData.append('bytes', nodeBuffer, {
+              filename: 'ad-image.png',
+              contentType: contentType,
+            });
+
+            console.log(`📤 Uploading ${nodeBuffer.length} bytes as multipart/form-data...`);
+
+            // Upload using POST with multipart/form-data
+            const multipartUploadResponse = await fetch(
+              `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adimages?access_token=${accessToken}`,
+              {
+                method: 'POST',
+                body: formData as any, // Type assertion for form-data
+                headers: {
+                  ...formData.getHeaders(),
+                },
+              }
+            );
+
+            imageUploadData = await multipartUploadResponse.json();
+            console.log(`📤 Multipart upload response:`, JSON.stringify(imageUploadData, null, 2));
+
+            if (imageUploadData.data && imageUploadData.data.length > 0) {
+              imageHash = imageUploadData.data[0].hash;
+              const imageId = imageUploadData.data[0].id;
+              console.log(`✅ Image uploaded successfully using binary method!`);
+              console.log(`   - Image Hash: ${imageHash}`);
+              console.log(`   - Image ID: ${imageId}`);
+            } else {
+              throw new Error(`Binary upload failed: ${JSON.stringify(imageUploadData)}`);
+            }
+          }
+        }
+
+        if (!imageHash) {
+          console.error(`❌ Failed to upload image with both methods:`, imageUploadData);
+          return NextResponse.json(
+            {
+              error: 'Failed to upload image to Meta',
+              details: imageUploadData?.error?.message || 'Image upload failed with both URL and binary methods',
+              metaError: imageUploadData?.error,
+              uploadResponse: imageUploadData
+            },
+            { status: 400 }
+          );
         }
       } catch (error) {
-        console.error(`⚠️ Error uploading image:`, error);
-        // Continue without image if upload fails
+        console.error(`❌ Error uploading image:`, error);
+        return NextResponse.json(
+          {
+            error: 'Failed to upload image to Meta',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          },
+          { status: 400 }
+        );
       }
     } else {
-      console.log('⚠️ No image URL found, ads will be created without images');
+      console.error('❌ No adset_thumbnail_image found in project');
+      return NextResponse.json(
+        {
+          error: 'Image is required',
+          message: 'adset_thumbnail_image is required in the project to publish ads. Please set a thumbnail image first.',
+          details: 'No adset_thumbnail_image found in project table'
+        },
+        { status: 400 }
+      );
     }
 
     // Step 2: Create Ad Sets
     console.log('📊 Creating ad sets...');
+    console.log(`📝 Processing ${adSets.length} ad set(s)`);
     const createdAdSets = [];
     const errors = [];
 
     for (let i = 0; i < adSets.length; i++) {
-      // For testing: Only process the first ad set
-      if (i > 0) {
-        console.log(`⏭️ Skipping ad set ${i + 1} (testing mode - only first ad set)`);
-        continue;
-      }
+      console.log(`✅ Processing ad set ${i + 1}/${adSets.length}: ${adSets[i]?.ad_set_title || 'Untitled'}`);
 
       const adSet: any = adSets[i];
 
@@ -460,17 +565,21 @@ export async function POST(request: NextRequest) {
 
           // Create ad creative with link data
           // page_id is required for link ads - we've already validated it exists above
-          if (!pageId) {
+          if (!finalPageId) {
             throw new Error('Facebook Page ID is required but not found. This should not happen.');
           }
 
           // Use the image hash that was uploaded before the loop (same image for all ads)
           // image_url is not supported in link_data, we must use image_hash instead
+          // imageHash is guaranteed to exist at this point since we return error if upload fails
+
+          console.log(`🖼️ Using image hash for creative: ${imageHash}`);
+          console.log(`🔗 Image URL used: ${projectThumbnailImage}`);
 
           const creativePayload: any = {
             name: `${adSet.ad_set_title} - Creative`,
             object_story_spec: {
-              page_id: pageId, // Required for link ads
+              page_id: finalPageId, // Required for link ads
               link_data: {
                 link: websiteUrl || 'https://www.example.com',
                 message: primaryText || headline,
@@ -479,15 +588,16 @@ export async function POST(request: NextRequest) {
                 call_to_action: {
                   type: 'LEARN_MORE',
                 },
+                image_hash: imageHash, // Always use the uploaded image from adset_thumbnail_image
               },
             },
             access_token: accessToken,
           };
 
-          // Add image_hash if available (image_url is not supported in link_data)
-          if (imageHash) {
-            creativePayload.object_story_spec.link_data.image_hash = imageHash;
-          }
+          console.log('📤 Creative payload being sent:', JSON.stringify({
+            ...creativePayload,
+            access_token: '[REDACTED]'
+          }, null, 2));
 
           const creativeResponse = await fetch(
             `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adcreatives`,
@@ -502,6 +612,8 @@ export async function POST(request: NextRequest) {
 
           const creativeData = await creativeResponse.json();
 
+          console.log(`📥 Creative creation response:`, JSON.stringify(creativeData, null, 2));
+
           if (!creativeResponse.ok || creativeData.error) {
             console.error(`❌ Ad Creative ${i + 1} Creation Error:`, creativeData);
             errors.push({
@@ -511,40 +623,133 @@ export async function POST(request: NextRequest) {
             });
           } else {
             console.log(`✅ Ad Creative ${i + 1} Created:`, creativeData.id);
+            console.log(`🖼️ Creative ID: ${creativeData.id}, Image hash used: ${imageHash}`);
+
+            // Verify the creative was created with the image
+            if (creativeData.id) {
+              try {
+                const verifyCreativeResponse = await fetch(
+                  `https://graph.facebook.com/v18.0/${creativeData.id}?fields=object_story_spec&access_token=${accessToken}`
+                );
+                const verifyData = await verifyCreativeResponse.json();
+                console.log(`🔍 Verified creative object_story_spec:`, JSON.stringify(verifyData, null, 2));
+              } catch (verifyError) {
+                console.log('⚠️ Could not verify creative:', verifyError);
+              }
+            }
+
             const creativeId = creativeData.id;
 
             // Step 4: Create Ad
             console.log(`📢 Creating ad for ad set ${i + 1}...`);
-            const adResponse = await fetch(
+
+            // Try creating ad without status first (Facebook may allow this without payment method)
+            // Then update status to PAUSED after creation
+            let adPayload: any = {
+              name: `${adSet.ad_set_title} - Ad`,
+              adset_id: adSetId,
+              creative: {
+                creative_id: creativeId,
+              },
+              access_token: accessToken,
+            };
+
+            let adResponse = await fetch(
               `https://graph.facebook.com/v18.0/${formattedAdAccountId}/ads`,
               {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                  name: `${adSet.ad_set_title} - Ad`,
-                  adset_id: adSetId,
-                  creative: {
-                    creative_id: creativeId,
-                  },
-                  status: 'PAUSED', // Start as PAUSED for safety
-                  access_token: accessToken,
-                }),
+                body: JSON.stringify(adPayload),
               }
             );
 
-            const adData = await adResponse.json();
+            let adData = await adResponse.json();
+
+            // If creation without status fails, try with PAUSED status as fallback
+            if (!adResponse.ok || adData.error) {
+              console.log(`⚠️ Ad creation without status failed, trying with PAUSED status...`);
+
+              adPayload.status = 'PAUSED';
+              adResponse = await fetch(
+                `https://graph.facebook.com/v18.0/${formattedAdAccountId}/ads`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(adPayload),
+                }
+              );
+              adData = await adResponse.json();
+            }
 
             if (!adResponse.ok || adData.error) {
               console.error(`❌ Ad ${i + 1} Creation Error:`, adData);
-              errors.push({
-                adSetTitle: adSet.ad_set_title,
-                error: `Ad creation failed: ${adData.error?.message || 'Unknown error'}`,
-                details: adData.error,
-              });
+
+              // Check for specific error types and provide better error messages
+              let errorMessage = `Ad creation failed: ${adData.error?.message || 'Unknown error'}`;
+              let isPaymentMethodError = false;
+
+              // Payment method error - treat as warning, not failure
+              if (adData.error?.error_subcode === 1359188 ||
+                adData.error?.error_user_title === 'No payment method') {
+                errorMessage = `Ad creation skipped: Payment method required. Campaign, Ad Set, and Creative are ready. Add a payment method in Facebook Ads Manager to create the ad.`;
+                isPaymentMethodError = true;
+              }
+
+              // For payment method errors, still add to createdAdSets since campaign/ad set/creative are ready
+              if (isPaymentMethodError) {
+                console.log(`⚠️ Ad creation skipped due to payment method, but Ad Set and Creative are ready`);
+                createdAdSets.push({
+                  id: adSetId,
+                  name: adSet.ad_set_title,
+                  daily_budget: adSetBudget,
+                  status: 'PAUSED',
+                  creative_id: creativeId,
+                  ad_id: null, // Ad not created yet
+                  warning: errorMessage,
+                  requiresPaymentMethod: true,
+                });
+              } else {
+                // For other errors, add to errors list
+                errors.push({
+                  adSetTitle: adSet.ad_set_title,
+                  error: errorMessage,
+                  details: adData.error,
+                  errorType: adData.error?.error_user_title || 'Unknown',
+                  errorSubcode: adData.error?.error_subcode,
+                });
+              }
             } else {
               console.log(`✅ Ad ${i + 1} Created:`, adData.id);
+
+              // If ad was created without status, update it to PAUSED
+              if (!adPayload.status && adData.id) {
+                try {
+                  const updateResponse = await fetch(
+                    `https://graph.facebook.com/v18.0/${adData.id}`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        status: 'PAUSED',
+                        access_token: accessToken,
+                      }),
+                    }
+                  );
+                  const updateData = await updateResponse.json();
+                  if (updateResponse.ok) {
+                    console.log(`✅ Ad ${i + 1} status updated to PAUSED`);
+                  }
+                } catch (updateError) {
+                  console.log(`⚠️ Could not update ad status to PAUSED, but ad was created`);
+                }
+              }
+
               createdAdSets.push({
                 id: adSetId,
                 name: adSet.ad_set_title,
@@ -691,11 +896,22 @@ export async function POST(request: NextRequest) {
       totalFailed: errors.length,
     };
 
+    // Check if any ad sets have payment method warnings
+    const hasPaymentMethodWarnings = createdAdSets.some((adSet: any) => adSet.requiresPaymentMethod);
+
     if (errors.length > 0) {
       response.errors = errors;
       response.message = `Campaign created with ${createdAdSets.length} out of ${adSets.length} ad sets. ${errors.length} failed.`;
+    } else if (hasPaymentMethodWarnings) {
+      response.message = `Campaign, Ad Sets, and Creatives created successfully! Note: Ads require a payment method. Add a payment method in Facebook Ads Manager, then create the ads manually or they will be created automatically when you activate the ad sets.`;
+      response.warnings = createdAdSets
+        .filter((adSet: any) => adSet.requiresPaymentMethod)
+        .map((adSet: any) => ({
+          adSetName: adSet.name,
+          message: adSet.warning,
+        }));
     } else {
-      response.message = `Successfully created campaign with ${createdAdSets.length} ad sets. All ad sets are PAUSED - you can activate them in Meta Ads Manager.`;
+      response.message = `Successfully created campaign with ${createdAdSets.length} ad sets. All ad sets are PAUSED - you can activate them in Meta Ads Manager to start running.`;
     }
 
     return NextResponse.json(response, {
