@@ -319,7 +319,16 @@ button span {
   .mobile_brand img{
     width: 100px;
   }
-  
+  .mobile_actions{
+    gap: 12px;
+  }
+  .mobile_notification_button{
+    height: max-content;
+    width: max-content;
+  }
+  .mobile_brand{
+    margin-inline: 12px auto;
+  }
   .menu_right .create_button, .mobile_create_button{
     padding-inline: 20px;
   }
