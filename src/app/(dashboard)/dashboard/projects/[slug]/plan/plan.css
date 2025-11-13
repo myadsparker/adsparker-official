@@ -1300,7 +1300,10 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-
+  .modal-body .connections{
+    flex-direction: column;
+    gap: 12px;
+  }
   .adset_row .adset_buttons::-webkit-scrollbar {
     display: none;
   }
