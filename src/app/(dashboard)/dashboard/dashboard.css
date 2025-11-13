@@ -61,9 +61,6 @@ button span {
 }
 
 .mobile_menu_button {
-  width: 48px;
-  height: 48px;
-  padding: 3px;
   border: none;
   border-radius: 18px;
   display: flex;
@@ -273,9 +270,56 @@ button span {
   }
 }
 
+/* Mobile Menu Link Buttons */
+.mobile-menu__link-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 20px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #17181c;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+  text-align: left;
+}
+
+.mobile-menu__link-button:hover {
+  background: #f5f5f5;
+  color: #774be5;
+}
+
+.mobile-menu__link-button svg {
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.mobile-menu__link-button--logout {
+  color: #dc2626;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 8px;
+  padding-top: 20px;
+}
+
+.mobile-menu__link-button--logout:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
 @media (max-width: 575px) {
   .stepper {
     padding-inline: 16px;
     gap: 0;
+  }
+  .mobile_brand img{
+    width: 100px;
+  }
+  .menu_right .create_button, .mobile_create_button{
+    padding-inline: 20px;
   }
 }

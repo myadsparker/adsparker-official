@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, User, Settings, LogOut } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, Menu, X } from 'lucide-react';
 
 export default function DashboardLayout({
   children,
@@ -18,6 +18,7 @@ export default function DashboardLayout({
 }) {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -64,8 +65,28 @@ export default function DashboardLayout({
     };
   }, []);
 
+  // Handle mobile menu body scroll lock
+  useEffect(() => {
+    document.body.style.overflow = isMobileMenuOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
+
+  // Handle escape key for mobile menu
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isMobileMenuOpen]);
+
   const handleLogout = async () => {
     try {
+      setIsMobileMenuOpen(false);
       await fetch('/api/logout', {
         method: 'POST',
       });
@@ -77,12 +98,18 @@ export default function DashboardLayout({
 
   const handleUpdateProfile = () => {
     setIsDropdownOpen(false);
+    setIsMobileMenuOpen(false);
     router.push('/dashboard/profile');
   };
 
   const handleSettings = () => {
     setIsDropdownOpen(false);
+    setIsMobileMenuOpen(false);
     router.push('/dashboard/settings');
+  };
+
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
   };
 
   return (
@@ -194,8 +221,13 @@ export default function DashboardLayout({
           type='button'
           className='mobile_menu_button'
           aria-label='Toggle navigation'
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16" /><path d="M4 12h16" /><path d="M4 19h16" /></svg>
+          {isMobileMenuOpen ? (
+            <X size={24} strokeWidth={2} />
+          ) : (
+            <Menu size={24} strokeWidth={2} />
+          )}
         </button>
         <div className='mobile_brand'>
           <Image
@@ -270,6 +302,65 @@ export default function DashboardLayout({
             </svg>
             New Project
           </Link>
+        </div>
+      </div>
+
+      {/* Mobile Menu Dropdown */}
+      <div
+        className={`mobile-menu ${isMobileMenuOpen ? 'open' : ''}`}
+        onClick={(e) => {
+          // Close menu when clicking on the overlay (not the panel)
+          if (e.target === e.currentTarget) {
+            closeMobileMenu();
+          }
+        }}
+      >
+        <div className='mobile-menu__panel' onClick={(e) => e.stopPropagation()}>
+          <div className='mobile-menu__panel-header'>
+            <Link href='/dashboard' className='logo-link' onClick={closeMobileMenu}>
+              <Image
+                src='/images/adsparker-logo.png'
+                alt='Adsparker Logo'
+                width={150}
+                height={40}
+                priority
+              />
+            </Link>
+            <button
+              type='button'
+              className='mobile-menu__close-button'
+              aria-label='Close navigation menu'
+              onClick={closeMobileMenu}
+            >
+              <X size={24} strokeWidth={2} />
+            </button>
+          </div>
+
+          <div className='mobile-menu__panel-content'>
+            <nav className='mobile-menu__links'>
+              <button
+                onClick={handleSettings}
+                className='mobile-menu__link-button'
+              >
+                <Settings size={20} />
+                Settings
+              </button>
+              <button
+                onClick={handleUpdateProfile}
+                className='mobile-menu__link-button'
+              >
+                <User size={20} />
+                Update Profile
+              </button>
+              <button
+                onClick={handleLogout}
+                className='mobile-menu__link-button mobile-menu__link-button--logout'
+              >
+                <LogOut size={20} />
+                Logout
+              </button>
+            </nav>
+          </div>
         </div>
       </div>
       {children}
