@@ -24,4 +24,3 @@ const getOpenAIClient = () => {
 };
 
 export const openai = getOpenAIClient();
-
