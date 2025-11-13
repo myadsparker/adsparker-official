@@ -6,10 +6,30 @@ import OpenAI from 'openai';
 export const maxDuration = 60; // 60 seconds
 export const dynamic = 'force-dynamic';
 
-// Initialize services
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize services with validated API key
+const getOpenAIClient = () => {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not set in environment variables');
+  }
+  
+  // Validate API key format
+  if (!apiKey.startsWith('sk-')) {
+    throw new Error('OPENAI_API_KEY format is invalid. It should start with "sk-"');
+  }
+  
+  // Check for common issues (extra spaces, newlines, etc.)
+  if (apiKey.includes('\n') || apiKey.includes('\r')) {
+    throw new Error('OPENAI_API_KEY contains newline characters. Please check your Vercel environment variable.');
+  }
+  
+  return new OpenAI({
+    apiKey: apiKey,
+  });
+};
+
+const openai = getOpenAIClient();
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -116,22 +136,31 @@ async function generateBusinessName(
   Return ONLY the business name, nothing else.
   `;
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You are an expert at extracting and generating professional business names. Always respond with ONLY the business name, no additional text.',
-      },
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
-    temperature: 0.2,
-    max_tokens: 100,
-  });
+  let response;
+  try {
+    response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an expert at extracting and generating professional business names. Always respond with ONLY the business name, no additional text.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 100,
+    });
+  } catch (openaiError: any) {
+    // Handle OpenAI API errors
+    if (openaiError?.status === 401 || openaiError?.message?.includes('Incorrect API key')) {
+      throw new Error(`401 Incorrect API key provided. Please check your OPENAI_API_KEY in Vercel environment variables. The key may be truncated, expired, or invalid.`);
+    }
+    throw openaiError;
+  }
 
   const businessName =
     response.choices[0]?.message?.content?.trim() || 'Business Name';
@@ -290,13 +319,22 @@ Focus on actionable insights for advertising strategy. productInformation, selli
     lastMessage.content += additionalPrompt;
   }
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: messages,
-    temperature: 0.3,
-    max_tokens: 2800, // Increased to accommodate 150+ word business summary
-    response_format: { type: 'json_object' },
-  });
+  let response;
+  try {
+    response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: messages,
+      temperature: 0.3,
+      max_tokens: 2800, // Increased to accommodate 150+ word business summary
+      response_format: { type: 'json_object' },
+    });
+  } catch (openaiError: any) {
+    // Handle OpenAI API errors
+    if (openaiError?.status === 401 || openaiError?.message?.includes('Incorrect API key')) {
+      throw new Error(`401 Incorrect API key provided. Please check your OPENAI_API_KEY in Vercel environment variables. The key may be truncated, expired, or invalid.`);
+    }
+    throw openaiError;
+  }
 
   const analysisText = response.choices[0]?.message?.content;
 
@@ -320,10 +358,25 @@ Focus on actionable insights for advertising strategy. productInformation, selli
 export async function POST(req: Request) {
   try {
 
-    // Check environment variables first
-    if (!process.env.OPENAI_API_KEY) {
+    // Check environment variables first with validation
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) {
       return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
+        { 
+          error: 'OpenAI API key not configured',
+          hint: 'Please set OPENAI_API_KEY in Vercel environment variables (Settings > Environment Variables)'
+        },
+        { status: 500 }
+      );
+    }
+    
+    // Validate API key format
+    if (!apiKey.startsWith('sk-')) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid OpenAI API key format',
+          hint: 'API key should start with "sk-" or "sk-proj-". Please check your Vercel environment variable.'
+        },
         { status: 500 }
       );
     }
@@ -506,6 +559,34 @@ export async function POST(req: Request) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    // Handle OpenAI API errors specifically
+    if (error instanceof Error) {
+      // Check for OpenAI API key errors
+      if (error.message.includes('Incorrect API key') || error.message.includes('401')) {
+        return NextResponse.json(
+          {
+            error: 'OpenAI API key is invalid',
+            details: 'The API key configured in Vercel is incorrect or has been revoked.',
+            hint: 'Please check your OPENAI_API_KEY in Vercel Settings > Environment Variables. Make sure: 1) The key is complete (no truncation), 2) No extra spaces or newlines, 3) The key is valid and not expired.',
+            timestamp: new Date().toISOString(),
+          },
+          { status: 401 }
+        );
+      }
+      
+      // Check for missing API key
+      if (error.message.includes('OPENAI_API_KEY')) {
+        return NextResponse.json(
+          {
+            error: 'OpenAI API key configuration error',
+            details: error.message,
+            hint: 'Please set OPENAI_API_KEY in Vercel Settings > Environment Variables and redeploy.',
+            timestamp: new Date().toISOString(),
+          },
+          { status: 500 }
+        );
+      }
+    }
 
     // Return more specific error information
     const errorMessage =
