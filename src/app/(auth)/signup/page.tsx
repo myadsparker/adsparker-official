@@ -144,6 +144,9 @@ export default function SignUpPage() {
       provider: 'google',
       options: {
         redirectTo,
+        queryParams: {
+          prompt: 'select_account', // Force account selection screen
+        },
       },
     });
 

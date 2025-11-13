@@ -9,12 +9,30 @@ export default function LogoutButton() {
   const [isPending, startTransition] = useTransition();
 
   const handleLogout = async () => {
-    await fetch('/api/logout', {
-      method: 'POST',
-    });
-    startTransition(() => {
-      router.push('/login');
-    });
+    try {
+      // Clear localStorage
+      localStorage.removeItem('sparkr_user');
+      localStorage.removeItem('budget-storage');
+      
+      // Clear sessionStorage
+      sessionStorage.clear();
+      
+      // Call logout API
+      await fetch('/api/logout', {
+        method: 'POST',
+      });
+      
+      // Force a hard refresh to clear all cached data and redirect to login
+      // This ensures Google OAuth will ask for account selection again
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if API fails, clear local data and redirect
+      localStorage.removeItem('sparkr_user');
+      localStorage.removeItem('budget-storage');
+      sessionStorage.clear();
+      window.location.href = '/login';
+    }
   };
 
   return (

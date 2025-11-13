@@ -87,12 +87,29 @@ export default function DashboardLayout({
   const handleLogout = async () => {
     try {
       setIsMobileMenuOpen(false);
+      
+      // Clear localStorage
+      localStorage.removeItem('sparkr_user');
+      localStorage.removeItem('budget-storage');
+      
+      // Clear sessionStorage
+      sessionStorage.clear();
+      
+      // Call logout API
       await fetch('/api/logout', {
         method: 'POST',
       });
-      router.push('/login');
+      
+      // Force a hard refresh to clear all cached data and redirect to login
+      // This ensures Google OAuth will ask for account selection again
+      window.location.href = '/login';
     } catch (error) {
       console.error('Logout error:', error);
+      // Even if API fails, clear local data and redirect
+      localStorage.removeItem('sparkr_user');
+      localStorage.removeItem('budget-storage');
+      sessionStorage.clear();
+      window.location.href = '/login';
     }
   };
 
