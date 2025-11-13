@@ -1,7 +1,7 @@
 // app/api/generateAdsets/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { openai } from '@/lib/opanai';
+import { openai } from '@/lib/openai';
 import { v4 as uuidv4 } from 'uuid';
 
 // Setup Supabase
