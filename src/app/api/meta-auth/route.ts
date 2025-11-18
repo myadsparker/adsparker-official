@@ -36,17 +36,19 @@ export async function GET(request: NextRequest) {
 
       // Meta OAuth parameters with essential permissions only
       // Removed redundant: pages_manage_ads (covered by ads_management), manage_pages (not needed for ad management)
+      const stateData = JSON.stringify({
+        projectId,
+        userId: user.id,
+        action: 'connect',
+      });
+      
       const oauthParams = new URLSearchParams({
         client_id: process.env.META_APP_ID!,
         redirect_uri: redirectUri,
         scope:
           'email,public_profile,ads_management,business_management,ads_read,pages_show_list,pages_read_engagement,read_insights',
         response_type: 'code',
-        state: JSON.stringify({
-          projectId,
-          userId: user.id,
-          action: 'connect',
-        }),
+        state: stateData, // State will be automatically URL-encoded by URLSearchParams
       });
 
       const oauthUrl = `https://www.facebook.com/v18.0/dialog/oauth?${oauthParams.toString()}`;

@@ -45,14 +45,34 @@ export async function GET(request: NextRequest) {
     }
 
     if (!code || !state) {
-      return NextResponse.json(
-        { error: 'Missing code or state' },
-        { status: 400 }
+      console.error('❌ Missing code or state in callback:', { code: !!code, state: !!state });
+      // Try to extract projectId from URL or default redirect
+      const urlParams = new URL(request.url);
+      const projectId = urlParams.searchParams.get('projectId') || 'unknown';
+      
+      return NextResponse.redirect(
+        `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=missing_params`
       );
     }
 
-    const parsedState = JSON.parse(state);
-    const { projectId, userId } = parsedState;
+    let parsedState;
+    let projectId;
+    let userId;
+    
+    try {
+      parsedState = JSON.parse(state);
+      projectId = parsedState.projectId;
+      userId = parsedState.userId;
+      
+      if (!projectId || !userId) {
+        throw new Error('Missing projectId or userId in state');
+      }
+    } catch (parseError) {
+      console.error('❌ Failed to parse state:', parseError, 'State:', state);
+      return NextResponse.redirect(
+        `${baseUrl}/dashboard/projects/unknown/plan?meta_error=invalid_state`
+      );
+    }
 
     // 1️⃣ Exchange code for access token
     // Use our own callback route (must match the redirect_uri used in initial OAuth request)
