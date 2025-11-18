@@ -3,10 +3,23 @@ import Stripe from 'stripe';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
+  apiVersion: '2025-08-27.basil',
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+// Helper function to check if subscription is active/trialing
+async function checkSubscriptionStatus(subscriptionId: string | Stripe.Subscription): Promise<boolean> {
+  try {
+    const subscription = typeof subscriptionId === 'string'
+      ? await stripe.subscriptions.retrieve(subscriptionId)
+      : subscriptionId;
+    return subscription.status === 'active' || subscription.status === 'trialing';
+  } catch (error) {
+    console.error('Error checking subscription status:', error);
+    return false;
+  }
+}
 
 /**
  * Stripe Webhook Handler
@@ -149,6 +162,53 @@ async function handleCheckoutCompleted(
       .update(updateData)
       .eq('id', subscriptionId);
 
+    // Only update user_profiles if payment was successful or trial was started
+    // Check if this is a successful checkout (paid or trial started)
+    const isSuccessful = session.payment_status === 'paid' || 
+                        session.metadata?.plan_type === 'free_trial' ||
+                        (session.subscription && await checkSubscriptionStatus(session.subscription));
+
+    if (isSuccessful) {
+      const planType = session.metadata?.plan_type || 'trial';
+      const priceId = session.metadata?.price_id || null;
+      
+      // Determine subscription type and expiry
+      let subscriptionType = planType === 'free_trial' ? 'trial' : (priceId || planType);
+      let expiryDate: string | null = null;
+      
+      if (session.subscription) {
+        const subscriptionObj = typeof session.subscription === 'string'
+          ? await stripe.subscriptions.retrieve(session.subscription)
+          : session.subscription;
+        
+      const periodEnd = (subscriptionObj as any).currentPeriodEnd || (subscriptionObj as any).current_period_end;
+      if (periodEnd) {
+        expiryDate = new Date(periodEnd * 1000).toISOString();
+      }
+      } else if (planType === 'free_trial') {
+        // Trial expires in 7 days
+        expiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      }
+
+      const updateProfileData: any = {
+        is_subscribed: true,
+        subscription_type: subscriptionType,
+        expiry_subscription: expiryDate,
+      };
+
+      // If this is a free trial, mark has_used_trial as true
+      if (planType === 'free_trial') {
+        updateProfileData.has_used_trial = true;
+      }
+
+      await supabase
+        .from('user_profiles')
+        .update(updateProfileData)
+        .eq('user_id', userId);
+      
+      console.log('✅ User profile updated with subscription info for user:', userId);
+    }
+
     console.log('✅ Checkout completed - subscription updated:', subscriptionId);
   } catch (error) {
     console.error('Error handling checkout completed:', error);
@@ -228,6 +288,25 @@ async function handleSubscriptionUpdated(
       .update(updateData)
       .eq('id', existingSubscription.id);
 
+    // Also update user_profiles - only if subscription is active/trialing
+    if (existingSubscription.user_id && (subscription.status === 'active' || subscription.status === 'trialing')) {
+      const priceId = subscription.items.data[0]?.price?.id || null;
+      const subscriptionType = priceId || existingSubscription.plan_type || 'monthly';
+      const periodEnd = (subscription as any).currentPeriodEnd || (subscription as any).current_period_end;
+      const expiryDate = periodEnd
+        ? new Date(periodEnd * 1000).toISOString()
+        : null;
+
+      await supabase
+        .from('user_profiles')
+        .update({
+          is_subscribed: subscription.status === 'active' || subscription.status === 'trialing',
+          subscription_type: subscriptionType,
+          expiry_subscription: expiryDate,
+        })
+        .eq('user_id', existingSubscription.user_id);
+    }
+
     console.log('✅ Subscription updated:', subscription.id);
   } catch (error) {
     console.error('Error handling subscription updated:', error);
@@ -262,6 +341,18 @@ async function handleSubscriptionDeleted(
         updated_at: new Date().toISOString(),
       })
       .eq('id', existingSubscription.id);
+
+    // Also update user_profiles - set is_subscribed to false
+    if (existingSubscription.user_id) {
+      await supabase
+        .from('user_profiles')
+        .update({
+          is_subscribed: false,
+          subscription_type: null,
+          expiry_subscription: null,
+        })
+        .eq('user_id', existingSubscription.user_id);
+    }
 
     console.log('✅ Subscription cancelled:', subscription.id);
   } catch (error) {
@@ -300,6 +391,39 @@ async function handlePaymentSucceeded(
       return;
     }
 
+    // Get user_id from subscription
+    const userId = existingSubscription.user_id;
+
+    // Save invoice to database
+    const invoiceData = {
+      user_id: userId,
+      subscription_id: existingSubscription.id,
+      stripe_invoice_id: invoice.id,
+      invoice_number: invoice.number || null,
+      amount_paid: (invoice.amount_paid || 0) / 100, // Convert from cents to dollars
+      currency: invoice.currency || 'usd',
+      status: invoice.status || 'paid',
+      invoice_pdf_url: invoice.invoice_pdf || null,
+      hosted_invoice_url: invoice.hosted_invoice_url || null,
+      period_start: invoice.period_start ? new Date(invoice.period_start * 1000).toISOString() : null,
+      period_end: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
+      paid_at: invoice.status_transitions?.paid_at ? new Date(invoice.status_transitions.paid_at * 1000).toISOString() : new Date().toISOString(),
+    };
+
+    // Upsert invoice (insert or update if exists)
+    const { error: invoiceError } = await supabase
+      .from('invoices')
+      .upsert(invoiceData, {
+        onConflict: 'stripe_invoice_id',
+        ignoreDuplicates: false,
+      });
+
+    if (invoiceError) {
+      console.error('Error saving invoice:', invoiceError);
+    } else {
+      console.log('✅ Invoice saved:', invoice.id);
+    }
+
     // Update subscription to active if it was expired
     if (existingSubscription.status === 'expired') {
       await supabase
@@ -320,6 +444,14 @@ async function handlePaymentSucceeded(
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingSubscription.id);
+
+      // Also update user_profiles expiry_subscription
+      await supabase
+        .from('user_profiles')
+        .update({
+          expiry_subscription: new Date(invoice.period_end * 1000).toISOString(),
+        })
+        .eq('user_id', userId);
     }
 
     console.log('✅ Payment succeeded for subscription:', subscriptionId);

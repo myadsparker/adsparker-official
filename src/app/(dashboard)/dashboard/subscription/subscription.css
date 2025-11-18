@@ -1,0 +1,319 @@
+.subscription-page {
+  min-height: calc(100vh - 80px);
+  background-color: #f4f4f4;
+  padding-bottom: 40px;
+  padding-top: 20px;
+}
+
+.subscription-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* Back Link */
+.subscription-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  margin-bottom: 24px;
+  transition: color 0.2s ease;
+}
+
+.subscription-back-link:hover {
+  color: #374151;
+}
+
+.subscription-back-link svg {
+  color: inherit;
+}
+
+/* Header Section */
+.subscription-header {
+  margin-bottom: 32px;
+}
+
+.subscription-title {
+  font-size: 32px;
+  font-weight: 600;
+  color: #121212;
+  margin: 0 0 8px 0;
+  line-height: 1.2;
+}
+
+.subscription-subtitle {
+  font-size: 16px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Card Styles */
+.subscription-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.subscription-card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #121212;
+  margin: 0 0 20px 0;
+}
+
+/* Current Plan Card */
+.subscription-plan-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.subscription-plan-left {
+  flex: 1;
+}
+
+.subscription-plan-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  margin-bottom: 12px;
+}
+
+.subscription-plan-price {
+  font-size: 32px;
+  font-weight: 600;
+  color: #121212;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.subscription-plan-renewal {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.subscription-plan-actions {
+  display: flex;
+  gap: 12px;
+  min-width: 180px;
+}
+
+/* Payment Card */
+.subscription-payment-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.subscription-payment-left {
+  flex: 1;
+}
+
+.subscription-payment-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 0 0 12px 0;
+}
+
+.subscription-payment-method {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.subscription-visa-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 32px;
+  background: #1A1F71;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.subscription-visa-logo svg {
+  width: 100%;
+  height: 100%;
+}
+
+.subscription-card-number {
+  font-size: 16px;
+  font-weight: 500;
+  color: #121212;
+}
+
+/* Invoices Card */
+.subscription-invoices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.subscription-invoice-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.subscription-invoice-item:last-child {
+  border-bottom: none;
+}
+
+.subscription-invoice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  color: #6b7280;
+}
+
+.subscription-invoice-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subscription-invoice-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #121212;
+}
+
+.subscription-invoice-date {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.subscription-invoice-download {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.subscription-invoice-download:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.subscription-invoice-download svg {
+  color: inherit;
+}
+
+/* Button Styles */
+.subscription-btn {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 90px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.subscription-btn-primary {
+  background: #7a3ff3;
+  color: #ffffff;
+}
+
+.subscription-btn-primary:hover {
+  background: #6b2ee8;
+}
+
+.subscription-btn-danger {
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #dc2626;
+}
+
+.subscription-btn-danger:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .subscription-container {
+    padding: 20px 16px;
+  }
+
+  .subscription-title {
+    font-size: 28px;
+  }
+
+  .subscription-card {
+    padding: 20px;
+  }
+
+  .subscription-plan-content {
+    flex-direction: column;
+  }
+
+  .subscription-plan-actions {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .subscription-payment-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .subscription-btn-danger {
+    width: 100%;
+  }
+
+  .subscription-invoice-item {
+    flex-wrap: wrap;
+  }
+
+  .subscription-invoice-download {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .subscription-title {
+    font-size: 24px;
+  }
+
+  .subscription-plan-price {
+    font-size: 28px;
+  }
+
+  .subscription-card {
+    padding: 16px;
+  }
+}
+

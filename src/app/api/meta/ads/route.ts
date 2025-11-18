@@ -72,7 +72,6 @@ export async function GET(request: NextRequest) {
 
     if (!adsResponse.ok) {
       const errorData = await adsResponse.json();
-      console.error('Meta API error:', errorData);
       return NextResponse.json(
         { error: 'Failed to fetch ads from Meta', details: errorData },
         { status: adsResponse.status }
@@ -102,7 +101,6 @@ export async function GET(request: NextRequest) {
             insights: insightsData.data?.[0] || null,
           };
         } catch (err) {
-          console.error(`Error fetching insights for ad ${ad.id}:`, err);
           return {
             ...ad,
             insights: null,
@@ -117,7 +115,6 @@ export async function GET(request: NextRequest) {
       total: adsWithInsights.length,
     });
   } catch (error) {
-    console.error('Ads fetch error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

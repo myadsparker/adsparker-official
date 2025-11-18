@@ -356,7 +356,7 @@ export async function POST(
 
         // Build the ad set JSON similar to your example
         return {
-          ad_set_id: `${Date.now().toString(36)}-${idx}`,
+          ad_set_id: crypto.randomUUID(), // Generate UUID for each adset
           status: 'ACTIVE',
           ad_set_title: personaName,
           audience_description:

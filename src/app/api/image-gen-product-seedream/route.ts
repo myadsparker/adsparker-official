@@ -233,6 +233,199 @@ async function downloadImageAsBase64(imageUrl: string): Promise<string | null> {
 }
 
 /**
+ * Generate image with Gemini 2.5 Flash Image Preview API
+ * Docs: https://docs.freepik.com/api-reference/text-to-image/google/post-gemini-2-5-flash-image-preview
+ */
+async function generateImageWithGeminiFlash(
+  prompt: string,
+  projectId: string,
+  referenceImages?: (string | null)[]
+): Promise<string | null> {
+  const apiKey = process.env.FREEPIK_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('Freepik API key is not configured');
+  }
+
+  try {
+    console.log('🌐 Generating image with Gemini 2.5 Flash...');
+    console.log('📝 Prompt:', prompt.substring(0, 100) + '...');
+
+    const url = `https://api.freepik.com/v1/ai/gemini-2-5-flash-image-preview`;
+
+    const refs = (referenceImages || []).filter(Boolean) as string[];
+
+    // Strengthen prompt to explicitly use references
+    const effectivePrompt =
+      refs.length > 0
+        ? `${prompt}
+        CRITICAL: You are provided reference images. 
+The first reference is the brand logo – include it once, small and tasteful (e.g., a corner watermark), never duplicated. 
+The second reference is the product/OG image – use it as the visual/product reference so the generated ad clearly matches this product. 
+The third reference is a blank white canvas; use it to ensure a clean, full-bleed composition without unintended borders.
+
+Important composition rules:
+- Fill the entire canvas 1024*1024 fully (edge-to-edge, full-bleed composition).
+- Do not leave any white areas, borders, padding, or margins.
+- Avoid framed, mockup, or poster-style layouts.
+        `
+        : prompt;
+
+    const requestBody: any = {
+      prompt: effectivePrompt,
+    };
+
+    if (refs.length > 0) {
+      requestBody.reference_images = refs.slice(0, 3);
+    }
+
+    console.log(
+      '📋 Request body:',
+      JSON.stringify(
+        {
+          prompt: requestBody.prompt.substring(0, 100) + '...',
+          reference_images: requestBody.reference_images
+            ? `count=${requestBody.reference_images.length}`
+            : 'none',
+        },
+        null,
+        2
+      )
+    );
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'x-freepik-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Gemini 2.5 Flash API error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+      });
+      throw new Error(
+        `Gemini 2.5 Flash API error ${response.status}: ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    console.log(
+      '📊 Gemini 2.5 Flash API response:',
+      JSON.stringify(data, null, 2)
+    );
+
+    const taskId = data.data?.task_id;
+    if (!taskId) {
+      throw new Error('No task ID returned from Gemini 2.5 Flash API');
+    }
+
+    const status = data.data?.status;
+    console.log(
+      `✅ Image generation started, task ID: ${taskId}, status: ${status}`
+    );
+
+    // Poll for completion
+    const generatedImageUrl = await pollGeminiFlashTaskStatus(
+      taskId,
+      projectId
+    );
+    return generatedImageUrl;
+  } catch (error) {
+    console.error('❌ Error generating image with Gemini 2.5 Flash:', error);
+    throw error;
+  }
+}
+
+/**
+ * Poll Gemini 2.5 Flash task status until completion
+ */
+async function pollGeminiFlashTaskStatus(
+  taskId: string,
+  projectId?: string,
+  maxAttempts: number = 60
+): Promise<string | null> {
+  console.log('⏳ Polling Gemini 2.5 Flash task status...');
+
+  const apiKey = process.env.FREEPIK_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('FREEPIK_API_KEY is not configured');
+  }
+
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const pollUrl = `https://api.freepik.com/v1/ai/gemini-2-5-flash-image-preview/${taskId}`;
+
+      const response = await fetch(pollUrl, {
+        headers: {
+          'x-freepik-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Gemini 2.5 Flash polling error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
+        throw new Error(`Freepik API error ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log(`📊 Poll attempt ${i + 1}: Status = ${data.data?.status}`);
+
+      if (data.data?.status === 'COMPLETED') {
+        console.log('✅ Image generation completed!');
+
+        const imageUrl = data.data.generated?.[0];
+        if (!imageUrl) {
+          throw new Error('No image URL in completed task');
+        }
+
+        if (projectId) {
+          console.log('💾 Downloading and saving image to Supabase...');
+          const imageBuffer = await downloadImageAsBase64(imageUrl);
+          if (imageBuffer) {
+            const savedUrl = await saveBase64ImageToSupabase(
+              imageBuffer,
+              projectId,
+              `generated-${Date.now()}.png`
+            );
+            if (savedUrl) {
+              console.log('✅ Image saved to Supabase:', savedUrl);
+              return savedUrl;
+            }
+          }
+        }
+
+        return imageUrl;
+      }
+
+      if (data.data?.status === 'FAILED') {
+        throw new Error(
+          `Gemini 2.5 Flash image generation failed: ${data.data?.message || 'Unknown error'}`
+        );
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    } catch (error) {
+      console.error('❌ Error polling task status:', error);
+      throw error;
+    }
+  }
+
+  throw new Error('Gemini 2.5 Flash image generation timeout');
+}
+
+/**
  * Generate image with Seedream 4 Edit API
  * Docs: https://docs.freepik.com/api-reference/text-to-image/seedream-4-edit/post-seedream-v4-edit
  */
@@ -561,7 +754,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 6: Download logo and OG image in parallel
-    console.log('📥 Downloading logo and OG image in parallel...');
+    console.log('📥 Downloading logo, OG image, and white canvas in parallel...');
     const downloadPromises = [];
 
     if (logoUrl) {
@@ -576,19 +769,35 @@ export async function POST(req: NextRequest) {
       downloadPromises.push(Promise.resolve(null));
     }
 
-    const [logoBase64, ogImageBase64] = await Promise.all(downloadPromises);
+    // Download white canvas image as third reference
+    const whiteCanvasUrl =
+      'https://ghsgnjzkgygiqmhjvtpi.supabase.co/storage/v1/object/public/project-files/white-canvas-1024_1024.png';
+    downloadPromises.push(downloadImageAsBase64(whiteCanvasUrl));
 
-    // Step 7: Generate image with Seedream 4 Edit (using available references)
-    console.log('🌐 Generating image with Seedream 4 Edit...');
-    const generatedImageUrl = await generateImageWithSeedreamV4Edit(
+    const [logoBase64, ogImageBase64, whiteCanvasBase64] = await Promise.all(downloadPromises);
+
+    // Step 7: Generate 2 images with Gemini 2.5 Flash (using available references)
+    console.log('🌐 Generating 2 images with Gemini 2.5 Flash...');
+    
+    // Generate first image
+    console.log('📸 Generating first image...');
+    const generatedImageUrl1 = await generateImageWithGeminiFlash(
       promptData.prompt,
       project_id,
-      [logoBase64 || null, ogImageBase64 || null]
+      [logoBase64 || null, ogImageBase64 || null, whiteCanvasBase64 || null]
     );
 
-    if (!generatedImageUrl) {
+    // Generate second image
+    console.log('📸 Generating second image...');
+    const generatedImageUrl2 = await generateImageWithGeminiFlash(
+      promptData.prompt,
+      project_id,
+      [logoBase64 || null, ogImageBase64 || null, whiteCanvasBase64 || null]
+    );
+
+    if (!generatedImageUrl1 && !generatedImageUrl2) {
       return NextResponse.json(
-        { error: 'Failed to generate image with Seedream 4 Edit' },
+        { error: 'Failed to generate images with Gemini 2.5 Flash' },
         { status: 500 }
       );
     }
@@ -597,6 +806,7 @@ export async function POST(req: NextRequest) {
     const referenceImages: string[] = [];
     if (logoBase64) referenceImages.push(logoBase64);
     if (ogImageBase64) referenceImages.push(ogImageBase64);
+    if (whiteCanvasBase64) referenceImages.push(whiteCanvasBase64);
 
     // Step 10: Save images to Supabase storage and update database
     console.log(
@@ -605,10 +815,10 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now();
 
     // Images are already saved to Supabase by the generation functions
-    const savedGeneratedUrl = generatedImageUrl;
+    const generatedImages = [generatedImageUrl1, generatedImageUrl2].filter(Boolean) as string[];
 
-    // Step 11: Update ai_images in database
-    if (savedGeneratedUrl) {
+    // Step 11: Update ai_images in database with both images
+    if (generatedImages.length > 0) {
       try {
         console.log('💾 Updating ai_images in database...');
 
@@ -633,13 +843,11 @@ export async function POST(req: NextRequest) {
 
           // Add new image URLs (avoid duplicates)
           const newImages: string[] = [];
-          if (
-            savedGeneratedUrl &&
-            !existingAiImages.includes(savedGeneratedUrl)
-          ) {
-            newImages.push(savedGeneratedUrl);
-          }
-          // No enhanced image added; Seedream post-editing removed
+          generatedImages.forEach((imageUrl) => {
+            if (imageUrl && !existingAiImages.includes(imageUrl)) {
+              newImages.push(imageUrl);
+            }
+          });
 
           if (newImages.length > 0) {
             const updatedAiImages = [...existingAiImages, ...newImages];
@@ -654,7 +862,7 @@ export async function POST(req: NextRequest) {
               console.error('❌ Failed to update ai_images:', updateError);
             } else {
               console.log(
-                '✅ AI image URLs saved to ai_images column:',
+                `✅ ${newImages.length} AI image URL(s) saved to ai_images column:`,
                 newImages
               );
             }
@@ -668,7 +876,7 @@ export async function POST(req: NextRequest) {
     const response: ImageGenResponse = {
       success: true,
       project_id,
-      generatedImageUrl: savedGeneratedUrl || undefined,
+      generatedImageUrl: generatedImageUrl1 || generatedImageUrl2 || undefined,
       // No enhanced image in this flow
       logoUrl: logoUrl || undefined,
       ogImageUrl: ogImageUrl || undefined,

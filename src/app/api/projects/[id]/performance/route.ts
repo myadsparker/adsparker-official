@@ -238,8 +238,7 @@ Respond in JSON format only:
       },
     };
   } catch (error) {
-    console.error('AI estimation error:', error);
-    console.log('Fallback exploration days triggered.');
+
     // Fallback to algorithmic estimation
     return {
       estimatedReachRange: [audienceSize * 0.05, audienceSize * 0.15],
@@ -254,9 +253,6 @@ Respond in JSON format only:
 }
 
 function calculateExplorationDays(dailyBudget: number): number {
-  console.log(
-    `Debug: calculateExplorationDays called with dailyBudget: ${dailyBudget}`
-  );
   let explorationDays: number;
 
   // Simplified logic: more budget = less exploration days, minimum 3 days
@@ -440,7 +436,6 @@ export async function POST(
     const adset = adsets[0];
     const audienceDescription = adset.audience_description || '';
     const dailyBudget = requestDailyBudget || adset.budget || 150; // Use budget from request body, then adset, then default
-    console.log(`Debug: Daily Budget in POST function: ${dailyBudget}`);
     const audienceTags = adset.audience_tags || [];
     const targetCountries = adset.targeting?.GeoLocations?.Countries || ['US'];
 
@@ -455,15 +450,6 @@ export async function POST(
         (audienceTags.length > 0
           ? Math.min(0.3, audienceTags.length * 0.1)
           : 0.15)
-    );
-
-    console.log('📊 Enhanced Analysis:');
-    console.log('- Industry:', industry);
-    console.log('- Daily Budget:', dailyBudget);
-    console.log('- Main Market:', mainCountry);
-    console.log(
-      '- Estimated Audience:',
-      estimatedAudienceSize.toLocaleString()
     );
 
     // Get AI-powered estimates
@@ -517,40 +503,21 @@ export async function POST(
       optimization_factor: aiEstimate.optimizationFactor,
     };
 
-    console.log(
-      `Debug: Final exploration_days before response: ${calculateExplorationDays(
-        dailyBudget
-      )}`
-    );
-    console.log('📈 Enhanced Results:');
-    console.log(
-      '- AdSparker Final Reach:',
-      reachData.adsparkerPerformance[13].toLocaleString()
-    );
-    console.log(
-      '- Industry Final Reach:',
-      reachData.industryPerformance[13].toLocaleString()
-    );
-    console.log(
-      '- Performance Range:',
-      reachData.performanceRange.map(r => r.toLocaleString())
-    );
-    console.log('- Recommended Budget:', result.recommend_budget);
-
     // Save to Supabase
     try {
       await supabase
         .from('projects')
-        .update({ reach_estimate_data: result })
+        .update({ 
+          reach_estimate_data: result,
+          performance: result // Save to performance column as well
+        })
         .eq('project_id', projectId);
-      console.log('✅ Enhanced reach estimate saved successfully');
     } catch (saveErr) {
-      console.error('⚠️ Error saving to Supabase:', saveErr);
+      
     }
 
     return NextResponse.json(result);
   } catch (err) {
-    console.error('❌ Enhanced API Error:', err);
     return NextResponse.json(
       { error: 'Internal server error', details: String(err) },
       { status: 500 }

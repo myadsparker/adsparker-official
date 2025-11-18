@@ -520,6 +520,7 @@
   order: 0;
   flex-grow: 0;
   color: #7e52e0;
+  width: max-content;
 }
 
 .nav_buttons_wrapper button.next {
@@ -1461,6 +1462,7 @@
   .nav_buttons_wrapper button {
     width: 100%;
     padding: 0;
+    width: max-content;
   }
 
   .modal-overlay {
@@ -1488,4 +1490,130 @@
     height: 100%;
     object-position: top;
   } */
+}
+
+/* Thumbnail Upload Area Styles */
+.thumbnail-upload-area {
+  position: relative;
+  height: 295px;
+  background: linear-gradient(135deg, #E2D5FF 0%, #D4C5F0 100%);
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.thumbnail-upload-area:hover {
+  background: linear-gradient(135deg, #E2D5FF 0%, #D4C5F0 100%);
+}
+
+.thumbnail-upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 1;
+  transition: opacity 0.3s ease;
+}
+
+.thumbnail-upload-area:hover .thumbnail-upload-content {
+  opacity: 0.6;
+}
+
+.thumbnail-upload-text-main {
+  font-size: 16px;
+  font-weight: 500;
+  color: #ffffff;
+  text-align: center;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.thumbnail-upload-text-sub {
+  font-size: 14px;
+  font-weight: 400;
+  color: #ffffff;
+  text-align: center;
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+.thumbnail-upload-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+}
+
+.thumbnail-upload-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.thumbnail-upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(226, 213, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 2;
+}
+
+.thumbnail-upload-area:hover .thumbnail-upload-overlay {
+  opacity: 1;
+}
+
+.thumbnail-upload-btn {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.thumbnail-upload-area:hover .thumbnail-upload-btn {
+  transform: scale(1.1);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.thumbnail-upload-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+@media (max-width: 768px) {
+  .thumbnail-upload-area {
+    width: 100%;
+    max-width: 380px;
+    height: 250px;
+  }
+
+  .thumbnail-upload-text-main {
+    font-size: 14px;
+  }
+
+  .thumbnail-upload-text-sub {
+    font-size: 12px;
+  }
+
+  .thumbnail-upload-icon {
+    width: 40px;
+    height: 40px;
+  }
 }

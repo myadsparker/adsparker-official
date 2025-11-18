@@ -69,7 +69,6 @@ export async function GET(request: NextRequest) {
                 });
             }
         } catch (error) {
-            console.error('Error fetching pages from me/accounts:', error);
         }
 
         try {
@@ -90,7 +89,6 @@ export async function GET(request: NextRequest) {
                 });
             }
         } catch (error) {
-            console.error('Error fetching pages from managed accounts:', error);
         }
 
         return NextResponse.json({
@@ -98,7 +96,6 @@ export async function GET(request: NextRequest) {
             pages: allPages,
         });
     } catch (error) {
-        console.error('Failed to load Meta pages:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }

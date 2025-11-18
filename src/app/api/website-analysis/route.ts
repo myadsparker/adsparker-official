@@ -15,12 +15,20 @@ const LOGO_DEV_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_LOGO_DEV_KEY || 'pk_S4Hd1_jvQ8WsbXpxCuND3Q';
 
 type AdSet = {
+  ad_set_id: string;
   ad_set_title: string;
   audience_description: string;
   audience_explanation: string;
   audience_tags: string[];
   ad_copywriting_title: string;
   ad_copywriting_body: string;
+  age_range?: { min: number; max: number };
+  genders?: string[];
+  audience_size_range?: { min: number; max: number };
+  status?: string;
+  targeting?: any;
+  creative_meta_data_1x1?: any;
+  creative_meta_data_9x16?: any;
 };
 
 type AnalysisResponse = {
@@ -39,8 +47,6 @@ async function generateAdSets(
   businessName: string,
   analysingPoints: any
 ): Promise<AdSet[]> {
-  console.log(`✍️ Generating 10 ad sets for ${businessName}...`);
-
   try {
     const prompt = `Create 10 diverse, high-converting ad sets specifically for ${businessName} based on this business analysis:
 
@@ -97,24 +103,23 @@ Return as JSON object with this exact structure:
     });
 
     const result = JSON.parse(response.choices[0].message.content || '{}');
-    console.log('🔍 Raw ChatGPT response:', JSON.stringify(result, null, 2));
 
     const adSets = result.adSets || [];
 
-    console.log(
-      `✅ Generated ${Array.isArray(adSets) ? adSets.length : 0} ad sets`
-    );
+    // Generate UUID for each adset
+    const adSetsWithIds = Array.isArray(adSets) 
+      ? adSets.map((adSet: any) => ({
+          ...adSet,
+          ad_set_id: crypto.randomUUID(), // Generate unique ID for each adset
+          status: adSet.status || 'ACTIVE',
+          targeting: adSet.targeting || null,
+          creative_meta_data_1x1: adSet.creative_meta_data_1x1 || null,
+          creative_meta_data_9x16: adSet.creative_meta_data_9x16 || null,
+        }))
+      : [];
 
-    if (Array.isArray(adSets) && adSets.length > 0) {
-      console.log(
-        '📝 First ad set sample:',
-        JSON.stringify(adSets[0], null, 2)
-      );
-    }
-
-    return Array.isArray(adSets) ? adSets : [];
+    return adSetsWithIds;
   } catch (error) {
-    console.error('❌ Error generating ad sets:', error);
     throw new Error(`Failed to generate ad sets: ${error}`);
   }
 }
@@ -127,7 +132,6 @@ async function fetchAndSaveLogo(
   projectId: string
 ): Promise<string> {
   try {
-    console.log(`🖼️ Fetching logo for domain: ${domain}`);
 
     // Construct logo.dev URL
     const logoUrl = `https://img.logo.dev/${domain}?token=${LOGO_DEV_PUBLIC_KEY}`;
@@ -175,11 +179,9 @@ async function fetchAndSaveLogo(
       .getPublicUrl(filename);
 
     const bucketUrl = urlData.publicUrl;
-    console.log(`✅ Logo uploaded successfully: ${bucketUrl}`);
 
     return bucketUrl;
   } catch (error) {
-    console.error('❌ Error fetching/uploading logo:', error);
     throw error;
   }
 }
@@ -215,10 +217,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`🚀 Starting ad set generation for project: ${project_id}`);
-
     // Step 1: Fetch project from Supabase
-    console.log('📊 Fetching project from Supabase...');
     const { data: project, error: fetchError } = await supabase
       .from('projects')
       .select('analysing_points, url_analysis')
@@ -240,7 +239,6 @@ export async function POST(req: NextRequest) {
           ? JSON.parse(project.analysing_points)
           : project?.analysing_points;
     } catch (error) {
-      console.error('Error parsing analysing_points:', error);
       return NextResponse.json(
         { error: 'Invalid analysing_points data' },
         { status: 400 }
@@ -259,7 +257,6 @@ export async function POST(req: NextRequest) {
 
     // Step 3: Extract business name
     const businessName = analysingPoints.businessName || 'Unknown Business';
-    console.log(`🏢 Business Name: ${businessName}`);
 
     // Step 4: Fetch and save logo
     let logoUrl: string | null = null;
@@ -273,7 +270,6 @@ export async function POST(req: NextRequest) {
       const websiteUrl = urlAnalysis?.website_url;
       if (websiteUrl) {
         const domain = extractDomain(websiteUrl);
-        console.log(`🌐 Extracted domain for logo: ${domain}`);
         logoUrl = await fetchAndSaveLogo(domain, project_id);
 
         // Add logo URL to analysing_points
@@ -287,36 +283,21 @@ export async function POST(req: NextRequest) {
           .eq('project_id', project_id);
 
         if (logoUpdateError) {
-          console.error(
-            '❌ Error updating analysing_points with logo:',
-            logoUpdateError
-          );
-        } else {
-          console.log('✅ Logo URL saved to analysing_points successfully!');
         }
-      } else {
-        console.log('⚠️ No website URL found, skipping logo fetch');
       }
     } catch (error) {
-      console.error('❌ Error fetching logo:', error);
-      // Don't fail the entire request if logo fetch fails
     }
 
-    // Step 5: Generate ad sets
+    // Step 5: Generate ad sets (with UUIDs)
     const adSets = await generateAdSets(businessName, analysingPoints);
 
     // Step 6: Save ad sets to Supabase in ad_set_proposals column
-    console.log('💾 Saving ad sets to Supabase...');
     const { error: saveError } = await supabase
       .from('projects')
       .update({ ad_set_proposals: adSets })
       .eq('project_id', project_id);
 
     if (saveError) {
-      console.error('❌ Error saving ad sets to Supabase:', saveError);
-      // Don't fail the entire request, just log the error
-    } else {
-      console.log('✅ Ad sets saved to Supabase successfully!');
     }
 
     const response: AnalysisResponse = {
@@ -327,10 +308,8 @@ export async function POST(req: NextRequest) {
       logoUrl,
     };
 
-    console.log('🎉 Ad set generation complete!');
     return NextResponse.json(response);
   } catch (error: any) {
-    console.error('❌ Error in ad set generation:', error);
     return NextResponse.json(
       {
         success: false,

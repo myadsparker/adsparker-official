@@ -30,7 +30,6 @@ export async function POST(req: Request) {
       .single();
 
     if (fetchError) {
-      console.error('Fetch error:', fetchError);
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
@@ -55,7 +54,6 @@ export async function POST(req: Request) {
       .eq('project_id', project_id);
 
     if (updateError) {
-      console.error('Update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to save campaign details' },
         { status: 500 }
@@ -67,7 +65,6 @@ export async function POST(req: Request) {
       message: 'Campaign details saved successfully',
     });
   } catch (error) {
-    console.error('Error saving campaign details:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

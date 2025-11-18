@@ -6,6 +6,7 @@ import Stepper from '@/components/dashboard/Stepper';
 import { Slider, Dropdown } from 'antd';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
+import SubscriptionPlansModal from '@/components/subscription-plans-modal';
 import {
   LineChart,
   Line,
@@ -64,7 +65,7 @@ export default function BudgetPage() {
     string | null
   >(null);
   const [savingThumbnail, setSavingThumbnail] = useState(false);
-  const [thumbnailImage, setThumbnailImage] = useState<string | null>(null);
+  const [thumbnailImages, setThumbnailImages] = useState<Record<string, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [analyzingPoints, setAnalyzingPoints] = useState<any>(null);
   const [isMainProduct, setIsMainProduct] = useState<boolean | null>(null);
@@ -80,6 +81,8 @@ export default function BudgetPage() {
   const [pages, setPages] = useState<any[]>([]);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [loadingPages, setLoadingPages] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   // Calculate number of ad sets to show based on budget
   const getAdSetLimit = (budget: number): number => {
@@ -137,9 +140,27 @@ export default function BudgetPage() {
           setUploadedImages(files || []);
         }
 
-        // Set thumbnail image
+        // Set thumbnail images (object with adset_id as keys)
         if (data?.adset_thumbnail_image) {
-          setThumbnailImage(data.adset_thumbnail_image);
+          try {
+            const thumbnails = typeof data.adset_thumbnail_image === 'string'
+              ? JSON.parse(data.adset_thumbnail_image)
+              : data.adset_thumbnail_image;
+            
+            // If it's an object, use it directly
+            if (typeof thumbnails === 'object' && thumbnails !== null && !Array.isArray(thumbnails)) {
+              setThumbnailImages(thumbnails);
+            } else if (typeof thumbnails === 'string') {
+              // Old format: single string, we'll need to assign it to adsets later
+              // For now, store it with a default key for backward compatibility
+              setThumbnailImages({ default: thumbnails });
+            }
+          } catch (e) {
+            // If parsing fails, treat as old format string
+            if (typeof data.adset_thumbnail_image === 'string') {
+              setThumbnailImages({ default: data.adset_thumbnail_image });
+            }
+          }
         }
 
         // Set analyzing points and check isMainProduct
@@ -193,12 +214,20 @@ export default function BudgetPage() {
             const initialFiltered = trimmedAdSets.slice(0, initialLimit);
             setSelectedAdSet(initialFiltered[0] || trimmedAdSets[0]); // Select first ad set by default
             setSelectedAdSetIndex(0);
-            console.log('✅ Loaded adsets from database:', adsets.length);
+          }
+        }
+
+        // Check for performance data in database
+        if (data?.performance) {
+          const performance = typeof data.performance === 'string'
+            ? JSON.parse(data.performance)
+            : data.performance;
+          if (performance && Object.keys(performance).length > 0) {
+            setPerformanceData(performance);  
           }
         }
       }
     } catch (error) {
-      console.error('Error fetching project data:', error);
     } finally {
       setLoading(false); // End loading
     }
@@ -244,7 +273,6 @@ export default function BudgetPage() {
         }
       }
     } catch (error) {
-      console.error('Error fetching connected accounts:', error);
     } finally {
       setLoadingAccounts(false);
     }
@@ -265,18 +293,29 @@ export default function BudgetPage() {
           setSelectedPageId(pagesList[0].id);
         }
       } else {
-        console.error('Failed to fetch pages:', await response.json());
         setPages([]);
       }
     } catch (error) {
-      console.error('Error fetching pages:', error);
       setPages([]);
     } finally {
       setLoadingPages(false);
     }
   };
 
-  // Fetch subscription status
+  // Fetch user profile with subscription info
+  const fetchUserProfile = async () => {
+    try {
+      const response = await fetch('/api/user-profile');
+      if (response.ok) {
+        const data = await response.json();
+        setUserProfile(data.profile);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  // Fetch subscription status (keeping for backward compatibility)
   const fetchSubscription = async () => {
     try {
       setSubscriptionLoading(true);
@@ -286,7 +325,6 @@ export default function BudgetPage() {
         setSubscription(data.subscription);
       }
     } catch (error) {
-      console.error('Error fetching subscription:', error);
     } finally {
       setSubscriptionLoading(false);
     }
@@ -303,14 +341,102 @@ export default function BudgetPage() {
       // Fetch initial performance data with default budget
       fetchPerformanceData(75);
       fetchSubscription(); // Fetch subscription status
+      fetchUserProfile(); // Fetch user profile with subscription info
     }
   }, [projectId]);
 
-  // Handle OAuth success message and checkout success
+
+  // Handle OAuth success message, errors, and checkout success (legacy URL-based)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const metaConnected = urlParams.get('meta_connected');
+    const metaError = urlParams.get('meta_error');
+    const errorCode = urlParams.get('error_code');
     const checkout = urlParams.get('checkout');
+
+    // Handle Meta authentication errors
+    if (metaError) {
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+      
+      if (metaError === 'manual_auth_required') {
+        toast.error(
+          'Facebook requires manual authentication. Please log in to Facebook, confirm your identity, and approve the app access. Then try connecting again.',
+          {
+            duration: 8000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          }
+        );
+      } else if (metaError === 'oauth_failed') {
+        toast.error(
+          `Meta OAuth failed${errorCode ? ` (Error Code: ${errorCode})` : ''}. Please try connecting again.`,
+          {
+            duration: 6000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          }
+        );
+      } else if (metaError === 'no_token') {
+        toast.error(
+          'Failed to obtain access token from Meta. Please try connecting again.',
+          {
+            duration: 6000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          }
+        );
+      } else if (metaError === 'user_profile_not_found') {
+        toast.error(
+          'User profile not found. Please try again.',
+          {
+            duration: 6000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          }
+        );
+      } else if (metaError === 'save_failed') {
+        toast.error(
+          'Failed to save Meta account data. Please try again.',
+          {
+            duration: 6000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          }
+        );
+      }
+      return;
+    }
 
     if (metaConnected === 'true') {
       // Refresh connected accounts
@@ -378,7 +504,6 @@ export default function BudgetPage() {
             }
           })
           .catch(error => {
-            console.error('Error verifying session:', error);
             toast.error('Error verifying subscription. Please contact support.', {
               duration: 5000,
               style: {
@@ -421,6 +546,87 @@ export default function BudgetPage() {
     setSelectedAdSetIndex(index);
   };
 
+  // Helper function to get adset ID
+  const getAdSetId = (adSet: AdSet | null): string | null => {
+    if (!adSet) return null;
+    return adSet.ad_set_id || null;
+  };
+
+  // Handle opening image modal - ensures an adset is selected
+  const handleOpenImageModal = () => {
+    
+    // If no adset is selected, select the first available one
+    if (!selectedAdSet && adSets.length > 0) {
+      const filteredAdSets = getFilteredAdSets();
+      
+      if (filteredAdSets.length > 0) {
+        const firstAdSet = filteredAdSets[0];
+        if (!firstAdSet.ad_set_id) {
+        
+          toast.error('Ad set is missing an ID. Please regenerate ad sets.', {
+            duration: 4000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          });
+          return;
+        }
+        
+        setSelectedAdSet(firstAdSet);
+        setSelectedAdSetIndex(0);
+        setShowImageModal(true);
+      } else {
+     
+        toast.error('No ad sets available. Please create ad sets first.', {
+          duration: 4000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
+      }
+    } else if (selectedAdSet) {
+      // Adset is already selected, just open modal
+      if (!selectedAdSet.ad_set_id) {
+        toast.error('Ad set is missing an ID. Please regenerate ad sets.', {
+          duration: 4000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
+        return;
+      }
+      
+      setShowImageModal(true);
+    } else {
+      toast.error('No ad sets available. Please create ad sets first.', {
+        duration: 4000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
+    }
+  };
+
   // Handle collapsible toggle
   const toggleCollapsible = (key: string) => {
     setCollapsedStates(prev => ({
@@ -433,6 +639,24 @@ export default function BudgetPage() {
   const fetchPerformanceData = async (budget: number) => {
     try {
       setLoadingPerformance(true);
+      
+      // First, check if performance data exists in the database
+      const projectResponse = await fetch(`/api/projects/${projectId}`);
+      if (projectResponse.ok) {
+        const projectData = await projectResponse.json();
+        if (projectData?.performance) {
+          const performance = typeof projectData.performance === 'string'
+            ? JSON.parse(projectData.performance)
+            : projectData.performance;
+          if (performance && Object.keys(performance).length > 0) {
+            setPerformanceData(performance);
+            setLoadingPerformance(false);
+            return;
+          }
+        }
+      }
+
+      // If no performance data in database, call the API
       const response = await fetch(`/api/projects/${projectId}/performance`, {
         method: 'POST',
         headers: {
@@ -450,7 +674,6 @@ export default function BudgetPage() {
       const data = await response.json();
       setPerformanceData(data);
     } catch (error) {
-      console.error('Error fetching performance data:', error);
     } finally {
       setLoadingPerformance(false);
     }
@@ -498,7 +721,6 @@ export default function BudgetPage() {
       const apiEndpoint = isMainProduct
         ? '/api/image-gen-product-seedream'
         : '/api/image-gen-service';
-      console.log(`🚀 Calling ${apiEndpoint} for automatic image generation`);
 
       const response = await fetch(apiEndpoint, {
         method: 'POST',
@@ -525,8 +747,8 @@ export default function BudgetPage() {
         // Refresh project data to get updated ai_images
         await fetchProjectData();
 
-        // Set as thumbnail automatically
-        if (generatedImageUrl) {
+        // Set as thumbnail automatically for selected adset
+        if (generatedImageUrl && selectedAdSet?.ad_set_id) {
           try {
             const thumbnailResponse = await fetch(
               `/api/projects/${projectId}/save-thumbnail`,
@@ -537,6 +759,7 @@ export default function BudgetPage() {
                 },
                 body: JSON.stringify({
                   thumbnail_image_url: generatedImageUrl,
+                  adset_id: selectedAdSet.ad_set_id,
                 }),
               }
             );
@@ -544,8 +767,11 @@ export default function BudgetPage() {
             if (thumbnailResponse.ok) {
               const thumbnailData = await thumbnailResponse.json();
               if (thumbnailData.success) {
-                // Update local state
-                setThumbnailImage(generatedImageUrl);
+                // Update local state for this adset
+                setThumbnailImages(prev => ({
+                  ...prev,
+                  [selectedAdSet.ad_set_id]: generatedImageUrl,
+                }));
                 // Show success toast
                 toast.success('AI image generated and set as thumbnail!', {
                   duration: 4000,
@@ -604,9 +830,6 @@ export default function BudgetPage() {
       !autoGeneratingImage &&
       !hasAttemptedImageGen.current
     ) {
-      console.log(
-        `🖼️ Auto-generating image for ${isMainProduct ? 'product' : 'service'} page`
-      );
       handleAutoGenerateImage();
     }
   }, [
@@ -668,7 +891,6 @@ export default function BudgetPage() {
         });
       }
     } catch (error) {
-      console.error('Error generating AI image:', error);
       toast.error('Failed to generate AI image', {
         duration: 5000,
         style: {
@@ -726,7 +948,6 @@ export default function BudgetPage() {
         });
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
       toast.error('Failed to upload file', {
         duration: 5000,
         style: {
@@ -745,7 +966,14 @@ export default function BudgetPage() {
 
   // Handle saving thumbnail image
   const handleSaveThumbnail = async () => {
+    console.log('💾 handleSaveThumbnail called');
+    console.log('selectedThumbnailImage:', selectedThumbnailImage);
+    console.log('selectedAdSet:', selectedAdSet);
+    console.log('selectedAdSet?.ad_set_id:', selectedAdSet?.ad_set_id);
+    console.log('adSets:', adSets);
+    
     if (!selectedThumbnailImage) {
+      console.error('❌ No thumbnail image selected');
       toast.error('Please select an image first', {
         duration: 4000,
         style: {
@@ -760,8 +988,69 @@ export default function BudgetPage() {
       return;
     }
 
+    // If no adset is selected, try to get the first one
+    let currentAdSet = selectedAdSet;
+    if (!currentAdSet || !currentAdSet.ad_set_id) {
+      console.log('⚠️ No adset selected, trying to get first available');
+      const filteredAdSets = getFilteredAdSets();
+      if (filteredAdSets.length > 0) {
+        currentAdSet = filteredAdSets[0];
+        console.log('✅ Using first available adset:', currentAdSet);
+        console.log('First adset ID:', currentAdSet.ad_set_id);
+        
+        if (!currentAdSet.ad_set_id) {
+          console.error('❌ First adset does not have ad_set_id!');
+          toast.error('Ad set is missing an ID. Please regenerate ad sets.', {
+            duration: 4000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          });
+          return;
+        }
+        
+        setSelectedAdSet(currentAdSet);
+        setSelectedAdSetIndex(0);
+      }
+    }
+
+    const adsetId = currentAdSet?.ad_set_id;
+    if (!adsetId) {
+      console.error('❌ No adset ID available');
+      console.error('currentAdSet:', currentAdSet);
+      console.error('currentAdSet keys:', currentAdSet ? Object.keys(currentAdSet) : 'null');
+      toast.error('Ad set is missing an ID. Please regenerate ad sets.', {
+        duration: 4000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
+      return;
+    }
+
+    console.log('✅ Proceeding with save - Adset ID:', adsetId);
+
     try {
       setSavingThumbnail(true);
+
+      const requestBody = {
+        thumbnail_image_url: selectedThumbnailImage,
+        adset_id: adsetId,
+      };
+
+      console.log('📤 Sending request to save thumbnail:');
+      console.log('Request body:', requestBody);
+      console.log('Project ID:', projectId);
 
       const response = await fetch(
         `/api/projects/${projectId}/save-thumbnail`,
@@ -770,11 +1059,12 @@ export default function BudgetPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            thumbnail_image_url: selectedThumbnailImage,
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
+
+      console.log('📥 Response status:', response.status);
+      console.log('Response ok:', response.ok);
 
       if (!response.ok) {
         throw new Error('Failed to save thumbnail');
@@ -793,12 +1083,16 @@ export default function BudgetPage() {
             fontWeight: '500',
           },
         });
-        setThumbnailImage(selectedThumbnailImage);
+        // Update local state for this adset
+        setThumbnailImages(prev => ({
+          ...prev,
+          [adsetId]: selectedThumbnailImage,
+        }));
         setShowImageModal(false);
         setSelectedThumbnailImage(null);
       }
     } catch (error) {
-      console.error('Error saving thumbnail:', error);
+     
       toast.error('Failed to save thumbnail image', {
         duration: 5000,
         style: {
@@ -898,166 +1192,68 @@ export default function BudgetPage() {
 
   // Handle publish ads - check subscription and redirect to payment if needed
   const handlePublishAdsFromButton = async () => {
-    // Refresh ad accounts from Meta before opening modal
-    await refreshAdAccounts();
-    setShowModal(true);
-    return;
     try {
-      // Check subscription status first
-      const subscriptionResponse = await fetch('/api/subscriptions');
-      let subscriptionData = null;
+      // Fetch latest user profile and accounts
+      await Promise.all([fetchUserProfile(), refreshAdAccounts()]);
 
-      if (subscriptionResponse.ok) {
-        subscriptionData = await subscriptionResponse.json();
-      }
-
-      const userSubscription = subscriptionData?.subscription;
-
-      // If no subscription, create free trial and proceed
-      if (!userSubscription) {
-        // Create free trial subscription
-        const createTrialResponse = await fetch('/api/subscriptions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            plan_type: 'free_trial',
-            card_required: true,
-            card_added: false,
-            trial_days: 7,
-          }),
-        });
-
-        if (createTrialResponse.ok) {
-          const trialData = await createTrialResponse.json();
-          // Refresh subscription status
-          await fetchSubscription();
-
-          // For free trial, we still need card, so redirect to Stripe for card setup
-          // Create Stripe checkout session for trial (setup payment method)
-          const checkoutResponse = await fetch('/api/subscriptions/checkout', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              planType: 'free_trial',
-              projectId: projectId,
-            }),
-          });
-
-          if (checkoutResponse.ok) {
-            const checkoutData = await checkoutResponse.json();
-            if (checkoutData.url) {
-              window.location.href = checkoutData.url;
-            } else {
-              toast.error(checkoutData.error || 'Failed to create checkout session. Please try again.', {
-                duration: 5000,
-                style: {
-                  background: '#dc2626',
-                  color: '#fff',
-                  padding: '16px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                },
-              });
-            }
-          } else {
-            const errorData = await checkoutResponse.json().catch(() => ({}));
-            const errorMessage = errorData.error || errorData.details || 'Failed to create checkout session. Please try again.';
-            toast.error(`${errorMessage}${errorData.details ? `\n\nDetails: ${errorData.details}` : ''}`, {
-              duration: 5000,
-              style: {
-                background: '#dc2626',
-                color: '#fff',
-                padding: '16px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-              },
-            });
-            console.error('Checkout error:', errorData);
-          }
-        } else {
-          toast.error('Failed to create free trial. Please try again.', {
-            duration: 5000,
-            style: {
-              background: '#dc2626',
-              color: '#fff',
-              padding: '16px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: '500',
-            },
-          });
+      // Get fresh data after fetching
+      const profileResponse = await fetch('/api/user-profile');
+      const profileData = profileResponse.ok ? await profileResponse.json() : null;
+      const currentProfile = profileData?.profile || userProfile;
+      
+      // Check if subscription is valid (not expired)
+      const isSubscribedRaw = currentProfile?.is_subscribed || false;
+      const expiryDate = currentProfile?.expiry_subscription;
+      
+      // If subscription has expiry date, check if it's still valid
+      let isSubscribed = isSubscribedRaw;
+      if (isSubscribedRaw && expiryDate) {
+        const expiry = new Date(expiryDate);
+        const now = new Date();
+        if (now > expiry) {
+          // Subscription has expired
+          isSubscribed = false;
         }
+      }
+      
+      const hasFacebookAccount = connectedAccounts.length > 0;
+
+      // Case 1: No subscription AND no Facebook account → Show subscription plans
+      if (!isSubscribed && !hasFacebookAccount) {
+        setShowSubscriptionModal(true);
         return;
       }
 
-      // If subscription exists, check if it's expired or needs payment
-      if (userSubscription.status === 'trial_expired' || !userSubscription.card_added) {
-        // Redirect to Stripe checkout for payment
-        const checkoutResponse = await fetch('/api/subscriptions/checkout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+      // Case 2: Has subscription but no Facebook account → Show toast
+      if (isSubscribed && !hasFacebookAccount) {
+        toast.error('Please add Facebook account', {
+          duration: 4000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
           },
-          body: JSON.stringify({
-            planType: userSubscription.plan_type === 'trial_expired' ? 'monthly' : userSubscription.plan_type,
-            projectId: projectId,
-          }),
         });
-
-        if (checkoutResponse.ok) {
-          const checkoutData = await checkoutResponse.json();
-          if (checkoutData.url) {
-            window.location.href = checkoutData.url;
-          } else {
-            toast.error(checkoutData.error || 'Failed to create checkout session. Please try again.', {
-              duration: 5000,
-              style: {
-                background: '#dc2626',
-                color: '#fff',
-                padding: '16px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-              },
-            });
-          }
-        } else {
-          const errorData = await checkoutResponse.json().catch(() => ({}));
-          const errorMessage = errorData.error || errorData.details || 'Failed to create checkout session. Please try again.';
-          toast.error(`${errorMessage}${errorData.details ? `\n\nDetails: ${errorData.details}` : ''}`, {
-            duration: 5000,
-            style: {
-              background: '#dc2626',
-              color: '#fff',
-              padding: '16px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: '500',
-            },
-          });
-          console.error('Checkout error:', errorData);
-        }
-        return;
-      }
-
-      // If subscription is active and card is added, proceed to publish ads
-      // This will be handled by the existing handlePublishAds function
-      // For now, show the modal to connect Meta account if needed
-      if (connectedAccounts.length === 0) {
         setShowModal(true);
         return;
       }
 
-      // If Meta is connected and subscription is active, proceed with publishing
-      await handlePublishAds();
+      // Case 3: Has subscription and Facebook account → Show publish modal
+      if (isSubscribed && hasFacebookAccount) {
+        setShowModal(true);
+        return;
+      }
+
+      // Case 4: No subscription but has Facebook account → Show subscription plans
+      if (!isSubscribed && hasFacebookAccount) {
+        setShowSubscriptionModal(true);
+        return;
+      }
     } catch (error) {
-      console.error('Error in publish ads flow:', error);
+      console.error('Error checking subscription:', error);
       toast.error('An error occurred. Please try again.', {
         duration: 5000,
         style: {
@@ -1081,21 +1277,20 @@ export default function BudgetPage() {
 
   const handleConnectMetaAccount = async () => {
     try {
-      console.log('Initiating Meta OAuth for project:', projectId);
+     
       const response = await fetch(
         `/api/meta-auth?action=connect&projectId=${projectId}`
       );
 
-      console.log('Response status:', response.status);
+ 
       const data = await response.json();
-      console.log('Response data:', data);
+
 
       if (data.success && data.oauthUrl) {
-        console.log('Redirecting to OAuth URL:', data.oauthUrl);
         // Redirect to Meta OAuth
         window.location.href = data.oauthUrl;
       } else {
-        console.error('Failed to initiate Meta OAuth:', data.error);
+      
         toast.error(
           `Failed to connect Meta account: ${data.error || 'Unknown error'}`,
           {
@@ -1112,7 +1307,7 @@ export default function BudgetPage() {
         );
       }
     } catch (error) {
-      console.error('Error connecting Meta account:', error);
+   
       toast.error('An error occurred while connecting Meta account.', {
         duration: 5000,
         style: {
@@ -1131,7 +1326,7 @@ export default function BudgetPage() {
   const handlePublishAds = async () => {
     // Prevent multiple simultaneous calls using ref (synchronous check)
     if (isPublishingAdsRef.current) {
-      console.log('⚠️ Publish ads already in progress, ignoring duplicate call');
+
       return;
     }
 
@@ -1308,8 +1503,7 @@ export default function BudgetPage() {
         ? selectedAdAccountId
         : `act_${selectedAdAccountId}`;
 
-      // Step 1: Actually create ads in Meta using Meta Graph API
-      console.log('🚀 Publishing ads to Meta...');
+
 
       // Get campaign name with better fallback logic
       // Priority: businessName from analysing_points (most reliable, extracted from website analysis)
@@ -1323,7 +1517,7 @@ export default function BudgetPage() {
       };
 
       const finalCampaignName = getCampaignName();
-      console.log('📢 Campaign name to publish:', finalCampaignName);
+
 
       const metaPublishResponse = await fetch('/api/meta/publish-ads', {
         method: 'POST',
@@ -1347,7 +1541,28 @@ export default function BudgetPage() {
 
       if (!metaPublishResponse.ok) {
         const errorData = await metaPublishResponse.json();
-        console.error('❌ Meta publish error:', errorData);
+   
+        // Check if subscription has expired
+        if (metaPublishResponse.status === 403 && (errorData.expired || errorData.message?.includes('expired'))) {
+          toast.error(
+            errorData.message || 'Your subscription has expired. Please renew to continue publishing ads.',
+            {
+              duration: 5000,
+              style: {
+                background: '#dc2626',
+                color: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+            }
+          );
+          setPublishingAds(false);
+          setShowModal(false);
+          setShowSubscriptionModal(true);
+          return;
+        }
 
         // Check if it's a Facebook page error
         if (errorData.error === 'Facebook Page is required' || errorData.message?.includes('Facebook Page')) {
@@ -1395,7 +1610,7 @@ export default function BudgetPage() {
       }
 
       const metaPublishData = await metaPublishResponse.json();
-      console.log('✅ Meta publish response:', metaPublishData);
+
 
       if (!metaPublishData.success || !metaPublishData.campaign) {
         toast.error(
@@ -1471,7 +1686,7 @@ export default function BudgetPage() {
         });
 
         if (!trackResponse.ok) {
-          console.error('Failed to track ad set:', createdAdSet.id);
+  
         }
       }
 
@@ -1502,7 +1717,7 @@ export default function BudgetPage() {
       // Redirect to running projects tab after successful publishing
       router.push('/dashboard/projects?tab=running');
     } catch (error) {
-      console.error('Error publishing ads:', error);
+
       toast.error(
         'An error occurred while publishing ads. Please try again.',
         {
@@ -1720,7 +1935,7 @@ export default function BudgetPage() {
       <div className='adset_row'>
         <div className='header'>
           <h3>Top - Performing Ad Sets</h3>
-          <button onClick={() => setShowImageModal(true)}>
+          <button onClick={handleOpenImageModal}>
             <svg
               width='21'
               height='21'
@@ -1994,36 +2209,122 @@ export default function BudgetPage() {
                       width={380}
                       alt='Generated Ad Creative'
                     />
-                  ) : thumbnailImage ? (
+                  ) : (selectedAdSet.ad_set_id && thumbnailImages[selectedAdSet.ad_set_id]) ? (
                     <Image
-                      src={thumbnailImage}
+                      src={thumbnailImages[selectedAdSet.ad_set_id]}
                       height={295}
                       width={380}
                       alt='Thumbnail Ad Creative'
                     />
                   ) : (
-                    <Image
-                      src={'/images/preview_ad_creative.png'}
-                      height={295}
-                      width={380}
-                      alt='Preview Ad Creative'
-                    />
+                    <div 
+                      className='thumbnail-upload-area'
+                      onClick={handleOpenImageModal}
+                    >
+                      <div className='thumbnail-upload-content'>
+                        <p className='thumbnail-upload-text-main'>Click to upload images and videos</p>
+                        <div className='thumbnail-upload-icon'>
+                          <svg
+                            width='48'
+                            height='48'
+                            viewBox='0 0 48 48'
+                            fill='none'
+                            xmlns='http://www.w3.org/2000/svg'
+                          >
+                            <circle
+                              cx='24'
+                              cy='24'
+                              r='20'
+                              stroke='white'
+                              strokeWidth='2'
+                            />
+                            <path
+                              d='M18 18L14 14M14 14L18 10M14 14H24C28.4183 14 32 17.5817 32 22M30 30L34 34M34 34L30 38M34 34H24C19.5817 34 16 30.4183 16 26'
+                              stroke='white'
+                              strokeWidth='2.5'
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                            />
+                          </svg>
+                        </div>
+                        <p className='thumbnail-upload-text-sub'>and see the preview here</p>
+                      </div>
+                      <div className='thumbnail-upload-overlay'>
+                        <div className='thumbnail-upload-btn'>
+                          <svg
+                            width='24'
+                            height='24'
+                            viewBox='0 0 24 24'
+                            fill='none'
+                            xmlns='http://www.w3.org/2000/svg'
+                          >
+                            <path
+                              d='M9 9L5 5M5 5L9 1M5 5H12C16.4183 5 20 8.58172 20 13M15 15L19 19M19 19L15 23M19 19H12C7.58172 19 4 15.4183 4 11'
+                              stroke='white'
+                              strokeWidth='2'
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
-              ) : thumbnailImage ? (
-                <Image
-                  src={thumbnailImage}
-                  height={295}
-                  width={380}
-                  alt='Thumbnail Ad Creative'
-                />
               ) : (
-                <Image
-                  src={'/images/preview_ad_creative.png'}
-                  height={295}
-                  width={380}
-                  alt='Ad Image Creative'
-                />
+                <div 
+                  className='thumbnail-upload-area'
+                  onClick={handleOpenImageModal}
+                >
+                  <div className='thumbnail-upload-content'>
+                    <p className='thumbnail-upload-text-main'>Click to upload images and videos</p>
+                    <div className='thumbnail-upload-icon'>
+                      <svg
+                        width='48'
+                        height='48'
+                        viewBox='0 0 48 48'
+                        fill='none'
+                        xmlns='http://www.w3.org/2000/svg'
+                      >
+                        <path
+                          d='M24 8V40M8 24H40'
+                          stroke='white'
+                          strokeWidth='3'
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                        />
+                        <circle
+                          cx='24'
+                          cy='24'
+                          r='20'
+                          stroke='white'
+                          strokeWidth='2'
+                          strokeDasharray='4 4'
+                        />
+                      </svg>
+                    </div>
+                    <p className='thumbnail-upload-text-sub'>and see the preview here</p>
+                  </div>
+                  <div className='thumbnail-upload-overlay'>
+                    <div className='thumbnail-upload-btn'>
+                      <svg
+                        width='24'
+                        height='24'
+                        viewBox='0 0 24 24'
+                        fill='none'
+                        xmlns='http://www.w3.org/2000/svg'
+                      >
+                        <path
+                          d='M12 4V20M4 12H20'
+                          stroke='white'
+                          strokeWidth='2'
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
             <div className='post_details'>
@@ -2749,6 +3050,24 @@ export default function BudgetPage() {
             />
           </div>
         </div>
+      )}
+
+      {/* Subscription Plans Modal */}
+      {showSubscriptionModal && (
+        <SubscriptionPlansModal
+          onClose={() => setShowSubscriptionModal(false)}
+          onSelectPlan={async (planType, priceId) => {
+            // After successful subscription, refresh profile and close modal
+            await fetchUserProfile();
+            setShowSubscriptionModal(false);
+            // If user now has subscription and Facebook account, show publish modal
+            const updatedProfile = await fetch('/api/user-profile').then(r => r.json()).catch(() => null);
+            if (updatedProfile?.profile?.is_subscribed && connectedAccounts.length > 0) {
+              setShowModal(true);
+            }
+          }}
+          projectId={projectId}
+        />
       )}
     </div>
   );

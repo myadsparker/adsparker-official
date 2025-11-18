@@ -28,13 +28,19 @@ export async function GET(request: NextRequest) {
 
     if (action === 'connect') {
       // Generate OAuth URL for Meta/Facebook
-      const redirectUri = `${process.env.NEXT_PUBLIC_SITE_URL}/api/meta-auth/callback`;
+      // Use our own callback route - Supabase callback doesn't work for custom OAuth flows
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:3000'}`;
+      const redirectUri = `${baseUrl}/api/meta-auth/callback`;
 
-      // Meta OAuth parameters
+      // Meta OAuth parameters with essential permissions only
+      // Removed redundant: pages_manage_ads (covered by ads_management), manage_pages (not needed for ad management)
       const oauthParams = new URLSearchParams({
         client_id: process.env.META_APP_ID!,
         redirect_uri: redirectUri,
-        scope: 'email,ads_management,business_management,ads_read,pages_show_list,pages_read_engagement,pages_manage_ads',
+        scope:
+          'email,public_profile,ads_management,business_management,ads_read,pages_show_list,pages_read_engagement,read_insights',
         response_type: 'code',
         state: JSON.stringify({
           projectId,

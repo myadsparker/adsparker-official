@@ -517,23 +517,36 @@ export async function POST(req: NextRequest) {
       logoBase64 = await downloadImageAsBase64(logoUrl);
     }
 
-    // Step 7: Generate image with Gemini 2.5 Flash (using logo only as reference)
-    console.log('🌐 Generating image with Gemini 2.5 Flash...');
-    const generatedImageUrl = await generateImageWithGeminiFlash(
+    // Step 7: Generate 2 images with Gemini 2.5 Flash (using logo only as reference)
+    console.log('🌐 Generating 2 images with Gemini 2.5 Flash...');
+    
+    // Generate first image
+    console.log('📸 Generating first image...');
+    const generatedImageUrl1 = await generateImageWithGeminiFlash(
       promptData.prompt,
       project_id,
       [logoBase64 || null]
     );
 
-    if (!generatedImageUrl) {
+    // Generate second image
+    console.log('📸 Generating second image...');
+    const generatedImageUrl2 = await generateImageWithGeminiFlash(
+      promptData.prompt,
+      project_id,
+      [logoBase64 || null]
+    );
+
+    if (!generatedImageUrl1 && !generatedImageUrl2) {
       return NextResponse.json(
-        { error: 'Failed to generate image with Gemini 2.5 Flash' },
+        { error: 'Failed to generate images with Gemini 2.5 Flash' },
         { status: 500 }
       );
     }
 
-    // Step 8: Update ai_images in database
-    if (generatedImageUrl) {
+    // Step 8: Update ai_images in database with both images
+    const generatedImages = [generatedImageUrl1, generatedImageUrl2].filter(Boolean) as string[];
+    
+    if (generatedImages.length > 0) {
       try {
         console.log('💾 Updating ai_images in database...');
 
@@ -556,14 +569,13 @@ export async function POST(req: NextRequest) {
                 : [];
           }
 
-          // Add new image URL (avoid duplicates)
+          // Add new image URLs (avoid duplicates)
           const newImages: string[] = [];
-          if (
-            generatedImageUrl &&
-            !existingAiImages.includes(generatedImageUrl)
-          ) {
-            newImages.push(generatedImageUrl);
-          }
+          generatedImages.forEach((imageUrl) => {
+            if (imageUrl && !existingAiImages.includes(imageUrl)) {
+              newImages.push(imageUrl);
+            }
+          });
 
           if (newImages.length > 0) {
             const updatedAiImages = [...existingAiImages, ...newImages];
@@ -578,7 +590,7 @@ export async function POST(req: NextRequest) {
               console.error('❌ Failed to update ai_images:', updateError);
             } else {
               console.log(
-                '✅ AI image URL saved to ai_images column:',
+                `✅ ${newImages.length} AI image URL(s) saved to ai_images column:`,
                 newImages
               );
             }
@@ -592,7 +604,7 @@ export async function POST(req: NextRequest) {
     const response: ImageGenResponse = {
       success: true,
       project_id,
-      generatedImageUrl: generatedImageUrl || undefined,
+      generatedImageUrl: generatedImageUrl1 || generatedImageUrl2 || undefined,
       logoUrl: logoUrl || undefined,
     };
 

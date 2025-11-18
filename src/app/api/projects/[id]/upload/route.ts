@@ -141,12 +141,19 @@ export async function PUT(
     // }
 
     const projectId = params.id;
-    const { imageUrl } = await req.json();
+    const { imageUrl, adset_id } = await req.json();
+
+    if (!adset_id) {
+      return NextResponse.json(
+        { success: false, error: 'adset_id is required' },
+        { status: 400 }
+      );
+    }
 
     // Verify project ownership
     const { data: project, error: fetchError } = await supabase
       .from('projects')
-      .select('user_id, files, ai_images')
+      .select('user_id, files, ai_images, adset_thumbnail_image')
       .eq('project_id', projectId)
       .single();
 
@@ -170,10 +177,26 @@ export async function PUT(
       );
     }
 
+    // Get current adset_thumbnail_image object
+    let thumbnailObject: Record<string, string> = {};
+    if (project?.adset_thumbnail_image) {
+      try {
+        thumbnailObject = typeof project.adset_thumbnail_image === 'string'
+          ? JSON.parse(project.adset_thumbnail_image)
+          : project.adset_thumbnail_image;
+      } catch (e) {
+        // If parsing fails, create new object
+        thumbnailObject = {};
+      }
+    }
+
+    // Update thumbnail for this specific adset
+    thumbnailObject[adset_id] = imageUrl;
+
     // Update the adset_thumbnail_image
     const { error: updateError } = await supabase
       .from('projects')
-      .update({ adset_thumbnail_image: imageUrl })
+      .update({ adset_thumbnail_image: thumbnailObject })
       .eq('project_id', projectId);
 
     if (updateError) throw updateError;

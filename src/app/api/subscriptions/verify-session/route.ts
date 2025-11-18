@@ -3,8 +3,21 @@ import Stripe from 'stripe';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
+  apiVersion: '2025-08-27.basil',
 });
+
+// Helper function to check if subscription is active/trialing
+async function checkSubscriptionStatus(subscriptionId: string | Stripe.Subscription): Promise<boolean> {
+  try {
+    const subscription = typeof subscriptionId === 'string'
+      ? await stripe.subscriptions.retrieve(subscriptionId)
+      : subscriptionId;
+    return subscription.status === 'active' || subscription.status === 'trialing';
+  } catch (error) {
+    console.error('Error checking subscription status:', error);
+    return false;
+  }
+}
 
 // Verify Stripe checkout session and update subscription
 export async function POST(request: NextRequest) {
@@ -69,6 +82,46 @@ export async function POST(request: NextRequest) {
     if (session.payment_status === 'paid') {
       updateData.status = 'active';
       updateData.card_added = true;
+    }
+
+    // Only update user_profiles if payment was successful or trial was started
+    const isSuccessful = session.payment_status === 'paid' || 
+                        planType === 'free_trial' ||
+                        (session.subscription && await checkSubscriptionStatus(session.subscription));
+
+    if (isSuccessful) {
+      const priceId = session.metadata?.price_id || null;
+      const subscriptionType = planType === 'free_trial' ? 'trial' : (priceId || planType);
+      let expiryDate: string | null = null;
+      
+      if (session.subscription) {
+        const subscriptionObj = typeof session.subscription === 'string'
+          ? await stripe.subscriptions.retrieve(session.subscription)
+          : session.subscription;
+        
+        const periodEnd = (subscriptionObj as any).currentPeriodEnd || (subscriptionObj as any).current_period_end;
+        if (periodEnd) {
+          expiryDate = new Date(periodEnd * 1000).toISOString();
+        }
+      } else if (planType === 'free_trial') {
+        expiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      }
+
+      const updateProfileData: any = {
+        is_subscribed: true,
+        subscription_type: subscriptionType,
+        expiry_subscription: expiryDate,
+      };
+
+      // If this is a free trial, mark has_used_trial as true
+      if (planType === 'free_trial') {
+        updateProfileData.has_used_trial = true;
+      }
+
+      await supabase
+        .from('user_profiles')
+        .update(updateProfileData)
+        .eq('user_id', userId);
     }
 
     // Update subscription

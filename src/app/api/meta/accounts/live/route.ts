@@ -193,7 +193,6 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('Error fetching live Meta accounts:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }

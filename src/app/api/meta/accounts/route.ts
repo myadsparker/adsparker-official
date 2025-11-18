@@ -48,7 +48,6 @@ export async function GET(request: NextRequest) {
             accounts: metaAccounts,
         });
     } catch (error) {
-        console.error('Failed to load Meta accounts:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }

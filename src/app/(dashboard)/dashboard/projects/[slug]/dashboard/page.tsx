@@ -33,6 +33,7 @@ export default function CampaignDashboard() {
     const [showClicks, setShowClicks] = useState(true);
     const [showImpressions, setShowImpressions] = useState(true);
     const [hoveredPoint, setHoveredPoint] = useState<{ date: string; value: number; type: string } | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         fetchProjectData();
@@ -66,6 +67,16 @@ export default function CampaignDashboard() {
 
             // If project has meta_campaign_id, fetch campaign insights
             if (projectData.meta_campaign_id) {
+                // Trigger server-side insights collection and logging
+                try {
+                    await fetch('/api/analytics/insights', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ project_id: projectId }),
+                    });
+                } catch (e) {
+                    console.error('Failed to trigger insights logging:', e);
+                }
                 await fetchCampaignInsights(projectData.meta_campaign_id);
             }
 
@@ -413,6 +424,31 @@ export default function CampaignDashboard() {
                         <span className="status-badge running"><b className='dot'></b> RUNNING</span>
                         <span className="status-badge objective"><b className='dot'></b> {getObjective()}</span>
                     </div>
+                    <button
+                        className="back-button"
+                        onClick={async () => {
+                            if (!project) return;
+                            try {
+                                setRefreshing(true);
+                                await fetch('/api/analytics/insights', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ project_id: projectId }),
+                                });
+                                if (project?.meta_campaign_id) {
+                                    await fetchCampaignInsights(project.meta_campaign_id);
+                                }
+                            } catch (e) {
+                                console.error('Failed to refresh insights:', e);
+                            } finally {
+                                setRefreshing(false);
+                            }
+                        }}
+                        disabled={refreshing}
+                        title="Fetch latest insights from Meta"
+                    >
+                        {refreshing ? 'Refreshing…' : 'Refresh insights'}
+                    </button>
                 </div>
                 <div className='campaign-title-section-container'>
                     <div className="campaign-title-section">

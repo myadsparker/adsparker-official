@@ -310,7 +310,9 @@ button span {
   background: #fef2f2;
   color: #dc2626;
 }
-
+.nav_buttons_wrapper{
+  padding-bottom: 80px;
+}
 @media (max-width: 575px) {
   .stepper {
     padding-inline: 16px;

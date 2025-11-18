@@ -9,7 +9,7 @@ try {
     console.error('STRIPE_SECRET_KEY is not set in environment variables');
   } else {
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2024-06-20',
+      apiVersion: '2025-08-27.basil',
     });
   }
 } catch (error) {
@@ -102,6 +102,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if user has used trial before (for free_trial plan type)
+    if (planType === 'free_trial') {
+      // Check user_profiles for has_used_trial flag
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('has_used_trial')
+        .eq('user_id', user.id)
+        .single();
+
+      // Also check if user has ever had a free_trial subscription
+      const { data: previousTrial } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('plan_type', 'free_trial')
+        .limit(1)
+        .maybeSingle();
+
+      if (userProfile?.has_used_trial || previousTrial) {
+        return NextResponse.json(
+          {
+            error: 'Free trial already used',
+            message: 'You have already used your free trial. Please choose a paid plan to continue.',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // Determine price ID based on plan type
     let priceId: string;
     let billingCycle: 'monthly' | 'annual' = 'monthly';
@@ -136,19 +165,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Mark all previous active subscriptions as inactive before creating new one
+    // This enforces one active subscription at a time
+    await supabase
+      .from('subscriptions')
+      .update({
+        status: 'cancelled',
+        auto_renew: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id)
+      .in('status', ['active', 'trialing']);
+
     // Get or create subscription
     let subscriptionId: string | null = null;
     
-    // Check if user has existing subscription
+    // Check if user has existing subscription of this type
     const { data: existingSubscription } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
       .eq('plan_type', planType)
-      .single();
+      .maybeSingle();
 
     if (existingSubscription) {
       subscriptionId = existingSubscription.id;
+      
+      // Reactivate the subscription if it was cancelled
+      if (existingSubscription.status === 'cancelled' || existingSubscription.status === 'expired') {
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: 'active',
+            auto_renew: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingSubscription.id);
+      }
     } else {
       // Create subscription record
       const subscriptionData: any = {
@@ -196,6 +249,14 @@ export async function POST(request: NextRequest) {
       }
 
       subscriptionId = newSubscription.id;
+
+      // If this is a free trial, mark has_used_trial in user_profiles
+      if (planType === 'free_trial') {
+        await supabase
+          .from('user_profiles')
+          .update({ has_used_trial: true })
+          .eq('user_id', user.id);
+      }
     }
 
     // Get app URL - try multiple methods
@@ -234,6 +295,7 @@ export async function POST(request: NextRequest) {
         plan_type: planType,
         project_id: projectId || '',
         immediate_payment: immediatePayment ? 'true' : 'false',
+        price_id: priceId || '',
       },
       // Allow promotions to be added
       allow_promotion_codes: true,

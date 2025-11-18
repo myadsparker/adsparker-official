@@ -65,10 +65,10 @@ export async function POST(request: NextRequest) {
     //   );
     // }
 
-    // Get user's Meta access token from user_profiles
+    // Get user's Meta access token and subscription info from user_profiles
     const { data: userProfile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('meta_accounts, meta_connected')
+      .select('meta_accounts, meta_connected, is_subscribed, expiry_subscription')
       .eq('user_id', user.id)
       .single();
 
@@ -76,6 +76,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'User profile not found' },
         { status: 404 }
+      );
+    }
+
+    // Check subscription status (including expiry date)
+    const isSubscribedRaw = userProfile.is_subscribed || false;
+    const expiryDate = userProfile.expiry_subscription;
+    
+    // If subscription has expiry date, check if it's still valid
+    let isSubscribed = isSubscribedRaw;
+    if (isSubscribedRaw && expiryDate) {
+      const expiry = new Date(expiryDate);
+      const now = new Date();
+      if (now > expiry) {
+        // Subscription has expired
+        isSubscribed = false;
+      }
+    }
+
+    // Check if user has active subscription
+    if (!isSubscribed) {
+      return NextResponse.json(
+        { 
+          error: 'Active subscription required to publish ads',
+          message: 'Your subscription has expired. Please renew your subscription to continue publishing ads.',
+          expired: expiryDate ? new Date(expiryDate) < new Date() : false
+        },
+        { status: 403 }
       );
     }
 
@@ -103,24 +130,43 @@ export async function POST(request: NextRequest) {
     // Ensure ad account ID has the 'act_' prefix
     const formattedAdAccountId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
 
-    // Fetch project data to get thumbnail image
-    let projectThumbnailImage: string | null = null;
+    // Fetch project data to get thumbnail images (object) and campaign proposal (for end_date)
+    let projectThumbnailImages: Record<string, string> = {};
+    let projectCampaignProposal: any = null;
     try {
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
-        .select('adset_thumbnail_image')
+        .select('adset_thumbnail_image, campaign_proposal')
         .eq('project_id', projectId)
         .eq('user_id', user.id)
         .single();
 
       if (!projectError && projectData?.adset_thumbnail_image) {
-        projectThumbnailImage = projectData.adset_thumbnail_image;
-        console.log('📸 Found project thumbnail image:', projectThumbnailImage);
+        try {
+          // Parse thumbnail object
+          const thumbnails = typeof projectData.adset_thumbnail_image === 'string'
+            ? JSON.parse(projectData.adset_thumbnail_image)
+            : projectData.adset_thumbnail_image;
+          
+          if (typeof thumbnails === 'object' && thumbnails !== null && !Array.isArray(thumbnails)) {
+            projectThumbnailImages = thumbnails;
+          } else if (typeof thumbnails === 'string') {
+            // Old format: single string, use as default for backward compatibility
+            projectThumbnailImages = { default: thumbnails };
+          }
+        } catch (e) {
+          // If parsing fails, treat as old format string
+          if (typeof projectData.adset_thumbnail_image === 'string') {
+            projectThumbnailImages = { default: projectData.adset_thumbnail_image };
+          }
+        }
       } else {
-        console.log('⚠️ No adset_thumbnail_image found in project');
+      }
+
+      if (!projectError && projectData?.campaign_proposal) {
+        projectCampaignProposal = projectData.campaign_proposal;
       }
     } catch (error) {
-      console.log('⚠️ Could not fetch project thumbnail:', error);
     }
 
     // Get ad account details to determine currency and minimum budget
@@ -141,10 +187,8 @@ export async function POST(request: NextRequest) {
           'GBP': 1.00,   // £1.00 minimum for GBP
         };
         minDailyBudget = minBudgets[accountCurrency] || minBudgets['USD'];
-        console.log(`💰 Account currency: ${accountCurrency}, Minimum daily budget: ${minDailyBudget}`);
       }
     } catch (error) {
-      console.log('⚠️ Could not fetch ad account details, using defaults:', error);
     }
 
     // Get user's Facebook page (required for link ads)
@@ -160,17 +204,14 @@ export async function POST(request: NextRequest) {
         const pagesData = await pagesResponse.json();
         if (pagesResponse.ok && pagesData.data && pagesData.data.length > 0) {
           finalPageId = pagesData.data[0].id;
-          console.log('📄 Found Facebook page from me/accounts:', finalPageId);
         } else {
           // Method 2: Try to get pages from ad account
-          console.log('⚠️ No pages from me/accounts, trying ad account...');
           const adAccountPagesResponse = await fetch(
             `https://graph.facebook.com/v18.0/${formattedAdAccountId}/promote_pages?access_token=${accessToken}`
           );
           const adAccountPagesData = await adAccountPagesResponse.json();
           if (adAccountPagesResponse.ok && adAccountPagesData.data && adAccountPagesData.data.length > 0) {
             finalPageId = adAccountPagesData.data[0].id;
-            console.log('📄 Found Facebook page from ad account:', finalPageId);
           } else {
             // Method 3: Try to get pages the user manages
             const managedPagesResponse = await fetch(
@@ -179,13 +220,11 @@ export async function POST(request: NextRequest) {
             const managedPagesData = await managedPagesResponse.json();
             if (managedPagesResponse.ok && managedPagesData.accounts && managedPagesData.accounts.data && managedPagesData.accounts.data.length > 0) {
               finalPageId = managedPagesData.accounts.data[0].id;
-              console.log('📄 Found Facebook page from managed accounts:', finalPageId);
             }
           }
         }
 
         if (!finalPageId) {
-          console.error('❌ No Facebook page found. Link ads require a Facebook page.');
           return NextResponse.json(
             {
               error: 'Facebook Page is required',
@@ -196,7 +235,6 @@ export async function POST(request: NextRequest) {
           );
         }
       } catch (error) {
-        console.error('❌ Error fetching Facebook pages:', error);
         return NextResponse.json(
           {
             error: 'Failed to fetch Facebook pages',
@@ -207,19 +245,33 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
-      console.log('📄 Using provided Facebook page ID:', finalPageId);
+      }
+
+    // For testing: limit to only the first ad set
+    const adSetsLimited = Array.isArray(adSets) && adSets.length > 0 ? adSets.slice(0, 1) : adSets;
+
+    // Normalize scheduling fields
+    // Start immediately (no start_time)
+    const normalizedStartTime: string | null = null;
+
+    // Get end date from project's campaign_proposal.end_date (if present)
+    const projectEndDate: string | null =
+      projectCampaignProposal && typeof projectCampaignProposal === 'object'
+        ? (projectCampaignProposal.end_date || null)
+        : null;
+
+    // If end date provided on project:
+    // - If it's ISO with time, use as-is
+    // - If it's date-only, set to end of day UTC
+    let normalizedEndTime: string | null = null;
+    if (projectEndDate) {
+      const looksIso = typeof projectEndDate === 'string' && projectEndDate.includes('T');
+      normalizedEndTime = looksIso
+        ? new Date(projectEndDate).toISOString()
+        : new Date(`${projectEndDate}T23:59:59Z`).toISOString();
     }
 
-    console.log('🚀 Starting Meta Ad Publishing Process:', {
-      projectId,
-      campaignName,
-      adSetsCount: adSets.length,
-      adAccountId: formattedAdAccountId,
-      pageId: finalPageId,
-    });
-
     // Step 1: Create Campaign
-    console.log('📢 Creating campaign with name:', campaignName);
     const campaignResponse = await fetch(
       `https://graph.facebook.com/v18.0/${formattedAdAccountId}/campaigns`,
       {
@@ -230,7 +282,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           name: campaignName,
           objective: objective,
-          status: 'PAUSED', // Start as PAUSED for safety
+          status: 'ACTIVE',
           special_ad_categories: specialAdCategories,
           // Required field: Must specify True or False when using ad set budgets (not campaign budget)
           is_adset_budget_sharing_enabled: false, // Set to true to enable 20% budget sharing optimization
@@ -242,7 +294,6 @@ export async function POST(request: NextRequest) {
     const campaignData = await campaignResponse.json();
 
     if (!campaignResponse.ok || campaignData.error) {
-      console.error('❌ Campaign Creation Error:', campaignData);
       return NextResponse.json(
         {
           error: 'Failed to create Meta campaign',
@@ -253,195 +304,127 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('✅ Campaign Created:', campaignData);
     const campaignId = campaignData.id;
 
-    // Step 1.5: Upload image once (same image for all ads)
-    // ONLY use adset_thumbnail_image from project - no fallbacks
-    let imageUrl: string | null = null;
-    let imageHash: string | null = null;
-
-    // ONLY use adset_thumbnail_image from project table - no fallbacks
-    if (projectThumbnailImage) {
-      imageUrl = projectThumbnailImage;
-      console.log('📸 Using adset_thumbnail_image from project:', imageUrl);
-
+    // Helper function to upload image and get hash
+    const uploadImageToMeta = async (imageUrl: string): Promise<string> => {
       // Verify the image URL is accessible before uploading
-      try {
-        console.log('🔍 Verifying image URL is accessible...');
+      try { 
         const imageCheckResponse = await fetch(imageUrl, { method: 'HEAD' });
         if (!imageCheckResponse.ok) {
-          console.warn(`⚠️ Image URL returned status ${imageCheckResponse.status}, but continuing anyway...`);
-        } else {
-          console.log('✅ Image URL is accessible');
-        }
+          }
       } catch (checkError) {
-        console.warn('⚠️ Could not verify image URL accessibility, but continuing...', checkError);
+        // Continue anyway
       }
+
+      // Method 1: Try URL method first (faster if it works)
+      let imageUploadData: any = null;
+      let uploadMethod = 'URL';
 
       try {
-        console.log('📤 Uploading image to Meta (will be used for all ads)...');
-        console.log(`🔗 Image URL: ${imageUrl}`);
+        const uploadParams: URLSearchParams = new URLSearchParams({
+          url: imageUrl,
+          access_token: accessToken,
+        });
 
-        // Method 1: Try URL method first (faster if it works)
-        let imageUploadData: any = null;
-        let uploadMethod = 'URL';
+        const urlUploadResponse: Response = await fetch(
+          `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adimages?${uploadParams.toString()}`,
+          {
+            method: 'GET',
+          }
+        );
+        imageUploadData = await urlUploadResponse.json();
 
-        try {
-          const uploadParams: URLSearchParams = new URLSearchParams({
-            url: imageUrl,
-            access_token: accessToken,
+        if (urlUploadResponse.ok && imageUploadData.data && imageUploadData.data.length > 0) {
+          // Success with URL method
+          const imageHash = imageUploadData.data[0].hash;
+          return imageHash;
+        } else {
+          // URL method failed, try binary upload
+          uploadMethod = 'BINARY';
+          throw new Error('URL method failed, trying binary');
+        }
+      } catch (urlError) {
+        // If URL method fails, download image and upload as binary
+        if (uploadMethod === 'BINARY' || !imageUploadData?.data?.length) {
+
+          // Download the image
+          const imageResponse = await fetch(imageUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'image/*',
+            },
           });
 
-          const urlUploadResponse: Response = await fetch(
-            `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adimages?${uploadParams.toString()}`,
-            {
-              method: 'GET',
-            }
-          );
-          imageUploadData = await urlUploadResponse.json();
-          console.log(`📤 URL upload response:`, JSON.stringify(imageUploadData, null, 2));
-
-          if (urlUploadResponse.ok && imageUploadData.data && imageUploadData.data.length > 0) {
-            // Success with URL method
-            imageHash = imageUploadData.data[0].hash;
-            const imageId = imageUploadData.data[0].id;
-            console.log(`✅ Image uploaded successfully using URL method!`);
-            console.log(`   - Image Hash: ${imageHash}`);
-            console.log(`   - Image ID: ${imageId}`);
-          } else {
-            // URL method failed, try binary upload
-            console.log(`⚠️ URL method failed, trying binary upload method...`);
-            uploadMethod = 'BINARY';
-            throw new Error('URL method failed, trying binary');
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to download image: ${imageResponse.status} ${imageResponse.statusText}`);
           }
-        } catch (urlError) {
-          // If URL method fails, download image and upload as binary
-          if (uploadMethod === 'BINARY' || !imageUploadData?.data?.length) {
-            console.log(`📥 Downloading image from URL for binary upload...`);
-            console.log(`🔗 Image URL: ${imageUrl}`);
 
-            // Download the image
-            const imageResponse = await fetch(imageUrl, {
-              method: 'GET',
+          // Get content type from response
+          const contentType = imageResponse.headers.get('content-type') || 'image/png';
+
+          // Convert response to buffer
+          const imageBuffer = await imageResponse.arrayBuffer();
+
+          if (imageBuffer.byteLength === 0) {
+            throw new Error('Downloaded image is empty (0 bytes)');
+          }
+
+          if (imageBuffer.byteLength < 100) {
+            const text = new TextDecoder().decode(imageBuffer);
+            throw new Error('Downloaded content is not a valid image');
+          }
+
+
+          // Convert to Node.js Buffer
+          const Buffer = require('buffer').Buffer;
+          const nodeBuffer = Buffer.from(imageBuffer);
+
+          // Use form-data package for proper multipart/form-data upload
+          const FormData = require('form-data');
+          const formData = new FormData();
+
+          formData.append('bytes', nodeBuffer, {
+            filename: 'ad-image.png',
+            contentType: contentType,
+          });
+
+          // Upload using POST with multipart/form-data
+          const multipartUploadResponse = await fetch(
+            `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adimages?access_token=${accessToken}`,
+            {
+              method: 'POST',
+              body: formData as any,
               headers: {
-                'Accept': 'image/*',
+                ...formData.getHeaders(),
               },
-            });
-
-            if (!imageResponse.ok) {
-              throw new Error(`Failed to download image: ${imageResponse.status} ${imageResponse.statusText}`);
             }
+          );
 
-            // Get content type from response
-            const contentType = imageResponse.headers.get('content-type') || 'image/png';
-            console.log(`📥 Response status: ${imageResponse.status}, Content-Type: ${contentType}`);
+          imageUploadData = await multipartUploadResponse.json();
 
-            // Convert response to buffer
-            const imageBuffer = await imageResponse.arrayBuffer();
-            console.log(`📥 Image downloaded: ${imageBuffer.byteLength} bytes`);
-
-            if (imageBuffer.byteLength === 0) {
-              throw new Error('Downloaded image is empty (0 bytes)');
-            }
-
-            if (imageBuffer.byteLength < 100) {
-              // If file is very small, it might be an error page or redirect
-              const text = new TextDecoder().decode(imageBuffer);
-              console.error(`⚠️ Downloaded content appears to be text, not image:`, text.substring(0, 200));
-              throw new Error('Downloaded content is not a valid image');
-            }
-
-            console.log(`📤 Uploading image as binary data to Meta...`);
-
-            // Convert to Node.js Buffer
-            const Buffer = require('buffer').Buffer;
-            const nodeBuffer = Buffer.from(imageBuffer);
-
-            // Use form-data package for proper multipart/form-data upload
-            const FormData = require('form-data');
-            const formData = new FormData();
-
-            // Append the buffer as a file stream
-            // Facebook expects the field name to be 'bytes' or the file itself
-            formData.append('bytes', nodeBuffer, {
-              filename: 'ad-image.png',
-              contentType: contentType,
-            });
-
-            console.log(`📤 Uploading ${nodeBuffer.length} bytes as multipart/form-data...`);
-
-            // Upload using POST with multipart/form-data
-            const multipartUploadResponse = await fetch(
-              `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adimages?access_token=${accessToken}`,
-              {
-                method: 'POST',
-                body: formData as any, // Type assertion for form-data
-                headers: {
-                  ...formData.getHeaders(),
-                },
-              }
-            );
-
-            imageUploadData = await multipartUploadResponse.json();
-            console.log(`📤 Multipart upload response:`, JSON.stringify(imageUploadData, null, 2));
-
-            if (imageUploadData.data && imageUploadData.data.length > 0) {
-              imageHash = imageUploadData.data[0].hash;
-              const imageId = imageUploadData.data[0].id;
-              console.log(`✅ Image uploaded successfully using binary method!`);
-              console.log(`   - Image Hash: ${imageHash}`);
-              console.log(`   - Image ID: ${imageId}`);
-            } else {
-              throw new Error(`Binary upload failed: ${JSON.stringify(imageUploadData)}`);
-            }
+          if (imageUploadData.data && imageUploadData.data.length > 0) {
+            const imageHash = imageUploadData.data[0].hash;
+            return imageHash;
+          } else {
+            throw new Error(`Binary upload failed: ${JSON.stringify(imageUploadData)}`);
           }
         }
-
-        if (!imageHash) {
-          console.error(`❌ Failed to upload image with both methods:`, imageUploadData);
-          return NextResponse.json(
-            {
-              error: 'Failed to upload image to Meta',
-              details: imageUploadData?.error?.message || 'Image upload failed with both URL and binary methods',
-              metaError: imageUploadData?.error,
-              uploadResponse: imageUploadData
-            },
-            { status: 400 }
-          );
-        }
-      } catch (error) {
-        console.error(`❌ Error uploading image:`, error);
-        return NextResponse.json(
-          {
-            error: 'Failed to upload image to Meta',
-            details: error instanceof Error ? error.message : 'Unknown error'
-          },
-          { status: 400 }
-        );
       }
-    } else {
-      console.error('❌ No adset_thumbnail_image found in project');
-      return NextResponse.json(
-        {
-          error: 'Image is required',
-          message: 'adset_thumbnail_image is required in the project to publish ads. Please set a thumbnail image first.',
-          details: 'No adset_thumbnail_image found in project table'
-        },
-        { status: 400 }
-      );
-    }
+
+      throw new Error('Failed to upload image with both methods');
+    };
+
+    // Cache for uploaded images (URL -> hash) to avoid re-uploading same image
+    const imageHashCache: Record<string, string> = {};
 
     // Step 2: Create Ad Sets
-    console.log('📊 Creating ad sets...');
-    console.log(`📝 Processing ${adSets.length} ad set(s)`);
     const createdAdSets = [];
     const errors = [];
 
-    for (let i = 0; i < adSets.length; i++) {
-      console.log(`✅ Processing ad set ${i + 1}/${adSets.length}: ${adSets[i]?.ad_set_title || 'Untitled'}`);
+    for (let i = 0; i < adSetsLimited.length; i++) {
 
-      const adSet: any = adSets[i];
+      const adSet: any = adSetsLimited[i];
 
       try {
         // Get the budget for this ad set
@@ -449,7 +432,6 @@ export async function POST(request: NextRequest) {
 
         // Ensure budget meets minimum requirement
         if (adSetBudget < minDailyBudget) {
-          console.log(`⚠️ Budget ${adSetBudget} is below minimum ${minDailyBudget} for ${accountCurrency}, using minimum`);
           adSetBudget = minDailyBudget;
         }
 
@@ -457,7 +439,6 @@ export async function POST(request: NextRequest) {
         // Meta API uses the smallest currency unit (100 cents = $1, 100 paise = ₹1)
         const budgetInSmallestUnit = Math.round(adSetBudget * 100);
 
-        console.log(`💰 Ad Set Budget: ${adSetBudget} ${accountCurrency} = ${budgetInSmallestUnit} smallest units`);
 
         // Build targeting object for Meta API
         let ageMin = adSet.age_range?.min || 18;
@@ -469,11 +450,9 @@ export async function POST(request: NextRequest) {
         const willEnableAdvantageAudience = true; // We're enabling it below
         if (willEnableAdvantageAudience) {
           if (ageMin > 25) {
-            console.log(`⚠️ Age min ${ageMin} is above 25, capping at 25 for Advantage+ audience`);
             ageMin = 25;
           }
           if (ageMax < 65) {
-            console.log(`⚠️ Age max ${ageMax} is below 65, setting to 65 for Advantage+ audience`);
             ageMax = 65;
           }
         }
@@ -518,8 +497,6 @@ export async function POST(request: NextRequest) {
           advantage_audience: 1, // 1 = enabled, 0 = disabled
         };
 
-        console.log(`Creating ad set ${i + 1}/${adSets.length}: ${adSet.ad_set_title}`);
-
         // Create ad set using Meta Graph API
         const adSetResponse = await fetch(
           `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adsets`,
@@ -536,7 +513,9 @@ export async function POST(request: NextRequest) {
               optimization_goal: 'LINK_CLICKS',
               bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
               targeting: targeting,
-              status: 'PAUSED', // Start as PAUSED for safety
+              status: 'ACTIVE',
+              ...(normalizedStartTime ? { start_time: normalizedStartTime } : {}),
+              ...(normalizedEndTime ? { end_time: normalizedEndTime } : {}),
               access_token: accessToken,
             }),
           }
@@ -545,18 +524,15 @@ export async function POST(request: NextRequest) {
         const adSetData = await adSetResponse.json();
 
         if (!adSetResponse.ok || adSetData.error) {
-          console.error(`❌ Ad Set ${i + 1} Creation Error:`, adSetData);
           errors.push({
             adSetTitle: adSet.ad_set_title,
             error: adSetData.error?.message || 'Unknown error',
             details: adSetData.error,
           });
         } else {
-          console.log(`✅ Ad Set ${i + 1} Created:`, adSetData.id);
           const adSetId = adSetData.id;
 
           // Step 3: Create Ad Creative
-          console.log(`🎨 Creating ad creative for ad set ${i + 1}...`);
 
           // Get ad copy
           const headline = adSet.ad_copywriting_title || campaignName;
@@ -569,12 +545,37 @@ export async function POST(request: NextRequest) {
             throw new Error('Facebook Page ID is required but not found. This should not happen.');
           }
 
-          // Use the image hash that was uploaded before the loop (same image for all ads)
-          // image_url is not supported in link_data, we must use image_hash instead
-          // imageHash is guaranteed to exist at this point since we return error if upload fails
+          // Get thumbnail image for this specific adset
+          const adSetThumbnailUrl = projectThumbnailImages[adSet.ad_set_id] || 
+                                    projectThumbnailImages['default'] || 
+                                    Object.values(projectThumbnailImages)[0];
 
-          console.log(`🖼️ Using image hash for creative: ${imageHash}`);
-          console.log(`🔗 Image URL used: ${projectThumbnailImage}`);
+          if (!adSetThumbnailUrl) {
+            errors.push({
+              adSetTitle: adSet.ad_set_title,
+              error: 'No thumbnail image found for this ad set',
+              details: 'Please set a thumbnail image for this ad set',
+            });
+            continue;
+          }
+
+          // Upload image (use cache if already uploaded)
+          let imageHash: string;
+          if (imageHashCache[adSetThumbnailUrl]) {
+            imageHash = imageHashCache[adSetThumbnailUrl];
+          } else {
+            try {
+              imageHash = await uploadImageToMeta(adSetThumbnailUrl);
+              imageHashCache[adSetThumbnailUrl] = imageHash;
+            } catch (uploadError: any) {
+              errors.push({
+                adSetTitle: adSet.ad_set_title,
+                error: `Failed to upload thumbnail image: ${uploadError.message}`,
+                details: uploadError,
+              });
+              continue;
+            }
+          }
 
           const creativePayload: any = {
             name: `${adSet.ad_set_title} - Creative`,
@@ -594,11 +595,6 @@ export async function POST(request: NextRequest) {
             access_token: accessToken,
           };
 
-          console.log('📤 Creative payload being sent:', JSON.stringify({
-            ...creativePayload,
-            access_token: '[REDACTED]'
-          }, null, 2));
-
           const creativeResponse = await fetch(
             `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adcreatives`,
             {
@@ -612,18 +608,13 @@ export async function POST(request: NextRequest) {
 
           const creativeData = await creativeResponse.json();
 
-          console.log(`📥 Creative creation response:`, JSON.stringify(creativeData, null, 2));
-
           if (!creativeResponse.ok || creativeData.error) {
-            console.error(`❌ Ad Creative ${i + 1} Creation Error:`, creativeData);
             errors.push({
               adSetTitle: adSet.ad_set_title,
               error: `Creative creation failed: ${creativeData.error?.message || 'Unknown error'}`,
               details: creativeData.error,
             });
           } else {
-            console.log(`✅ Ad Creative ${i + 1} Created:`, creativeData.id);
-            console.log(`🖼️ Creative ID: ${creativeData.id}, Image hash used: ${imageHash}`);
 
             // Verify the creative was created with the image
             if (creativeData.id) {
@@ -632,19 +623,16 @@ export async function POST(request: NextRequest) {
                   `https://graph.facebook.com/v18.0/${creativeData.id}?fields=object_story_spec&access_token=${accessToken}`
                 );
                 const verifyData = await verifyCreativeResponse.json();
-                console.log(`🔍 Verified creative object_story_spec:`, JSON.stringify(verifyData, null, 2));
               } catch (verifyError) {
-                console.log('⚠️ Could not verify creative:', verifyError);
               }
             }
 
             const creativeId = creativeData.id;
 
             // Step 4: Create Ad
-            console.log(`📢 Creating ad for ad set ${i + 1}...`);
 
             // Try creating ad without status first (Facebook may allow this without payment method)
-            // Then update status to PAUSED after creation
+            // Then update status to ACTIVE after creation
             let adPayload: any = {
               name: `${adSet.ad_set_title} - Ad`,
               adset_id: adSetId,
@@ -667,11 +655,10 @@ export async function POST(request: NextRequest) {
 
             let adData = await adResponse.json();
 
-            // If creation without status fails, try with PAUSED status as fallback
+            // If creation without status fails, try with ACTIVE status as fallback
             if (!adResponse.ok || adData.error) {
-              console.log(`⚠️ Ad creation without status failed, trying with PAUSED status...`);
 
-              adPayload.status = 'PAUSED';
+              adPayload.status = 'ACTIVE';
               adResponse = await fetch(
                 `https://graph.facebook.com/v18.0/${formattedAdAccountId}/ads`,
                 {
@@ -686,7 +673,6 @@ export async function POST(request: NextRequest) {
             }
 
             if (!adResponse.ok || adData.error) {
-              console.error(`❌ Ad ${i + 1} Creation Error:`, adData);
 
               // Check for specific error types and provide better error messages
               let errorMessage = `Ad creation failed: ${adData.error?.message || 'Unknown error'}`;
@@ -701,7 +687,6 @@ export async function POST(request: NextRequest) {
 
               // For payment method errors, still add to createdAdSets since campaign/ad set/creative are ready
               if (isPaymentMethodError) {
-                console.log(`⚠️ Ad creation skipped due to payment method, but Ad Set and Creative are ready`);
                 createdAdSets.push({
                   id: adSetId,
                   name: adSet.ad_set_title,
@@ -723,9 +708,8 @@ export async function POST(request: NextRequest) {
                 });
               }
             } else {
-              console.log(`✅ Ad ${i + 1} Created:`, adData.id);
 
-              // If ad was created without status, update it to PAUSED
+              // If ad was created without status, update it to ACTIVE
               if (!adPayload.status && adData.id) {
                 try {
                   const updateResponse = await fetch(
@@ -736,17 +720,15 @@ export async function POST(request: NextRequest) {
                         'Content-Type': 'application/json',
                       },
                       body: JSON.stringify({
-                        status: 'PAUSED',
+                        status: 'ACTIVE',
                         access_token: accessToken,
                       }),
                     }
                   );
                   const updateData = await updateResponse.json();
                   if (updateResponse.ok) {
-                    console.log(`✅ Ad ${i + 1} status updated to PAUSED`);
                   }
                 } catch (updateError) {
-                  console.log(`⚠️ Could not update ad status to PAUSED, but ad was created`);
                 }
               }
 
@@ -754,7 +736,7 @@ export async function POST(request: NextRequest) {
                 id: adSetId,
                 name: adSet.ad_set_title,
                 daily_budget: adSetBudget,
-                status: 'PAUSED',
+                status: 'ACTIVE',
                 creative_id: creativeId,
                 ad_id: adData.id,
               });
@@ -762,23 +744,12 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (error: any) {
-        console.error(`❌ Error creating ad set ${i + 1}:`, error);
         errors.push({
           adSetTitle: adSet.ad_set_title,
           error: error.message,
         });
       }
     }
-
-    // Step 5: Save to database
-    console.log('💾 Saving to database...');
-    console.log('📋 Update details:', {
-      projectId,
-      userId: user.id,
-      campaignId,
-      campaignName,
-      createdAdSetsCount: createdAdSets.length,
-    });
 
     // Update project with campaign info - only if campaign was created AND at least one ad set was created
     if (campaignId && createdAdSets.length > 0) {
@@ -789,7 +760,7 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       };
 
-      console.log('🔄 Updating project with:', updateData);
+
 
       const { data: updateData_result, error: updateError } = await supabase
         .from('projects')
@@ -799,13 +770,7 @@ export async function POST(request: NextRequest) {
         .select();
 
       if (updateError) {
-        console.error('❌ Error updating project status:', updateError);
-        console.error('❌ Update error details:', JSON.stringify(updateError, null, 2));
-        // Don't fail the whole request, but log the error
       } else {
-        console.log('✅ Project status updated successfully');
-        console.log('✅ Updated project data:', updateData_result);
-
         // Verify the update by fetching the project
         const { data: verifyData, error: verifyError } = await supabase
           .from('projects')
@@ -814,18 +779,11 @@ export async function POST(request: NextRequest) {
           .eq('user_id', user.id)
           .single();
 
-        if (verifyError) {
-          console.error('❌ Error verifying update:', verifyError);
-        } else {
-          console.log('✅ Verification - Project data after update:', verifyData);
-          if (verifyData?.status !== 'RUNNING' || !verifyData?.meta_campaign_id) {
-            console.error('⚠️ WARNING: Update may not have worked correctly. Expected RUNNING status and meta_campaign_id.');
-          }
-        }
+        
       }
     } else if (campaignId && createdAdSets.length === 0) {
       // Campaign created but no ad sets - just save campaign info, don't change status
-      console.log('⚠️ Campaign created but no ad sets were created. Saving campaign info only.');
+      
       const { error: updateError } = await supabase
         .from('projects')
         .update({
@@ -837,10 +795,8 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id);
 
       if (updateError) {
-        console.error('❌ Error updating project with campaign info:', updateError);
       }
     } else {
-      console.error('❌ No campaign ID or no ad sets created - cannot update project status');
     }
 
     // Save published ad sets
@@ -881,14 +837,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('✅ Publishing process completed!');
 
     const response: any = {
       success: createdAdSets.length > 0,
       campaign: {
         id: campaignId,
         name: campaignName,
-        status: 'PAUSED',
+        status: 'ACTIVE',
       },
       adSets: createdAdSets,
       totalRequested: adSets.length,
@@ -911,15 +866,15 @@ export async function POST(request: NextRequest) {
           message: adSet.warning,
         }));
     } else {
-      response.message = `Successfully created campaign with ${createdAdSets.length} ad sets. All ad sets are PAUSED - you can activate them in Meta Ads Manager to start running.`;
+      response.message = `Successfully created campaign with ${createdAdSets.length} ad set(s). All ad sets are ACTIVE.`;
     }
+
 
     return NextResponse.json(response, {
       status: createdAdSets.length > 0 ? 200 : 400
     });
 
   } catch (error: any) {
-    console.error('❌ Error publishing ads to Meta:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }

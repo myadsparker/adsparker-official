@@ -354,7 +354,7 @@ const URLAnalyzerInterface = () => {
   // Fetch project data + trigger analysis
   const fetchProjectData = async () => {
     try {
-      console.log('📋 Fetching project data for:', projectId);
+    
       setInitialLoading(true);
       setError(null);
       setLoading(false);
@@ -365,8 +365,7 @@ const URLAnalyzerInterface = () => {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        console.error('❌ Not authenticated');
-        setError('Not authenticated');
+                setError('Not authenticated');
         setInitialLoading(false);
         return;
       }
@@ -379,13 +378,11 @@ const URLAnalyzerInterface = () => {
         .single();
 
       if (error) {
-        console.error('❌ Failed to fetch project data:', error);
         setError('Failed to fetch project data');
         setInitialLoading(false);
         return;
       }
 
-      console.log('✅ Project data fetched:', project);
       setProjectData(project);
       const projectUrl = project.url_analysis?.website_url;
       setUrl(projectUrl);
@@ -395,9 +392,6 @@ const URLAnalyzerInterface = () => {
         project.url_analysis?.personas?.personaNames &&
         project.url_analysis?.personas?.personaNames.length > 0
       ) {
-        console.log(
-          '✅ Persona analysis exists, navigating to confirming page'
-        );
         // Persona analysis exists, navigate directly to confirming page
         router.push(`/dashboard/projects/${projectId}/confirming`);
         return;
@@ -405,9 +399,6 @@ const URLAnalyzerInterface = () => {
 
       // Check if analyzing_points already exists in database
       if (project.analysing_points) {
-        console.log(
-          '✅ Analyzing points already exist in database, loading with animation'
-        );
         const points =
           typeof project.analysing_points === 'string'
             ? JSON.parse(project.analysing_points)
@@ -422,11 +413,9 @@ const URLAnalyzerInterface = () => {
       }
 
       // No analyzing points found, start the analysis process
-      console.log('🚀 Starting persona creation process - no existing data');
       setInitialLoading(false);
       await analyzeURL(projectId);
     } catch (err) {
-      console.error('❌ Error fetching project data:', err);
       setError('Failed to load project');
       setInitialLoading(false);
     }
@@ -460,7 +449,6 @@ const URLAnalyzerInterface = () => {
         );
       });
 
-      console.log('🚀 Starting analysis for project:', projectId);
 
       // Step 1: Call analyzing-points API first with timeout
       const analyzingPointsResponse = (await Promise.race([
@@ -470,7 +458,6 @@ const URLAnalyzerInterface = () => {
 
       if (!analyzingPointsResponse.ok) {
         const errorText = await analyzingPointsResponse.text();
-        console.error('❌ Analyzing points API error:', errorText);
         throw new Error(
           `Analysis failed with status ${analyzingPointsResponse.status}. Please check the browser console for details.`
         );
@@ -478,15 +465,11 @@ const URLAnalyzerInterface = () => {
 
       const analyzingPointsResult = await analyzingPointsResponse.json();
       if (!analyzingPointsResult.success) {
-        console.error('❌ Analyzing points API returned unsuccessful result');
         throw new Error(
           analyzingPointsResult.error ||
             'Analysis failed. Please try again or contact support.'
         );
       }
-
-      console.log('✅ Analyzing points completed successfully');
-      console.log('📊 Analyzing points data:', analyzingPointsResult);
 
       // Show UI immediately when analyzing points finishes
       setAnalyzingPoints(analyzingPointsResult.analysing_points);
@@ -509,28 +492,14 @@ const URLAnalyzerInterface = () => {
 
         if (!websiteAnalysisResponse.ok) {
           // Don't throw error here - UI can still work with analyzing points data
-          console.warn('⚠️ Website analysis failed, continuing...');
-          const errorText = await websiteAnalysisResponse.text();
-          console.error('❌ Website analysis error details:', errorText);
+            const errorText = await websiteAnalysisResponse.text();
         } else {
           const websiteAnalysisResult = await websiteAnalysisResponse.json();
-          console.log(
-            '🔍 Debug - websiteAnalysisResult:',
-            websiteAnalysisResult
-          );
-          if (websiteAnalysisResult.success) {
-            console.log('✅ Website analysis completed successfully');
-            console.log('📊 Generated ad sets:', websiteAnalysisResult.adSets);
-          } else {
-            console.warn('⚠️ Website analysis returned unsuccessful result');
-          }
         }
       } catch (websiteAnalysisError: any) {
-        console.error('❌ Website analysis error:', websiteAnalysisError);
         // Don't fail the entire process - analyzing points is already done
       }
     } catch (err: any) {
-      console.error('❌ Analysis error:', err);
       setError(
         err.message ||
           'Failed to analyze the website. Please refresh the page and try again.'
@@ -564,7 +533,6 @@ const URLAnalyzerInterface = () => {
   // Reset box states when analyzingPoints changes
   useEffect(() => {
     if (analyzingPoints) {
-      console.log('🔄 Resetting box states for new animation sequence');
       setShowBox1(false);
       setShowBox2(false);
       setShowBox3(false);
@@ -582,12 +550,7 @@ const URLAnalyzerInterface = () => {
   // Auto-navigate to confirming page after all animations complete
   useEffect(() => {
     if (allAnimationsComplete) {
-      console.log('🚀 All animations complete, navigating to confirm page...');
       const navigationTimer = setTimeout(() => {
-        console.log(
-          '🚀 Navigating to:',
-          `/dashboard/projects/${projectId}/confirming`
-        );
         router.push(`/dashboard/projects/${projectId}/confirming`);
       }, 1000); // Reduced to 1 second for faster navigation
 
@@ -615,28 +578,22 @@ const URLAnalyzerInterface = () => {
 
   // Handle screenshot completion
   const handleScreenshotComplete = () => {
-    console.log('📸 Screenshot loaded, starting box 1');
     setTimeout(() => {
-      console.log('✅ Showing box 1');
       setShowBox1(true);
     }, 300);
   };
 
   // Handle box completion callbacks with scrolling
   const handleBox1Complete = () => {
-    console.log('✅ Box 1 complete, showing box 2');
     setTimeout(() => {
       setShowBox2(true);
-      console.log('✅ Box 2 should now be visible');
       // Scroll to box 2 after it appears - only on client
       if (typeof window !== 'undefined') {
         setTimeout(() => {
           const box2 = document.querySelector('[data-box="2"]');
           if (box2) {
-            console.log('📜 Scrolling to box 2');
             scrollToElement(box2 as HTMLElement);
           } else {
-            console.warn('⚠️ Box 2 element not found for scrolling');
           }
         }, 100);
       }
@@ -657,10 +614,8 @@ const URLAnalyzerInterface = () => {
   };
 
   const handleBox3Complete = () => {
-    console.log('✅ Box 3 typewriter animation complete');
-    // All animations are complete when box 3 finishes
+      // All animations are complete when box 3 finishes
     setTimeout(() => {
-      console.log('✅ Setting allAnimationsComplete to true');
       setAllAnimationsComplete(true);
     }, 800); // Reduced delay for faster navigation
   };
@@ -745,7 +700,7 @@ const URLAnalyzerInterface = () => {
                     Parsing URL{' '}
                   </h4>
                   <div className='screenshot_container'>
-                    <p>Checking out what's your page...</p>
+                    <p className='mb-2'>Checking out your page...</p>
                     <img
                       src={analyzingPoints.parsingUrl.screenshot}
                       alt='Website Screenshot'

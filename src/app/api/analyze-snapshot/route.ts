@@ -327,7 +327,10 @@ Output only valid JSON with this structure:
     const updatedAiImages = [...existingAiImages, ...generatedImageUrls];
 
     // Set the first generated AI image as thumbnail if no thumbnail exists
-    let thumbnailImage = null;
+    // Check if we need to set a default thumbnail (only if no thumbnails exist)
+    // Note: We won't automatically set thumbnails per adset here since we don't have adset context
+    // This is just for backward compatibility
+    let hasThumbnails = false;
     try {
       const { data: projectData } = await supabase
         .from('projects')
@@ -335,13 +338,30 @@ Output only valid JSON with this structure:
         .eq('project_id', projectId)
         .single();
 
-      if (
-        !projectData?.adset_thumbnail_image &&
-        generatedImageUrls.length > 0
-      ) {
-        thumbnailImage = generatedImageUrls[0];
+      if (projectData?.adset_thumbnail_image) {
+        try {
+          const thumbnails = typeof projectData.adset_thumbnail_image === 'string'
+            ? JSON.parse(projectData.adset_thumbnail_image)
+            : projectData.adset_thumbnail_image;
+          
+          if (typeof thumbnails === 'object' && thumbnails !== null && !Array.isArray(thumbnails)) {
+            hasThumbnails = Object.keys(thumbnails).length > 0;
+          } else if (typeof thumbnails === 'string') {
+            hasThumbnails = true;
+          }
+        } catch (e) {
+          // If parsing fails, check if it's a string
+          if (typeof projectData.adset_thumbnail_image === 'string') {
+            hasThumbnails = true;
+          }
+        }
+      }
+
+      // Only set default thumbnail if no thumbnails exist and we have generated images
+      // This maintains backward compatibility but doesn't interfere with per-adset thumbnails
+      if (!hasThumbnails && generatedImageUrls.length > 0) {
         console.log(
-          `🖼️ Setting first AI image as thumbnail: ${thumbnailImage}`
+          `🖼️ No thumbnails found, but not auto-setting (per-adset thumbnails should be set manually)`
         );
       }
     } catch (error) {
@@ -353,9 +373,7 @@ Output only valid JSON with this structure:
       ai_images: updatedAiImages,
     };
 
-    if (thumbnailImage) {
-      updateData.adset_thumbnail_image = thumbnailImage;
-    }
+    // Don't automatically set thumbnail here - let users set per-adset thumbnails manually
 
     console.log(
       '🔍 Debug - Updating database with:',
@@ -390,8 +408,7 @@ Output only valid JSON with this structure:
       personas: personaParsed.personas || [],
       generated_ai_images: generatedImageUrls,
       ai_images_count: generatedImageUrls.length,
-      thumbnail_set: !!thumbnailImage,
-      thumbnail_url: thumbnailImage,
+      thumbnail_set: hasThumbnails,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
