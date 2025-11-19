@@ -299,8 +299,8 @@ export async function POST(request: NextRequest) {
       },
       // Allow promotions to be added
       allow_promotion_codes: true,
-      // For trial periods, collect payment method but don't charge immediately
-      payment_method_collection: planType === 'free_trial' ? 'always' : undefined,
+      // Always collect payment method - for trials it won't charge, for paid plans it will charge immediately
+      payment_method_collection: 'always',
     };
 
     // For free trial, add subscription data with trial period
@@ -313,15 +313,18 @@ export async function POST(request: NextRequest) {
         },
       };
     } 
-    // For monthly/annual with immediate payment, don't add trial
-    else if ((planType === 'monthly' || planType === 'annual') && immediatePayment) {
+    // For monthly/annual plans, explicitly set subscription_data WITHOUT trial period
+    // This ensures payment is collected immediately and no trial is applied
+    else if (planType === 'monthly' || planType === 'annual') {
       sessionParams.subscription_data = {
         metadata: {
           plan_type: planType,
           project_id: projectId || '',
-          immediate_payment: 'true',
+          immediate_payment: immediatePayment ? 'true' : 'false',
         },
       };
+      // Note: payment_method_collection is already set to 'always' above
+      // This ensures payment is collected immediately with no trial period
     }
 
     if (!stripe) {
