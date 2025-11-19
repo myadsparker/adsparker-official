@@ -150,6 +150,23 @@ async function handleCheckoutCompleted(
         typeof session.subscription === 'string'
           ? session.subscription
           : session.subscription.id;
+      
+      // Get the actual subscription from Stripe to get the real price
+      try {
+        const subscriptionObj = typeof session.subscription === 'string'
+          ? await stripe.subscriptions.retrieve(session.subscription)
+          : session.subscription;
+        
+        if (subscriptionObj.items.data.length > 0) {
+          const price = subscriptionObj.items.data[0].price;
+          if (price.unit_amount) {
+            // Convert from cents to currency unit (e.g., rupees or dollars)
+            updateData.amount = price.unit_amount / 100;
+          }
+        }
+      } catch (error) {
+        console.error('Error retrieving subscription for amount:', error);
+      }
     }
 
     if (session.payment_status === 'paid') {
@@ -238,6 +255,15 @@ async function handleSubscriptionUpdated(
     const updateData: any = {
       updated_at: new Date().toISOString(),
     };
+
+    // Update amount from Stripe subscription price
+    if (subscription.items.data.length > 0) {
+      const price = subscription.items.data[0].price;
+      if (price.unit_amount) {
+        // Convert from cents to currency unit (e.g., rupees or dollars)
+        updateData.amount = price.unit_amount / 100;
+      }
+    }
 
     // Update status based on Stripe subscription status
     const stripeStatus = subscription.status as string;
@@ -394,13 +420,34 @@ async function handlePaymentSucceeded(
     // Get user_id from subscription
     const userId = existingSubscription.user_id;
 
+    // Get the actual subscription from Stripe to get the real price
+    let subscriptionAmount = existingSubscription.amount || 0;
+    try {
+      const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
+      if (stripeSubscription.items.data.length > 0) {
+        const price = stripeSubscription.items.data[0].price;
+        if (price.unit_amount) {
+          // Convert from cents to the currency unit (e.g., rupees or dollars)
+          subscriptionAmount = price.unit_amount / 100;
+        }
+      }
+    } catch (error) {
+      console.error('Error retrieving subscription from Stripe:', error);
+    }
+
+    // Use amount_due or total if amount_paid is 0 (for trial periods)
+    // amount_due shows what should be charged, total shows the full invoice amount
+    const invoiceAmount = invoice.amount_paid > 0 
+      ? invoice.amount_paid 
+      : (invoice.amount_due > 0 ? invoice.amount_due : invoice.total);
+
     // Save invoice to database
     const invoiceData = {
       user_id: userId,
       subscription_id: existingSubscription.id,
       stripe_invoice_id: invoice.id,
       invoice_number: invoice.number || null,
-      amount_paid: (invoice.amount_paid || 0) / 100, // Convert from cents to dollars
+      amount_paid: (invoiceAmount || 0) / 100, // Convert from cents to currency unit
       currency: invoice.currency || 'usd',
       status: invoice.status || 'paid',
       invoice_pdf_url: invoice.invoice_pdf || null,
@@ -421,29 +468,27 @@ async function handlePaymentSucceeded(
     if (invoiceError) {
       console.error('Error saving invoice:', invoiceError);
     } else {
-      console.log('✅ Invoice saved:', invoice.id);
+      console.log('✅ Invoice saved:', invoice.id, 'Amount:', invoiceData.amount_paid);
+    }
+
+    // Update subscription with amount and status
+    const subscriptionUpdate: any = {
+      updated_at: new Date().toISOString(),
+    };
+
+    // Update amount from Stripe subscription if we got it
+    if (subscriptionAmount > 0) {
+      subscriptionUpdate.amount = subscriptionAmount;
     }
 
     // Update subscription to active if it was expired
     if (existingSubscription.status === 'expired') {
-      await supabase
-        .from('subscriptions')
-        .update({
-          status: 'active',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingSubscription.id);
+      subscriptionUpdate.status = 'active';
     }
 
     // Update end date based on invoice period
     if (invoice.period_end) {
-      await supabase
-        .from('subscriptions')
-        .update({
-          end_date: new Date(invoice.period_end * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingSubscription.id);
+      subscriptionUpdate.end_date = new Date(invoice.period_end * 1000).toISOString();
 
       // Also update user_profiles expiry_subscription
       await supabase
@@ -453,6 +498,12 @@ async function handlePaymentSucceeded(
         })
         .eq('user_id', userId);
     }
+
+    // Update subscription
+    await supabase
+      .from('subscriptions')
+      .update(subscriptionUpdate)
+      .eq('id', existingSubscription.id);
 
     console.log('✅ Payment succeeded for subscription:', subscriptionId);
   } catch (error) {
