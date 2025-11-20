@@ -135,10 +135,11 @@ export default function SubscriptionPlansModal({
                 <p className="subscription-plan-description">{plan.description}</p>
                 {plan.trialNote && (
                   <p className="subscription-plan-trial-note" style={{ 
-                    fontSize: '12px', 
+                    fontSize: '11px', 
                     color: '#10b981', 
-                    marginTop: '4px',
-                    fontWeight: '500'
+                    marginTop: '6px',
+                    fontWeight: '500',
+                    lineHeight: '1.3'
                   }}>
                     ✓ {plan.trialNote}
                   </p>
@@ -148,7 +149,7 @@ export default function SubscriptionPlansModal({
               <ul className="subscription-plan-features">
                 {plan.features.map((feature, index) => (
                   <li key={index}>
-                    <Check size={16} />
+                    <Check size={14} />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -178,17 +179,17 @@ export default function SubscriptionPlansModal({
           align-items: center;
           justify-content: center;
           z-index: 10000;
-          padding: 20px;
+          padding: 16px;
         }
 
         .subscription-plans-modal-content {
           background: white;
-          border-radius: 16px;
-          max-width: 1200px;
+          border-radius: 12px;
+          max-width: 600px;
           width: 100%;
           max-height: 90vh;
           overflow-y: auto;
-          padding: 32px;
+          padding: 24px;
           position: relative;
         }
 
@@ -196,11 +197,11 @@ export default function SubscriptionPlansModal({
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 32px;
+          margin-bottom: 20px;
         }
 
         .subscription-plans-modal-header h2 {
-          font-size: 28px;
+          font-size: 22px;
           font-weight: 600;
           color: #121212;
           margin: 0;
@@ -210,7 +211,7 @@ export default function SubscriptionPlansModal({
           background: none;
           border: none;
           cursor: pointer;
-          padding: 8px;
+          padding: 4px;
           color: #6b7280;
           display: flex;
           align-items: center;
@@ -223,69 +224,71 @@ export default function SubscriptionPlansModal({
 
         .subscription-plans-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 24px;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
         }
 
         .subscription-plan-card {
-          border: 2px solid #e5e7eb;
-          border-radius: 12px;
-          padding: 24px;
+          border: 1.5px solid #e5e7eb;
+          border-radius: 10px;
+          padding: 16px;
           position: relative;
           transition: all 0.2s ease;
+          display: flex;
+          flex-direction: column;
         }
 
         .subscription-plan-card:hover {
           border-color: #7a3ff3;
-          box-shadow: 0 4px 12px rgba(122, 63, 243, 0.1);
+          box-shadow: 0 3px 10px rgba(122, 63, 243, 0.1);
         }
 
         .subscription-plan-card.popular {
           border-color: #7a3ff3;
-          box-shadow: 0 4px 12px rgba(122, 63, 243, 0.15);
+          box-shadow: 0 3px 10px rgba(122, 63, 243, 0.12);
         }
 
         .subscription-plan-badge {
           position: absolute;
-          top: -12px;
+          top: -10px;
           left: 50%;
           transform: translateX(-50%);
           background: #7a3ff3;
           color: white;
-          padding: 4px 16px;
-          border-radius: 20px;
-          font-size: 12px;
+          padding: 3px 12px;
+          border-radius: 16px;
+          font-size: 11px;
           font-weight: 600;
         }
 
         .subscription-plan-header {
           text-align: center;
-          margin-bottom: 24px;
+          margin-bottom: 16px;
         }
 
         .subscription-plan-header h3 {
-          font-size: 20px;
+          font-size: 16px;
           font-weight: 600;
           color: #121212;
-          margin: 0 0 16px 0;
+          margin: 0 0 10px 0;
         }
 
         .subscription-plan-price {
           display: flex;
           align-items: baseline;
           justify-content: center;
-          gap: 4px;
-          margin-bottom: 8px;
+          gap: 3px;
+          margin-bottom: 6px;
         }
 
         .subscription-plan-price .price {
-          font-size: 36px;
+          font-size: 28px;
           font-weight: 700;
           color: #121212;
         }
 
         .subscription-plan-price .period {
-          font-size: 16px;
+          font-size: 14px;
           color: #6b7280;
         }
 
@@ -293,43 +296,49 @@ export default function SubscriptionPlansModal({
           font-size: 14px;
           color: #9ca3af;
           text-decoration: line-through;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
 
         .subscription-plan-description {
           font-size: 14px;
           color: #6b7280;
           margin: 0;
+          line-height: 1.4;
         }
 
         .subscription-plan-features {
           list-style: none;
           padding: 0;
-          margin: 0 0 24px 0;
+          margin: 0 0 16px 0;
+          flex: 1;
         }
 
         .subscription-plan-features li {
           display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 8px 0;
+          align-items: flex-start;
+          gap: 6px;
+          padding: 4px 0;
           font-size: 14px;
           color: #374151;
+          line-height: 1.4;
         }
 
         .subscription-plan-features li svg {
           color: #10b981;
           flex-shrink: 0;
+          margin-top: 1px;
+          width: 14px;
+          height: 14px;
         }
 
         .subscription-plan-button {
           width: 100%;
-          padding: 12px 24px;
+          padding: 10px 20px;
           border-radius: 8px;
           border: 2px solid #7a3ff3;
           background: white;
           color: #7a3ff3;
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s ease;
@@ -356,11 +365,19 @@ export default function SubscriptionPlansModal({
 
         @media (max-width: 768px) {
           .subscription-plans-modal-content {
-            padding: 24px;
+            padding: 20px;
           }
 
           .subscription-plans-grid {
             grid-template-columns: 1fr;
+          }
+          
+          .subscription-plan-header h3 {
+            font-size: 16px;
+          }
+          
+          .subscription-plan-price .price {
+            font-size: 28px;
           }
         }
       `}</style>

@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, User, Settings, LogOut, Menu, X, CreditCard } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, Menu, X, CreditCard, Megaphone, FolderOpen } from 'lucide-react';
 
 export default function DashboardLayout({
   children,
@@ -21,6 +21,9 @@ export default function DashboardLayout({
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showMetaModal, setShowMetaModal] = useState(false);
+  const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -80,6 +83,29 @@ export default function DashboardLayout({
 
     fetchUserProfile();
   }, []);
+
+  // Fetch connected Meta accounts
+  useEffect(() => {
+    if (showMetaModal) {
+      fetchConnectedAccounts();
+    }
+  }, [showMetaModal]);
+
+  const fetchConnectedAccounts = async () => {
+    try {
+      setLoadingAccounts(true);
+      const response = await fetch('/api/meta/accounts');
+      if (response.ok) {
+        const data = await response.json();
+        const accounts = Array.isArray(data?.accounts) ? data.accounts : [];
+        setConnectedAccounts(accounts);
+      }
+    } catch (error) {
+      console.error('Error fetching connected accounts:', error);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -158,15 +184,57 @@ export default function DashboardLayout({
     router.push('/dashboard/settings');
   };
 
-  const handleSubscription = () => {
-    if (!isSubscribed) {
-      // Disabled - don't navigate
-      return;
-    }
+  const handleProjects = () => {
     setIsDropdownOpen(false);
     setIsMobileMenuOpen(false);
-    // Navigate to adcenter which has subscription info
-    router.push('/adcenter');
+    router.push('/dashboard/projects');
+  };
+
+  const handleSubscription = () => {
+    setIsDropdownOpen(false);
+    setIsMobileMenuOpen(false);
+    // Navigate to subscription management page
+    router.push('/dashboard/subscription');
+  };
+
+  const handleMetaAccounts = () => {
+    setIsDropdownOpen(false);
+    setIsMobileMenuOpen(false);
+    setShowMetaModal(true);
+  };
+
+  const handleConnectMetaAccount = async () => {
+    try {
+      // Use a temporary project ID for OAuth flow
+      const tempProjectId = 'temp_' + Date.now();
+      const response = await fetch(`/api/meta-auth?action=connect&projectId=${tempProjectId}`);
+      const data = await response.json();
+
+      if (data.success && data.oauthUrl) {
+        // Redirect to Meta OAuth
+        window.location.href = data.oauthUrl;
+      } else {
+        alert(`Failed to connect Meta account: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error connecting Meta account:', error);
+      alert('An error occurred while connecting Meta account.');
+    }
+  };
+
+  const getAllAdAccounts = (accounts: any[]) => {
+    const adAccounts: any[] = [];
+    accounts.forEach((account) => {
+      if (account?.ad_accounts && Array.isArray(account.ad_accounts)) {
+        account.ad_accounts.forEach((adAccount: any) => {
+          adAccounts.push({
+            id: adAccount.id || adAccount.account_id,
+            name: adAccount.name || 'Unnamed Account',
+          });
+        });
+      }
+    });
+    return adAccounts;
   };
 
   const closeMobileMenu = () => {
@@ -261,18 +329,21 @@ export default function DashboardLayout({
                   <User size={16} />
                   Update Profile
                 </button>
+                <button onClick={handleProjects} className='dropdown_item'>
+                  <FolderOpen size={16} />
+                  Projects
+                </button>
                 <button onClick={handleSettings} className='dropdown_item'>
                   <Settings size={16} />
                   Settings
                 </button>
-                <button
-                  onClick={handleSubscription}
-                  className={`dropdown_item ${!isSubscribed ? 'dropdown_item_disabled' : ''}`}
-                  disabled={!isSubscribed}
-                  title={!isSubscribed ? 'Please subscribe to access subscription settings' : ''}
-                >
+                <button onClick={handleSubscription} className='dropdown_item'>
                   <CreditCard size={16} />
                   Subscription
+                </button>
+                <button onClick={handleMetaAccounts} className='dropdown_item'>
+                  <Megaphone size={16} />
+                  Meta Accounts
                 </button>
                 <button
                   onClick={handleLogout}
@@ -409,13 +480,6 @@ export default function DashboardLayout({
           <div className='mobile-menu__panel-content'>
             <nav className='mobile-menu__links'>
               <button
-                onClick={handleSettings}
-                className='mobile-menu__link-button'
-              >
-                <Settings size={20} />
-                Settings
-              </button>
-              <button
                 onClick={handleUpdateProfile}
                 className='mobile-menu__link-button'
               >
@@ -423,13 +487,32 @@ export default function DashboardLayout({
                 Update Profile
               </button>
               <button
+                onClick={handleProjects}
+                className='mobile-menu__link-button'
+              >
+                <FolderOpen size={20} />
+                Projects
+              </button>
+              <button
+                onClick={handleSettings}
+                className='mobile-menu__link-button'
+              >
+                <Settings size={20} />
+                Settings
+              </button>
+              <button
                 onClick={handleSubscription}
-                className={`mobile-menu__link-button ${!isSubscribed ? 'mobile-menu__link-button--disabled' : ''}`}
-                disabled={!isSubscribed}
-                title={!isSubscribed ? 'Please subscribe to access subscription settings' : ''}
+                className='mobile-menu__link-button'
               >
                 <CreditCard size={20} />
                 Subscription
+              </button>
+              <button
+                onClick={handleMetaAccounts}
+                className='mobile-menu__link-button'
+              >
+                <Megaphone size={20} />
+                Meta Accounts
               </button>
               <button
                 onClick={handleLogout}
@@ -443,6 +526,125 @@ export default function DashboardLayout({
         </div>
       </div>
       {children}
+
+      {/* Meta Accounts Modal */}
+      {showMetaModal && (
+        <div className='modal-overlay' onClick={() => setShowMetaModal(false)}>
+          <div className='modal-content' onClick={(e) => e.stopPropagation()}>
+            <div className='modal-header'>
+              <h2>Manage Meta Accounts</h2>
+              <button
+                className='modal-close'
+                onClick={() => setShowMetaModal(false)}
+              >
+                <svg
+                  xmlns='http://www.w3.org/2000/svg'
+                  width='24'
+                  height='24'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                >
+                  <path d='M18 6 6 18' />
+                  <path d='m6 6 12 12' />
+                </svg>
+              </button>
+            </div>
+            <div className='modal-body'>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Image
+                  src='/images/meta.png'
+                  height={40}
+                  width={40}
+                  alt='Meta Logo'
+                />
+                Connect Meta Ads
+              </h3>
+              <p className='des'>
+                Securely link your Meta Business ad account to manage campaigns
+                across brands.
+              </p>
+              <div className='connections'>
+                <div className='left'>
+                  <h4>
+                    Meta Accounts <span>Connected</span>
+                  </h4>
+                  <p>Connected: {connectedAccounts.length} accounts</p>
+                  {connectedAccounts.length > 0 && (
+                    <div className='connected-accounts'>
+                      {connectedAccounts.map((account, index) => (
+                        <div key={index} className='account-item'>
+                          <span className='account-name'>{account.name}</span>
+                          <span className='account-email'>{account.email}</span>
+                          <span className='account-date'>
+                            Connected:{' '}
+                            {new Date(
+                              account.connected_at
+                            ).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className='right'>
+                  {(() => {
+                    const allAdAccounts = getAllAdAccounts(connectedAccounts);
+                    const hasAdAccounts = allAdAccounts.length > 0;
+                    return (
+                      <button
+                        onClick={handleConnectMetaAccount}
+                        disabled={hasAdAccounts}
+                        style={{
+                          opacity: hasAdAccounts ? 0.5 : 1,
+                          cursor: hasAdAccounts ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        <svg
+                          xmlns='http://www.w3.org/2000/svg'
+                          width='24'
+                          height='24'
+                          viewBox='0 0 24 24'
+                          fill='none'
+                          stroke='currentColor'
+                          strokeWidth='2'
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                        >
+                          <path d='M5 12h14' />
+                          <path d='M12 5v14' />
+                        </svg>
+                        Connect Ad Account
+                      </button>
+                    );
+                  })()}
+                </div>
+              </div>
+              <div className='note'>
+                <svg
+                  width='24'
+                  height='24'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  xmlns='http://www.w3.org/2000/svg'
+                >
+                  <path
+                    d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'
+                    fill='#3b82f6'
+                  />
+                </svg>
+                <p>
+                  Connect your Meta ad account to publish and manage campaigns
+                  directly from AdSparker. Your credentials are securely stored.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

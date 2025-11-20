@@ -338,6 +338,195 @@ button span {
 .nav_buttons_wrapper{
   padding-bottom: 80px;
 }
+
+/* Meta Accounts Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  max-width: 700px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #121212;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.modal-close:hover {
+  color: #121212;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-body h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #121212;
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-body p {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+}
+
+.modal-body p.des {
+  margin-bottom: 24px;
+}
+
+.modal-body .note {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: #eff6ff;
+  border-radius: 8px;
+  margin-top: 24px;
+}
+
+.modal-body .note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.modal-body .note p {
+  margin: 0;
+  font-size: 13px;
+  color: #1e40af;
+  line-height: 1.5;
+}
+
+.modal-body .connections {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.modal-body .connections .left {
+  flex: 1;
+}
+
+.modal-body .connections .right {
+  flex-shrink: 0;
+}
+
+.modal-body .connections h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #121212;
+  margin: 0 0 8px 0;
+}
+
+.modal-body .connections h4 span {
+  color: #10b981;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.modal-body .connections p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 16px 0;
+}
+
+.modal-body .connections button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #7a3ff3;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-body .connections button:hover:not(:disabled) {
+  background: #6b2ee8;
+}
+
+.modal-body .connections button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.connected-accounts {
+  margin-top: 12px;
+}
+
+.account-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.account-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #121212;
+}
+
+.account-email {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.account-date {
+  font-size: 12px;
+  color: #9ca3af;
+}
 @media (max-width: 575px) {
   .stepper {
     padding-inline: 16px;
