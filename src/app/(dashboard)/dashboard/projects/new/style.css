@@ -126,5 +126,7 @@ input::placeholder {
     border: 1px solid #b080f3;
     margin-bottom: 20px;
   }
-
+  .horizontal-marquee-container{
+    margin-top: 90px !important;
+  }
 }
