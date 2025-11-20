@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
-        .eq('plan_type', 'free_trial')
-        .in('status', ['active', 'trial_expired'])
+        .or('plan_type.eq.free_trial,is_trial.eq.true,status.eq.active')
+        .in('status', ['active', 'trial_expired', 'trialing'])
         .order('created_at', { ascending: false })
         .limit(1)
         .single();

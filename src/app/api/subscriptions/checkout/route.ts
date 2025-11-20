@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
-// Initialize Stripe with environment key (with safe checks)
+// Initialize Stripe with error handling
 let stripe: Stripe | null = null;
 try {
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -16,20 +16,16 @@ try {
   console.error('Failed to initialize Stripe:', error);
 }
 
-// Stripe Price IDs - prefer server-side secrets, but fallback to public env if necessary
+// Stripe Price IDs - these should be set in your environment variables
+// Or will be fetched dynamically if not set
 const STRIPE_PRICE_IDS = {
-  monthly:
-    process.env.STRIPE_MONTHLY_PRICE_ID ||
-    process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ||
-    null,
-  annual:
-    process.env.STRIPE_ANNUAL_PRICE_ID ||
-    process.env.NEXT_PUBLIC_STRIPE_ANNUAL_PRICE_ID ||
-    null,
+  monthly: process.env.STRIPE_MONTHLY_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID || null,
+  annual: process.env.STRIPE_ANNUAL_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_ANNUAL_PRICE_ID || null,
 };
 
-// Helper: find a matching price on Stripe if env not provided
+// Helper function to get or create price ID
 async function getOrCreatePriceId(planType: 'monthly' | 'annual'): Promise<string> {
+  // If price ID is set in environment, use it
   if (planType === 'monthly' && STRIPE_PRICE_IDS.monthly && STRIPE_PRICE_IDS.monthly !== 'price_monthly') {
     return STRIPE_PRICE_IDS.monthly;
   }
@@ -37,31 +33,45 @@ async function getOrCreatePriceId(planType: 'monthly' | 'annual'): Promise<strin
     return STRIPE_PRICE_IDS.annual;
   }
 
-  if (!stripe) throw new Error('Stripe is not initialized');
-
-  const prices = await stripe.prices.list({ limit: 100, active: true });
-
-  // NOTE: We don't hardcode values here. We attempt to find a reasonable price by interval.
-  // This is a heuristic: find first price that matches the billing interval.
-  if (planType === 'monthly') {
-    const monthlyPrice = prices.data.find((p) => p.recurring?.interval === 'month');
-    if (monthlyPrice) return monthlyPrice.id;
-  } else {
-    const annualPrice = prices.data.find((p) => p.recurring?.interval === 'year');
-    if (annualPrice) return annualPrice.id;
+  // If not set, fetch from Stripe API
+  if (!stripe) {
+    throw new Error('Stripe is not initialized');
   }
 
-  throw new Error(`${planType} price ID not found. Please set STRIPE_${planType.toUpperCase()}_PRICE_ID or run setup.`);
+  // Get all prices
+  const prices = await stripe.prices.list({
+    limit: 100,
+    active: true,
+  });
+
+  if (planType === 'monthly') {
+    const monthlyPrice = prices.data.find(
+      (p) => p.recurring?.interval === 'month' && p.unit_amount === 19900
+    );
+    if (monthlyPrice) {
+      return monthlyPrice.id;
+    }
+  } else {
+    const annualPrice = prices.data.find(
+      (p) => p.recurring?.interval === 'year' && p.unit_amount === 130800
+    );
+    if (annualPrice) {
+      return annualPrice.id;
+    }
+  }
+
+  throw new Error(`${planType} price ID not found. Please run /api/subscriptions/setup-stripe first.`);
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Stripe is initialized
     if (!stripe) {
       console.error('Stripe is not initialized. Please check STRIPE_SECRET_KEY environment variable.');
       return NextResponse.json(
-        {
-          error: 'Payment service not configured',
-          details: 'STRIPE_SECRET_KEY is missing',
+        { 
+          error: 'Payment service is not configured. Please contact support.',
+          details: 'STRIPE_SECRET_KEY is missing'
         },
         { status: 500 }
       );
@@ -71,62 +81,68 @@ export async function POST(request: NextRequest) {
     const { planType, projectId, immediatePayment } = body;
 
     if (!planType) {
-      return NextResponse.json({ error: 'Plan type is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Plan type is required' },
+        { status: 400 }
+      );
     }
 
     const supabase = createServerSupabaseClient();
 
+    // Get current user
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    // Free trial checks remain the same
-    if (planType === 'free_trial') {
+    // Check if user has used trial before (for monthly plan to add trial period)
+    let hasUsedTrial = false;
+    if (planType === 'monthly') {
+      // Check user_profiles for has_used_trial flag
       const { data: userProfile } = await supabase
         .from('user_profiles')
         .select('has_used_trial')
         .eq('user_id', user.id)
         .single();
 
+      // Also check if user has ever had a subscription with trial (free_trial or monthly with trial)
       const { data: previousTrial } = await supabase
         .from('subscriptions')
-        .select('id')
+        .select('id, plan_type, is_trial')
         .eq('user_id', user.id)
-        .eq('plan_type', 'free_trial')
+        .or('plan_type.eq.free_trial,is_trial.eq.true')
         .limit(1)
         .maybeSingle();
 
-      if (userProfile?.has_used_trial || previousTrial) {
-        return NextResponse.json(
-          {
-            error: 'Free trial already used',
-            message: 'You have already used your free trial. Please choose a paid plan to continue.',
-          },
-          { status: 400 }
-        );
-      }
+      hasUsedTrial = !!(userProfile?.has_used_trial || previousTrial);
     }
 
-    // Determine price id using Stripe - DO NOT hardcode amount
+    // Determine price ID based on plan type
     let priceId: string;
     let billingCycle: 'monthly' | 'annual' = 'monthly';
+    let includeTrialPeriod = false;
 
     try {
-      if (planType === 'free_trial') {
-        priceId = await getOrCreatePriceId('monthly'); // trial uses monthly price by your prior code
-      } else if (planType === 'monthly') {
+      if (planType === 'monthly') {
         priceId = await getOrCreatePriceId('monthly');
         billingCycle = 'monthly';
+        // Add trial period only if user hasn't used trial before
+        includeTrialPeriod = !hasUsedTrial;
       } else if (planType === 'annual') {
         priceId = await getOrCreatePriceId('annual');
         billingCycle = 'annual';
       } else {
-        return NextResponse.json({ error: 'Invalid plan type' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Invalid plan type' },
+          { status: 400 }
+        );
       }
     } catch (priceError: any) {
       console.error('Error getting price ID:', priceError);
@@ -140,7 +156,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Deactivate previous active subscriptions for this user (keeps your logic)
+    // Mark all previous active subscriptions as inactive before creating new one
+    // This enforces one active subscription at a time
     await supabase
       .from('subscriptions')
       .update({
@@ -151,8 +168,10 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .in('status', ['active', 'trialing']);
 
-    // Reuse existing subscription record or create a new one (same as your logic)
+    // Get or create subscription
     let subscriptionId: string | null = null;
+    
+    // Check if user has existing subscription of this type
     const { data: existingSubscription } = await supabase
       .from('subscriptions')
       .select('*')
@@ -162,6 +181,8 @@ export async function POST(request: NextRequest) {
 
     if (existingSubscription) {
       subscriptionId = existingSubscription.id;
+      
+      // Reactivate the subscription if it was cancelled
       if (existingSubscription.status === 'cancelled' || existingSubscription.status === 'expired') {
         await supabase
           .from('subscriptions')
@@ -173,6 +194,7 @@ export async function POST(request: NextRequest) {
           .eq('id', existingSubscription.id);
       }
     } else {
+      // Create subscription record
       const subscriptionData: any = {
         user_id: user.id,
         plan_type: planType,
@@ -184,19 +206,23 @@ export async function POST(request: NextRequest) {
         payment_provider: 'stripe',
       };
 
-      if (planType === 'free_trial') {
+      // Set trial information if monthly plan with trial period
+      if (planType === 'monthly' && includeTrialPeriod) {
         subscriptionData.is_trial = true;
         subscriptionData.trial_start_date = new Date().toISOString();
         const trialEndDate = new Date();
         trialEndDate.setDate(trialEndDate.getDate() + 7);
         subscriptionData.trial_end_date = trialEndDate.toISOString();
-        subscriptionData.end_date = trialEndDate.toISOString();
+        // End date will be set after trial period in webhook
+        subscriptionData.amount = 199;
       } else {
         const endDate = new Date();
         if (billingCycle === 'annual') {
           endDate.setFullYear(endDate.getFullYear() + 1);
+          subscriptionData.amount = 1308;
         } else {
           endDate.setMonth(endDate.getMonth() + 1);
+          subscriptionData.amount = 199;
         }
         subscriptionData.end_date = endDate.toISOString();
       }
@@ -209,12 +235,16 @@ export async function POST(request: NextRequest) {
 
       if (createError) {
         console.error('Error creating subscription:', createError);
-        return NextResponse.json({ error: 'Failed to create subscription' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Failed to create subscription' },
+          { status: 500 }
+        );
       }
 
       subscriptionId = newSubscription.id;
 
-      if (planType === 'free_trial') {
+      // If this is a monthly plan with trial, mark has_used_trial in user_profiles
+      if (planType === 'monthly' && includeTrialPeriod) {
         await supabase
           .from('user_profiles')
           .update({ has_used_trial: true })
@@ -222,21 +252,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Detect app URL (same as your code)
-    let appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
+    // Get app URL - try multiple methods
+    let appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                 process.env.NEXT_PUBLIC_SITE_URL;
+    
+    // If not in env, try to get from request headers (production detection)
     if (!appUrl) {
       const host = request.headers.get('host');
       const protocol = request.headers.get('x-forwarded-proto') || 'https';
+      
       if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
         appUrl = `${protocol}://${host}`;
       } else {
+        // Fallback to localhost only if truly local
         appUrl = 'http://localhost:3000';
       }
     }
 
-    // Build Checkout Session params.
-    // Key difference: for paid plans (monthly/annual) we intentionally do not set a trial,
-    // so Stripe will attempt to invoice and collect payment for the first billing cycle.
+    // Create Stripe checkout session
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -257,25 +290,32 @@ export async function POST(request: NextRequest) {
         immediate_payment: immediatePayment ? 'true' : 'false',
         price_id: priceId || '',
       },
+      // Allow promotions to be added
       allow_promotion_codes: true,
-      // collect payment method at checkout for safety. For free trial we will keep always,
-      // for paid plans this also ensures a payment method is present for charging.
-      payment_method_collection: planType === 'free_trial' ? 'always' : 'if_required',
+      // Always collect payment method - for trials it won't charge, for paid plans it will charge immediately
+      payment_method_collection: 'always',
     };
 
-    // Add subscription_data for different plan types:
-    if (planType === 'free_trial') {
-      // keep the 7-day trial behavior identical to your previous code
-      sessionParams.subscription_data = {
-        trial_period_days: 7,
-        metadata: {
-          plan_type: 'free_trial',
-          project_id: projectId || '',
-        },
+    // For monthly plan, add trial period if user is eligible
+    if (planType === 'monthly') {
+      const subscriptionMetadata: any = {
+        plan_type: planType,
+        project_id: projectId || '',
+        immediate_payment: immediatePayment ? 'true' : 'false',
+        has_trial: includeTrialPeriod ? 'true' : 'false',
       };
-    } else {
-      // For monthly/annual (paid) - no trial, so Checkout will create a subscription and attempt to collect payment.
-      // We attach metadata so webhooks and later reconciliation have context.
+
+      sessionParams.subscription_data = {
+        metadata: subscriptionMetadata,
+      };
+
+      // Add trial period if user hasn't used trial before
+      if (includeTrialPeriod) {
+        sessionParams.subscription_data.trial_period_days = 7;
+      }
+    } 
+    // For annual plan, no trial period
+    else if (planType === 'annual') {
       sessionParams.subscription_data = {
         metadata: {
           plan_type: planType,
@@ -283,15 +323,12 @@ export async function POST(request: NextRequest) {
           immediate_payment: immediatePayment ? 'true' : 'false',
         },
       };
-
-      // NOTE: In most Stripe setups, creating a Checkout Session in subscription mode
-      // for a non-trial price causes Checkout to create an invoice and attempt to collect
-      // the first payment on-session. If your Stripe price object or product has other
-      // configuration (e.g., 0 amount, or a trial defined directly on the Price), Checkout
-      // may still show an authentication step with ₹0. If that happens, check the Price object in the Stripe Dashboard.
     }
 
-    // Create the Checkout Session
+    if (!stripe) {
+      throw new Error('Stripe is not initialized');
+    }
+
     const session = await stripe.checkout.sessions.create(sessionParams);
 
     return NextResponse.json({
@@ -300,7 +337,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Stripe checkout error:', error);
-
+    
+    // Provide more detailed error messages
     let errorMessage = 'Failed to create checkout session';
     let errorDetails = error.message || 'Unknown error';
 
@@ -313,12 +351,13 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      {
+      { 
         error: errorMessage,
         details: errorDetails,
-        type: error.type || 'unknown',
+        type: error.type || 'unknown'
       },
       { status: 500 }
     );
   }
 }
+

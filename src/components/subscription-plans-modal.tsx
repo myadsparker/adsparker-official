@@ -5,33 +5,18 @@ import { Check } from 'lucide-react';
 
 interface SubscriptionPlansModalProps {
   onClose: () => void;
-  onSelectPlan: (planType: 'trial' | 'monthly' | 'annual', priceId?: string) => void;
+  onSelectPlan: (planType: 'monthly' | 'annual', priceId?: string) => void;
   projectId: string;
 }
 
 const PLANS = [
   {
-    id: 'trial',
-    name: 'Free Trial',
-    price: '$0',
-    period: '7 days',
-    description: 'Try all features free for 7 days',
-    features: [
-      'Up to 5 campaigns',
-      'AI ad generation',
-      'Campaign editor',
-      'Performance monitoring',
-      'Meta Ads Manager integration',
-    ],
-    popular: false,
-    stripePriceId: null,
-  },
-  {
     id: 'monthly',
     name: 'Monthly Plan',
     price: '$199',
     period: '/month',
-    description: 'Best for growing businesses',
+    description: 'Start with 7 days free trial, then $199/month',
+    trialNote: '7 days free trial included (if eligible)',
     features: [
       'Unlimited campaigns',
       'Full dashboard access',
@@ -39,6 +24,7 @@ const PLANS = [
       'Advanced AI insights',
       'Campaign performance forecasting',
       'Priority support',
+      '7 days free trial for new users',
     ],
     popular: true,
     stripePriceId: process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID || 'price_monthly',
@@ -73,58 +59,27 @@ export default function SubscriptionPlansModal({
     setLoading(plan.id);
 
     try {
-      if (plan.id === 'trial') {
-        // Create trial subscription
-        const response = await fetch('/api/subscriptions/checkout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            planType: 'free_trial',
-            projectId,
-          }),
-        });
+      // Redirect to Stripe checkout
+      const response = await fetch('/api/subscriptions/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planType: plan.id,
+          projectId,
+          immediatePayment: true,
+        }),
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          const errorMessage = errorData.message || errorData.error || 'Failed to create trial';
-          throw new Error(errorMessage);
-        }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create checkout session');
+      }
 
-        const data = await response.json();
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          // If no redirect URL, this means trial was created successfully
-          // Wait for webhook to update user_profiles, or update directly if needed
-          // For now, just close modal - webhook will handle the update
-          onSelectPlan('trial', undefined);
-          onClose();
-        }
-      } else {
-        // Redirect to Stripe checkout
-        const response = await fetch('/api/subscriptions/checkout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            planType: plan.id,
-            projectId,
-            immediatePayment: true,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Failed to create checkout session');
-        }
-
-        const data = await response.json();
-        if (data.url) {
-          window.location.href = data.url;
-        }
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
       }
     } catch (error: any) {
       console.error('Error selecting plan:', error);
@@ -178,6 +133,16 @@ export default function SubscriptionPlansModal({
                   </div>
                 )}
                 <p className="subscription-plan-description">{plan.description}</p>
+                {plan.trialNote && (
+                  <p className="subscription-plan-trial-note" style={{ 
+                    fontSize: '12px', 
+                    color: '#10b981', 
+                    marginTop: '4px',
+                    fontWeight: '500'
+                  }}>
+                    ✓ {plan.trialNote}
+                  </p>
+                )}
               </div>
 
               <ul className="subscription-plan-features">

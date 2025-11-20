@@ -1,5 +1,5 @@
 .create_screen {
-  margin-top: 100px;
+  margin-top: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -8,7 +8,7 @@
 
 .main_title {
   font-weight: 500;
-  font-size: 40px;
+  font-size: 32px;
   padding-bottom: 12px;
   color: #343438;
 }
@@ -19,7 +19,9 @@
   color: #343438;
   margin-bottom: 40px;
 }
-
+.stepper{
+  margin-block:40px;
+}
 form {
   display: flex;
   justify-content: space-between;
@@ -29,7 +31,7 @@ form {
   padding: 12px 12px 12px 24px;
   gap: 12px;
   width: 774px;
-  height: 80px;
+  height: 60px;
   background: rgba(255, 255, 255, 0.1);
   box-shadow: 0px 4px 32px rgba(126, 82, 224, 0.24);
   border-radius: 9999px;
@@ -48,7 +50,7 @@ form {
   gap: 8px;
   margin: 0 auto;
   width: 168px;
-  height: 56px;
+  height: 48px;
   background: linear-gradient(90deg, #937ce5 0%, #7e35e5 100%);
   border-radius: 9999px;
   flex: none;
@@ -73,7 +75,12 @@ input::placeholder {
   border: none;
   outline: none;
 }
-
+.horizontal-marquee-container img{
+  width: 100px;
+  height: 120px;
+  border-radius: 12px;
+  object-fit: cover;
+}
 @media (max-width:575px) {
   .create_screen {
     padding-inline: 20px;

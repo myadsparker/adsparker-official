@@ -46,15 +46,15 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .single();
 
-    // If no active subscription, check for free trial
+    // If no active subscription, check for active subscriptions (including monthly with trial)
     let activeSubscription = subscription;
     if (!subscription) {
       const { data: trial } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
-        .eq('plan_type', 'free_trial')
-        .in('status', ['active', 'trial_expired'])
+        .or('plan_type.eq.free_trial,is_trial.eq.true,status.eq.active')
+        .in('status', ['active', 'trial_expired', 'trialing'])
         .order('created_at', { ascending: false })
         .limit(1)
         .single();

@@ -181,16 +181,18 @@ async function handleCheckoutCompleted(
 
     // Only update user_profiles if payment was successful or trial was started
     // Check if this is a successful checkout (paid or trial started)
+    const hasTrial = session.metadata?.has_trial === 'true';
+    const planType = session.metadata?.plan_type || 'monthly';
+    
     const isSuccessful = session.payment_status === 'paid' || 
-                        session.metadata?.plan_type === 'free_trial' ||
+                        hasTrial ||
                         (session.subscription && await checkSubscriptionStatus(session.subscription));
 
     if (isSuccessful) {
-      const planType = session.metadata?.plan_type || 'trial';
       const priceId = session.metadata?.price_id || null;
       
       // Determine subscription type and expiry
-      let subscriptionType = planType === 'free_trial' ? 'trial' : (priceId || planType);
+      let subscriptionType = hasTrial ? planType : (priceId || planType);
       let expiryDate: string | null = null;
       
       if (session.subscription) {
@@ -198,11 +200,23 @@ async function handleCheckoutCompleted(
           ? await stripe.subscriptions.retrieve(session.subscription)
           : session.subscription;
         
-      const periodEnd = (subscriptionObj as any).currentPeriodEnd || (subscriptionObj as any).current_period_end;
-      if (periodEnd) {
-        expiryDate = new Date(periodEnd * 1000).toISOString();
-      }
-      } else if (planType === 'free_trial') {
+        const periodEnd = (subscriptionObj as any).currentPeriodEnd || (subscriptionObj as any).current_period_end;
+        if (periodEnd) {
+          expiryDate = new Date(periodEnd * 1000).toISOString();
+        }
+        
+        // Check if subscription has trial period
+        if ((subscriptionObj as any).trial_end && hasTrial) {
+          // Update trial end date
+          await supabase
+            .from('subscriptions')
+            .update({
+              trial_end_date: new Date((subscriptionObj as any).trial_end * 1000).toISOString(),
+              is_trial: true,
+            })
+            .eq('id', subscriptionId);
+        }
+      } else if (hasTrial) {
         // Trial expires in 7 days
         expiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       }
@@ -213,8 +227,8 @@ async function handleCheckoutCompleted(
         expiry_subscription: expiryDate,
       };
 
-      // If this is a free trial, mark has_used_trial as true
-      if (planType === 'free_trial') {
+      // If this has a trial period, mark has_used_trial as true
+      if (hasTrial) {
         updateProfileData.has_used_trial = true;
       }
 

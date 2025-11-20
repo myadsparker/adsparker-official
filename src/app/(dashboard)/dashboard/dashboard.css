@@ -251,6 +251,18 @@ button span {
   color: inherit;
 }
 
+.dropdown_item:disabled,
+.dropdown_item.dropdown_item_disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.dropdown_item:disabled:hover,
+.dropdown_item.dropdown_item_disabled:hover {
+  background: none;
+}
+
 @media (max-width: 768px) {
   .dashboard_header {
     display: none;
@@ -309,6 +321,19 @@ button span {
 .mobile-menu__link-button--logout:hover {
   background: #fef2f2;
   color: #dc2626;
+}
+
+.mobile-menu__link-button--disabled,
+.mobile-menu__link-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.mobile-menu__link-button--disabled:hover,
+.mobile-menu__link-button:disabled:hover {
+  background: none;
+  color: #17181c;
 }
 .nav_buttons_wrapper{
   padding-bottom: 80px;

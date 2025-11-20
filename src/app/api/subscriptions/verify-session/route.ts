@@ -84,14 +84,17 @@ export async function POST(request: NextRequest) {
       updateData.card_added = true;
     }
 
+    // Check if this subscription has a trial period
+    const hasTrial = session.metadata?.has_trial === 'true';
+    
     // Only update user_profiles if payment was successful or trial was started
     const isSuccessful = session.payment_status === 'paid' || 
-                        planType === 'free_trial' ||
+                        hasTrial ||
                         (session.subscription && await checkSubscriptionStatus(session.subscription));
 
     if (isSuccessful) {
       const priceId = session.metadata?.price_id || null;
-      const subscriptionType = planType === 'free_trial' ? 'trial' : (priceId || planType);
+      const subscriptionType = hasTrial ? planType : (priceId || planType);
       let expiryDate: string | null = null;
       
       if (session.subscription) {
@@ -103,7 +106,19 @@ export async function POST(request: NextRequest) {
         if (periodEnd) {
           expiryDate = new Date(periodEnd * 1000).toISOString();
         }
-      } else if (planType === 'free_trial') {
+        
+        // Check if subscription has trial period
+        if ((subscriptionObj as any).trial_end && hasTrial) {
+          // Update trial end date
+          await supabase
+            .from('subscriptions')
+            .update({
+              trial_end_date: new Date((subscriptionObj as any).trial_end * 1000).toISOString(),
+              is_trial: true,
+            })
+            .eq('id', subscriptionId);
+        }
+      } else if (hasTrial) {
         expiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       }
 
@@ -113,8 +128,8 @@ export async function POST(request: NextRequest) {
         expiry_subscription: expiryDate,
       };
 
-      // If this is a free trial, mark has_used_trial as true
-      if (planType === 'free_trial') {
+      // If this has a trial period, mark has_used_trial as true
+      if (hasTrial) {
         updateProfileData.has_used_trial = true;
       }
 

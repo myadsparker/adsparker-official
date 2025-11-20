@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, User, Settings, LogOut, Menu, X } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, Menu, X, CreditCard } from 'lucide-react';
 
 export default function DashboardLayout({
   children,
@@ -17,6 +17,8 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -30,6 +32,7 @@ export default function DashboardLayout({
         } = await supabase.auth.getUser();
 
         if (user) {
+          // Fetch user profile
           const { data: profile, error } = await supabase
             .from('user_profiles')
             .select('*')
@@ -38,6 +41,36 @@ export default function DashboardLayout({
 
           if (profile) {
             setUserProfile(profile);
+          }
+
+          // Fetch subscription status
+          const subscriptionResponse = await fetch('/api/subscriptions');
+          if (subscriptionResponse.ok) {
+            const subscriptionData = await subscriptionResponse.json();
+            setSubscription(subscriptionData.subscription);
+            
+            const sub = subscriptionData.subscription;
+            
+            // Check if user is subscribed or has active trial
+            if (!sub) {
+              setIsSubscribed(false);
+            } else {
+              // Check if subscription is active (not expired or cancelled)
+              const isActive = sub.status === 'active' || sub.status === 'trialing';
+              
+              // Check if trial is still active (not expired)
+              const hasActiveTrial = sub.is_trial && 
+                sub.trial_end_date &&
+                new Date(sub.trial_end_date) > new Date();
+              
+              // User is subscribed if they have an active subscription or active trial
+              // Also check profile.is_subscribed as a fallback
+              const subscribed = profile?.is_subscribed || isActive || hasActiveTrial;
+              setIsSubscribed(!!subscribed);
+            }
+          } else {
+            // If API call fails, check profile.is_subscribed as fallback
+            setIsSubscribed(!!profile?.is_subscribed);
           }
         }
       } catch (error) {
@@ -123,6 +156,17 @@ export default function DashboardLayout({
     setIsDropdownOpen(false);
     setIsMobileMenuOpen(false);
     router.push('/dashboard/settings');
+  };
+
+  const handleSubscription = () => {
+    if (!isSubscribed) {
+      // Disabled - don't navigate
+      return;
+    }
+    setIsDropdownOpen(false);
+    setIsMobileMenuOpen(false);
+    // Navigate to adcenter which has subscription info
+    router.push('/adcenter');
   };
 
   const closeMobileMenu = () => {
@@ -220,6 +264,15 @@ export default function DashboardLayout({
                 <button onClick={handleSettings} className='dropdown_item'>
                   <Settings size={16} />
                   Settings
+                </button>
+                <button
+                  onClick={handleSubscription}
+                  className={`dropdown_item ${!isSubscribed ? 'dropdown_item_disabled' : ''}`}
+                  disabled={!isSubscribed}
+                  title={!isSubscribed ? 'Please subscribe to access subscription settings' : ''}
+                >
+                  <CreditCard size={16} />
+                  Subscription
                 </button>
                 <button
                   onClick={handleLogout}
@@ -368,6 +421,15 @@ export default function DashboardLayout({
               >
                 <User size={20} />
                 Update Profile
+              </button>
+              <button
+                onClick={handleSubscription}
+                className={`mobile-menu__link-button ${!isSubscribed ? 'mobile-menu__link-button--disabled' : ''}`}
+                disabled={!isSubscribed}
+                title={!isSubscribed ? 'Please subscribe to access subscription settings' : ''}
+              >
+                <CreditCard size={20} />
+                Subscription
               </button>
               <button
                 onClick={handleLogout}

@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import './style.css';
 import Stepper from '@/components/dashboard/Stepper';
 import { useRouter } from 'next/navigation';
+import HorizontalMarquee from '@/components/HorizontalMarquee';
 
 export default function Create() {
   const [url, setUrl] = useState('');
@@ -60,6 +61,9 @@ export default function Create() {
           </div>
           <button className='submit_btn'>Generate Ads</button>
         </form>
+        
+        {/* Horizontal Marquee Carousel */}
+        <HorizontalMarquee />
       </div>
     </>
   );
