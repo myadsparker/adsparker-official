@@ -7,7 +7,7 @@ import LogoutButton from '@/components/dashboard/LogoutButton';
 import Stepper from '@/components/dashboard/Stepper';
 import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, User, Settings, LogOut, Menu, X, CreditCard, Megaphone, FolderOpen } from 'lucide-react';
 
@@ -30,6 +30,7 @@ export default function DashboardLayout({
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
+        const supabase = getSupabaseClient();
         const {
           data: { user },
         } = await supabase.auth.getUser();

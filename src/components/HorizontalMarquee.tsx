@@ -34,7 +34,7 @@ export default function HorizontalMarquee() {
 
       // Calculate the width of one complete set
       const singleSetWidth = originalImages.length * (140 + 20); // image width + gap
-      const duration = singleSetWidth / 50; // pixels per second (adjust speed here)
+      const duration = singleSetWidth / 25; // pixels per second (slower, smoother animation)
 
       // Kill any existing animations
       gsap.killTweensOf(row);
