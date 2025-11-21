@@ -254,15 +254,18 @@ async function generateImageWithGeminiFlash(
     const effectivePrompt =
       refs.length > 0
         ? `${prompt}
-        CRITICAL: You are provided reference images. 
-The first reference is the brand logo – include it once, small and tasteful (e.g., a corner watermark), never duplicated. 
-The second reference is the product/OG image – use it as the visual/product reference so the generated ad clearly matches this product. 
-The third reference is a blank white canvas; use it to ensure a clean, full-bleed composition without unintended borders.
+        CRITICAL: You are provided with 3 reference images in base64 format. 
+Reference 1 (Logo): The brand logo – include it once, small and tasteful (e.g., a corner watermark), never duplicated. 
+Reference 2 (OG Image - Product): The actual product image from the website (OG image) – use this as the main visual reference so the generated ad clearly matches this exact product.
+Reference 3 (Blank Canvas): A blank white canvas template for ensuring clean, full-bleed composition without borders.
 
 Important composition rules:
+- Use the actual product appearance from Reference 2 (OG Image) as the primary visual guide
+- Reference 3 helps ensure the final output has no white borders or padding
 - Fill the entire canvas 1024*1024 fully (edge-to-edge, full-bleed composition).
 - Do not leave any white areas, borders, padding, or margins.
 - Avoid framed, mockup, or poster-style layouts.
+- The generated ad should clearly feature the product shown in Reference 2.
         `
         : prompt;
 
@@ -729,10 +732,11 @@ export async function POST(req: NextRequest) {
       productInformation
     );
 
-    // Step 5: Extract logo and OG image URLs in parallel
-    console.log('🖼️ Extracting logo and OG image URLs...');
+    // Step 5: Extract logo and OG image (product image) URLs
+    console.log('🖼️ Extracting logo and OG image...');
     const logoUrl = analysingPoints.logoUrl;
 
+    // Get OG image as product image reference
     let ogImageUrl: string | null = null;
     try {
       const urlAnalysis =
@@ -748,47 +752,82 @@ export async function POST(req: NextRequest) {
       console.error('Error extracting OG image:', error);
     }
 
-    // Step 6: Download logo and OG image in parallel
-    console.log('📥 Downloading logo, OG image, and white canvas in parallel...');
+    // Step 6: Download logo, OG image (product), and blank canvas in base64 format
+    console.log('📥 Downloading 3 reference images in base64 format...');
     const downloadPromises = [];
 
+    // Reference 1: Logo
     if (logoUrl) {
       downloadPromises.push(downloadImageAsBase64(logoUrl));
     } else {
       downloadPromises.push(Promise.resolve(null));
     }
 
+    // Reference 2: OG image (product image from website)
     if (ogImageUrl) {
       downloadPromises.push(downloadImageAsBase64(ogImageUrl));
     } else {
       downloadPromises.push(Promise.resolve(null));
     }
 
-    // Download white canvas image as third reference
-    const whiteCanvasUrl =
-      'https://ghsgnjzkgygiqmhjvtpi.supabase.co/storage/v1/object/public/project-files/white-canvas-1024_1024.png';
-    downloadPromises.push(downloadImageAsBase64(whiteCanvasUrl));
+    // Reference 3: Blank canvas image (same as service gen route)
+    const blankCanvasUrl = 'https://ghsgnjzkgygiqmhjvtpi.supabase.co/storage/v1/object/public/project-files/white-canvas-1024_1024.png';
+    downloadPromises.push(downloadImageAsBase64(blankCanvasUrl));
 
-    const [logoBase64, ogImageBase64, whiteCanvasBase64] = await Promise.all(downloadPromises);
+    const [logoBase64, ogImageBase64, blankCanvasBase64] = await Promise.all(downloadPromises);
 
-    // Step 7: Generate 2 images with Gemini 2.5 Flash (using available references)
-    console.log('🌐 Generating 2 images with Gemini 2.5 Flash...');
+    console.log('✅ Reference images downloaded:');
+    console.log(`   - Logo: ${logoBase64 ? 'Yes' : 'No'}`);
+    console.log(`   - OG Image (Product): ${ogImageBase64 ? 'Yes' : 'No'}`);
+    console.log(`   - Blank Canvas: ${blankCanvasBase64 ? 'Yes' : 'No'}`);
+
+    // Step 7: Generate 2 images with Gemini 2.5 Flash (using 3 reference images in base64)
+    // Max 2 attempts per image to prevent infinite retries
+    console.log('🌐 Generating 2 images with Gemini 2.5 Flash (3 reference images)...');
     
-    // Generate first image
+    // Prepare reference images array (all in base64 format)
+    // Reference 1: Logo, Reference 2: OG Image (Product), Reference 3: Blank Canvas
+    const referenceImages = [logoBase64 || null, ogImageBase64 || null, blankCanvasBase64 || null];
+    
+    // Generate first image (max 2 attempts)
     console.log('📸 Generating first image...');
-    const generatedImageUrl1 = await generateImageWithGeminiFlash(
-      promptData.prompt,
-      project_id,
-      [logoBase64 || null, ogImageBase64 || null, whiteCanvasBase64 || null]
-    );
+    let generatedImageUrl1 = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        console.log(`🔄 Attempt ${attempt}/2 for first image...`);
+        generatedImageUrl1 = await generateImageWithGeminiFlash(
+          promptData.prompt,
+          project_id,
+          referenceImages
+        );
+        if (generatedImageUrl1) break;
+      } catch (error) {
+        console.error(`❌ Attempt ${attempt}/2 failed for first image:`, error);
+        if (attempt === 2) {
+          console.log('⚠️ Max attempts reached for first image, moving on...');
+        }
+      }
+    }
 
-    // Generate second image
+    // Generate second image (max 2 attempts)
     console.log('📸 Generating second image...');
-    const generatedImageUrl2 = await generateImageWithGeminiFlash(
-      promptData.prompt,
-      project_id,
-      [logoBase64 || null, ogImageBase64 || null, whiteCanvasBase64 || null]
-    );
+    let generatedImageUrl2 = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        console.log(`🔄 Attempt ${attempt}/2 for second image...`);
+        generatedImageUrl2 = await generateImageWithGeminiFlash(
+          promptData.prompt,
+          project_id,
+          referenceImages
+        );
+        if (generatedImageUrl2) break;
+      } catch (error) {
+        console.error(`❌ Attempt ${attempt}/2 failed for second image:`, error);
+        if (attempt === 2) {
+          console.log('⚠️ Max attempts reached for second image, moving on...');
+        }
+      }
+    }
 
     if (!generatedImageUrl1 && !generatedImageUrl2) {
       return NextResponse.json(
@@ -798,10 +837,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 8: Reference images already used in generation above
-    const referenceImages: string[] = [];
-    if (logoBase64) referenceImages.push(logoBase64);
-    if (ogImageBase64) referenceImages.push(ogImageBase64);
-    if (whiteCanvasBase64) referenceImages.push(whiteCanvasBase64);
+    const referenceImagesForUpdate: string[] = [];
+    if (logoBase64) referenceImagesForUpdate.push(logoBase64);
+    if (ogImageBase64) referenceImagesForUpdate.push(ogImageBase64);
+    if (blankCanvasBase64) referenceImagesForUpdate.push(blankCanvasBase64);
 
     // Step 10: Save images to Supabase storage and update database
     console.log(

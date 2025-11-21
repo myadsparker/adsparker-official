@@ -433,7 +433,7 @@
   box-shadow: 0px 4px 16px 0px #332d3b29;
   border-radius: 24px;
   height: max-content;
-  margin-left: 40px
+  margin-left: 40px;
 }
 
 .meta_ad_post .header {
@@ -477,6 +477,7 @@
   color: #5a5b63;
   display: -webkit-box;
   -webkit-line-clamp: 1;
+  line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
   max-width: 220px;
@@ -512,9 +513,11 @@
   gap: 8px;
 
   height: 44px;
-  background: linear-gradient(90deg,
-      rgba(147, 124, 229, 0.2) 0%,
-      rgba(126, 53, 229, 0.2) 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(147, 124, 229, 0.2) 0%,
+    rgba(126, 53, 229, 0.2) 100%
+  );
   border-radius: 8px;
   flex: none;
   order: 0;
@@ -547,45 +550,62 @@
 .modal-content {
   background: white;
   border-radius: 16px;
-  max-width: 700px;
+  max-width: 600px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  padding: 30px 20px;
-  border-radius: 24px !important;
+  padding: 0;
   position: relative;
 }
 
-.modal-header h2 {
-  font-size: 24px;
-  font-weight: 600;
-  color: #343438;
-  margin: 0;
-  background-color: #fff;
+/* Scrollbar styling for modal */
+.modal-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 0 16px 16px 0;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: #d1d1d1;
+  border-radius: 3px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: #b1b1b1;
 }
 
 .close-button {
   background: none;
   border: none;
-  font-size: 28px;
+  font-size: 20px;
   cursor: pointer;
-  color: #666;
+  color: #999;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
   position: absolute;
-  top: 24px;
-  right: 24px;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
 }
 
 .close-button:hover {
-  background-color: #f5f5f5;
+  color: #666;
+  transform: scale(1.1);
+}
+
+.close-button svg {
+  width: 20px;
+  height: 20px;
 }
 
 .modal-body h3 {
@@ -604,6 +624,9 @@
   font-size: 15px;
   color: #5a5b63;
   text-align: center;
+}
+.modal-body .meta-accounts-count{
+  text-align: left;
 }
 
 .modal-body p.des {
@@ -634,78 +657,253 @@
   color: #7a3ff3;
 }
 
-.modal-body .connections {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
+/* Meta Accounts Section - New Design */
+.meta-accounts-section {
   padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #d9d9d9;
+  border-radius: 24px;
+  border: 1px solid #D9D9D9;
   margin-bottom: 16px;
 }
 
-.modal-body .connections h4 {
+.meta-accounts-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 500;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 
-.modal-body .connections p {
-  text-align: left;
-}
-
-.modal-body .connections button {
-  background-color: #7a3ff3;
+.meta-accounts-left {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 90px;
-  height: 44px;
-  color: #fff;
-  font-weight: 500;
-  padding-inline: 32px;
-  gap: 6px;
+  gap: 10px;
 }
 
-.modal-body .connections button svg {
-  stroke: #fff;
-  width: 18px;
-}
-
-/* Connected Accounts Styles */
-.connected-accounts {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.account-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px;
-  background-color: #f8f9fa;
-  border-radius: 6px;
-  border: 1px solid #e5e5e5;
-}
-
-.account-name {
-  font-size: 14px;
+.meta-accounts-title {
+  font-size: 15px;
   font-weight: 600;
   color: #343438;
 }
 
-.account-email {
+.meta-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 12px;
   font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.meta-status-badge.connected {
+  background-color: #ede9fe;
+  color: #7e52e0;
+}
+
+.meta-status-badge.pending {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+}
+
+.meta-accounts-right {
+  flex-shrink: 0;
+}
+
+.meta-action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  height: 40px;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.meta-action-button.connect {
+  background: linear-gradient(90deg, #937ce5 0%, #7e35e5 100%);
+  color: white;
+}
+
+.meta-action-button.connect:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(126, 82, 224, 0.3);
+}
+
+.meta-action-button.remove {
+  background: linear-gradient(90deg, #937ce5 0%, #7e35e5 100%);
+  color: white;
+}
+.meta-action-button.remove svg path{
+  fill: #fff;
+  stroke: #fff;
+}
+.meta-action-button.remove:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(126, 82, 224, 0.3);
+}
+
+.meta-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.meta-action-button svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
+.meta-accounts-count {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  text-align: left;
+}
+
+/* Legacy Connected Accounts Styles - Removed, replaced with meta-accounts-section */
+
+/* Meta Modal Form Styles - Matching Screenshot Design */
+.meta-form-field {
+  margin-bottom: 20px;
+}
+
+.meta-form-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #343438;
+  margin-bottom: 8px;
+}
+
+.required-asterisk {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  color: #999;
+  transition: color 0.2s;
+}
+
+.info-icon:hover {
   color: #666;
 }
 
-.account-date {
-  font-size: 11px;
+.meta-custom-dropdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  background: white;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: #343438;
+}
+
+.meta-custom-dropdown:hover {
+  border-color: #7e52e0;
+}
+
+.meta-custom-dropdown:focus-within {
+  border-color: #7e52e0;
+  box-shadow: 0 0 0 2px rgba(126, 82, 224, 0.1);
+}
+
+.dropdown-value {
+  flex: 1;
   color: #999;
+  font-size: 14px;
+}
+
+.meta-custom-dropdown:has(.dropdown-value:not(:empty)) .dropdown-value {
+  color: #343438;
+}
+
+.dropdown-arrow {
+  color: #666;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.meta-custom-dropdown:hover .dropdown-arrow {
+  color: #7e52e0;
+}
+
+.meta-save-btn {
+  width: 100%;
+  height: 48px;
+  margin-top: 24px;
+  background: linear-gradient(90deg, #937ce5 0%, #7e35e5 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: max-content;
+  margin-inline: auto;
+  padding-inline: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: c;
+}
+
+.meta-save-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(126, 82, 224, 0.3);
+}
+
+.meta-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Ant Design Dropdown Menu Customization */
+.ant-dropdown-menu {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+  padding: 8px !important;
+}
+
+.ant-dropdown-menu-item {
+  border-radius: 4px !important;
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+  color: #343438 !important;
+  transition: all 0.2s !important;
+}
+
+.ant-dropdown-menu-item:hover {
+  background-color: #f5f3ff !important;
+  color: #7e52e0 !important;
+}
+
+.ant-dropdown-menu-item-selected {
+  background-color: #f5f3ff !important;
+  color: #7e52e0 !important;
+  font-weight: 500 !important;
 }
 
 /* Image Management Modal Styles */
@@ -785,12 +983,7 @@
   border-radius: 0 0 12px 12px;
   max-height: calc(80vh - 60px);
   overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  border-radius: 24px;
 }
 
 .modal-title-section {
@@ -816,13 +1009,6 @@
   font-weight: 500;
 }
 
-.modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
 .close-btn {
   background: none;
   border: none;
@@ -844,8 +1030,14 @@
 }
 
 .modal-body {
-  padding: 24px;
+  padding: 32px 40px;
   background-color: #fff;
+}
+
+@media (max-width: 640px) {
+  .modal-body {
+    padding: 24px 20px;
+  }
 }
 
 .image-section {
@@ -1092,7 +1284,6 @@
 }
 
 @keyframes loading-dots {
-
   0%,
   80%,
   100% {
@@ -1242,7 +1433,6 @@
   height: 12px;
 }
 
-
 @media (max-width: 575px) {
   .plan_container {
     padding-inline: 12px;
@@ -1301,9 +1491,32 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  .modal-body .connections{
+  .meta-accounts-header {
     flex-direction: column;
+    align-items: stretch;
     gap: 12px;
+  }
+
+  .meta-accounts-left {
+    justify-content: space-between;
+  }
+
+  .meta-action-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .meta-form-field {
+    margin-bottom: 16px;
+  }
+
+  .meta-custom-dropdown {
+    height: 44px;
+  }
+
+  .meta-save-btn {
+    height: 44px;
+    font-size: 15px;
   }
   .adset_row .adset_buttons::-webkit-scrollbar {
     display: none;
@@ -1362,7 +1575,9 @@
     justify-content: center;
     box-shadow: 0 8px 18px rgba(126, 82, 224, 0.12);
     cursor: pointer;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease;
     z-index: 2;
   }
 
@@ -1496,7 +1711,7 @@
 .thumbnail-upload-area {
   position: relative;
   height: 295px;
-  background: linear-gradient(135deg, #E2D5FF 0%, #D4C5F0 100%);
+  background: linear-gradient(135deg, #e2d5ff 0%, #d4c5f0 100%);
   border-radius: 0;
   display: flex;
   align-items: center;
@@ -1507,7 +1722,7 @@
 }
 
 .thumbnail-upload-area:hover {
-  background: linear-gradient(135deg, #E2D5FF 0%, #D4C5F0 100%);
+  background: linear-gradient(135deg, #e2d5ff 0%, #d4c5f0 100%);
 }
 
 .thumbnail-upload-content {
@@ -1584,7 +1799,9 @@
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(4px);
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
 }
 
 .thumbnail-upload-area:hover .thumbnail-upload-btn {

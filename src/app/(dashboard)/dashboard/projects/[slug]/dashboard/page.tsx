@@ -58,7 +58,7 @@ export default function CampaignDashboard() {
                 .single();
 
             if (projectError || !projectData) {
-                console.error('Error fetching project:', projectError);
+          
                 setLoading(false);
                 return;
             }
@@ -69,29 +69,43 @@ export default function CampaignDashboard() {
             if (projectData.meta_campaign_id) {
                 // Trigger server-side insights collection and logging
                 try {
-                    await fetch('/api/analytics/insights', {
+                    const insightsResponse = await fetch('/api/analytics/insights', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ project_id: projectId }),
                     });
+                    
+                    if (insightsResponse.ok) {
+                        const insightsResult = await insightsResponse.json();
+                    } else {
+                        const error = await insightsResponse.json();
+                       
+                    }
                 } catch (e) {
-                    console.error('Failed to trigger insights logging:', e);
+              
                 }
+                
+                // Fetch campaign insights for display
                 await fetchCampaignInsights(projectData.meta_campaign_id);
             }
 
             setLoading(false);
         } catch (error) {
-            console.error('Error fetching project data:', error);
+      
             setLoading(false);
         }
     };
 
     const fetchCampaignInsights = async (campaignId: string) => {
         try {
+          
+            
             // Fetch user's Meta access token
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return;
+            if (!session) {
+ 
+                return;
+            }
 
             const { data: profile } = await supabase
                 .from('user_profiles')
@@ -100,6 +114,7 @@ export default function CampaignDashboard() {
                 .single();
 
             if (!profile?.meta_accounts || profile.meta_accounts.length === 0) {
+             
                 return;
             }
 
@@ -108,7 +123,10 @@ export default function CampaignDashboard() {
                 : profile.meta_accounts;
 
             const accessToken = metaAccount.access_token;
-            if (!accessToken) return;
+            if (!accessToken) {
+       
+                return;
+            }
 
             // Fetch campaign details
             const campaignResponse = await fetch(
@@ -119,12 +137,13 @@ export default function CampaignDashboard() {
 
             // Fetch campaign insights (aggregated)
             const insightsResponse = await fetch(
-                `https://graph.facebook.com/v18.0/${campaignId}/insights?fields=impressions,clicks,spend,reach,ctr,cpc,cpm,cost_per_action_type,actions&access_token=${accessToken}`
+                `https://graph.facebook.com/v18.0/${campaignId}/insights?fields=impressions,clicks,spend,reach,ctr,cpc,cpm,cost_per_action_type,actions,frequency&access_token=${accessToken}`
             );
             const insightsData = await insightsResponse.json();
 
             if (insightsData.data && insightsData.data.length > 0) {
                 setInsights(insightsData.data[0]);
+            } else {
             }
 
             // Fetch time-series insights (daily breakdown for last 7 days)
@@ -140,7 +159,7 @@ export default function CampaignDashboard() {
             const timeSeriesResponse = await fetch(
                 `https://graph.facebook.com/v18.0/${campaignId}/insights?` +
                 new URLSearchParams({
-                    fields: 'impressions,clicks,actions',
+                    fields: 'impressions,clicks,actions,date_start',
                     time_range: JSON.stringify(timeRange),
                     time_increment: '1',
                     access_token: accessToken
@@ -150,9 +169,10 @@ export default function CampaignDashboard() {
 
             if (timeSeriesData.data && timeSeriesData.data.length > 0) {
                 setInsightsTimeSeries(timeSeriesData.data);
+            } else {
+                setInsightsTimeSeries([]);
             }
         } catch (error) {
-            console.error('Error fetching campaign insights:', error);
         }
     };
 
@@ -276,27 +296,13 @@ export default function CampaignDashboard() {
         return end;
     };
 
-    // Format performance data for chart (same as plan page)
+    // Format performance data for chart - NO FALLBACK DATA
     const formatChartData = () => {
         if (!insightsTimeSeries || insightsTimeSeries.length === 0) {
-            // Generate sample data if no data available
-            const today = new Date();
-            const sampleData = [];
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date(today);
-                date.setDate(date.getDate() - i);
-                const day = date.getDate().toString().padStart(2, '0');
-                const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                sampleData.push({
-                    day: `${day}-${month}`,
-                    Clicks: Math.floor(Math.random() * 60) + 15,
-                    Impressions: Math.floor(Math.random() * 200) + 100,
-                });
-            }
-            return sampleData;
+            return []; // Return empty array - no fake data
         }
 
-        return insightsTimeSeries.map((item: any) => {
+        const chartData = insightsTimeSeries.map((item: any) => {
             const date = new Date(item.date_start);
             const day = date.getDate().toString().padStart(2, '0');
             const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -313,6 +319,8 @@ export default function CampaignDashboard() {
             const dateB = new Date(b.day.split('-').reverse().join('-'));
             return dateA.getTime() - dateB.getTime();
         });
+
+        return chartData;
     };
 
 
@@ -430,22 +438,20 @@ export default function CampaignDashboard() {
                             if (!project) return;
                             try {
                                 setRefreshing(true);
-                                await fetch('/api/analytics/insights', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ project_id: projectId }),
-                                });
+
+                                // Fetch campaign insights for display
                                 if (project?.meta_campaign_id) {
                                     await fetchCampaignInsights(project.meta_campaign_id);
                                 }
+                                
                             } catch (e) {
-                                console.error('Failed to refresh insights:', e);
+                        
                             } finally {
                                 setRefreshing(false);
                             }
                         }}
                         disabled={refreshing}
-                        title="Fetch latest insights from Meta"
+                        title="Fetch latest insights from Meta and save to database"
                     >
                         {refreshing ? 'Refreshing…' : 'Refresh insights'}
                     </button>
@@ -536,49 +542,71 @@ export default function CampaignDashboard() {
                         </div>
                     </div>
                     <div className="graph-container">
-                        <div style={{ height: '240px', width: '100%' }}>
-                            <ResponsiveContainer width='100%' height='100%'>
-                                <LineChart
-                                    data={formatChartData()}
-                                    margin={{ top: 5, right: 30, left: 0, bottom: 25 }}
-                                >
-                                    <CartesianGrid stroke='#F3F2F7' strokeDasharray='0' />
-                                    <XAxis
-                                        dataKey='day'
-                                        fontSize={12}
-                                        tick={{ fill: '#666', fontSize: 11 }}
-                                        interval={0}
-                                        tickLine={false}
-                                        axisLine={false}
-                                        height={40}
-                                        tickMargin={5}
-                                    />
-                                    <YAxis hide={true} />
-                                    <Tooltip
-                                        formatter={(value: any) => [formatNumber(value), '']}
-                                        labelFormatter={label => `${label}`}
-                                    />
-                                    {showClicks && (
-                                        <Line
-                                            type='monotone'
-                                            dataKey='Clicks'
-                                            stroke='#10b981'
-                                            strokeWidth={2}
-                                            dot={false}
+                        {formatChartData().length === 0 ? (
+                            <div style={{ 
+                                height: '240px', 
+                                width: '100%', 
+                                display: 'flex', 
+                                flexDirection: 'column',
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                color: '#9ca3af',
+                                fontSize: '14px',
+                                gap: '8px'
+                            }}>
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                    <path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                <div>No performance data available yet</div>
+                                <div style={{ fontSize: '12px', color: '#d1d5db' }}>
+                                    Data will appear here once your ads start running
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ height: '240px', width: '100%' }}>
+                                <ResponsiveContainer width='100%' height='100%'>
+                                    <LineChart
+                                        data={formatChartData()}
+                                        margin={{ top: 5, right: 30, left: 0, bottom: 25 }}
+                                    >
+                                        <CartesianGrid stroke='#F3F2F7' strokeDasharray='0' />
+                                        <XAxis
+                                            dataKey='day'
+                                            fontSize={12}
+                                            tick={{ fill: '#666', fontSize: 11 }}
+                                            interval={0}
+                                            tickLine={false}
+                                            axisLine={false}
+                                            height={40}
+                                            tickMargin={5}
                                         />
-                                    )}
-                                    {showImpressions && (
-                                        <Line
-                                            type='monotone'
-                                            dataKey='Impressions'
-                                            stroke='#7e52e0'
-                                            strokeWidth={2}
-                                            dot={false}
+                                        <YAxis hide={true} />
+                                        <Tooltip
+                                            formatter={(value: any) => [formatNumber(value), '']}
+                                            labelFormatter={label => `${label}`}
                                         />
-                                    )}
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
+                                        {showClicks && (
+                                            <Line
+                                                type='monotone'
+                                                dataKey='Clicks'
+                                                stroke='#10b981'
+                                                strokeWidth={2}
+                                                dot={false}
+                                            />
+                                        )}
+                                        {showImpressions && (
+                                            <Line
+                                                type='monotone'
+                                                dataKey='Impressions'
+                                                stroke='#7e52e0'
+                                                strokeWidth={2}
+                                                dot={false}
+                                            />
+                                        )}
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
                     </div>
                 </div>
 

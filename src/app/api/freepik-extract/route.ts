@@ -1057,19 +1057,7 @@ Return JSON:
     const chosenConcept = conceptsData.concepts[0];
     let finalImageUrl: string | null = null;
 
-    // Download blank canvas image for exact 1024x1024 dimensions
-    let canvasImageBase64: string | null = null;
-    try {
-      console.log('📐 Downloading blank canvas image for 1024x1024...');
-      canvasImageBase64 = await downloadImageAsBase64(
-        'https://ghsgnjzkgygiqmhjvtpi.supabase.co/storage/v1/object/public/project-files/white-canvas-1024_1024.png'
-      );
-      console.log('✅ Canvas image downloaded and converted to base64');
-    } catch (error) {
-      console.warn('⚠️ Failed to download canvas image:', error);
-    }
-
-    // Prepare reference images (product + logo + canvas as LAST)
+    // Prepare reference images (product + logo)
     const referenceImages: string[] = [];
 
     // Add product image if available
@@ -1089,14 +1077,6 @@ Return JSON:
           '⚠️ Logo conversion failed, skipping logo reference image'
         );
       }
-    }
-
-    // Add blank canvas image as size reference (MUST BE LAST for Gemini 2.5 Flash)
-    if (canvasImageBase64) {
-      referenceImages.push(canvasImageBase64);
-      console.log(
-        '✅ Added blank canvas as LAST reference image for exact 1024x1024 size control'
-      );
     }
 
     const hasProduct = !!productReferenceImage;

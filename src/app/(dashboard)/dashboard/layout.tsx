@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, User, Settings, LogOut, Menu, X, CreditCard, Megaphone, FolderOpen } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function DashboardLayout({
   children,
@@ -86,28 +87,6 @@ export default function DashboardLayout({
   }, []);
 
   // Fetch connected Meta accounts
-  useEffect(() => {
-    if (showMetaModal) {
-      fetchConnectedAccounts();
-    }
-  }, [showMetaModal]);
-
-  const fetchConnectedAccounts = async () => {
-    try {
-      setLoadingAccounts(true);
-      const response = await fetch('/api/meta/accounts');
-      if (response.ok) {
-        const data = await response.json();
-        const accounts = Array.isArray(data?.accounts) ? data.accounts : [];
-        setConnectedAccounts(accounts);
-      }
-    } catch (error) {
-      console.error('Error fetching connected accounts:', error);
-    } finally {
-      setLoadingAccounts(false);
-    }
-  };
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -198,28 +177,144 @@ export default function DashboardLayout({
     router.push('/dashboard/subscription');
   };
 
-  const handleMetaAccounts = () => {
+  const handleMetaAccounts = async () => {
     setIsDropdownOpen(false);
     setIsMobileMenuOpen(false);
     setShowMetaModal(true);
+    
+    // Fetch connected accounts when modal opens
+    await fetchConnectedAccounts();
+  };
+
+  const fetchConnectedAccounts = async () => {
+    try {
+      setLoadingAccounts(true);
+      const supabase = getSupabaseClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('meta_accounts')
+          .eq('user_id', user.id)
+          .single();
+
+        if (profile?.meta_accounts) {
+          const accounts = Array.isArray(profile.meta_accounts)
+            ? profile.meta_accounts
+            : [profile.meta_accounts];
+          setConnectedAccounts(accounts);
+        } else {
+          setConnectedAccounts([]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching connected accounts:', error);
+      setConnectedAccounts([]);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
+
+  const handleRemoveMetaAccount = async () => {
+    try {
+      const confirmRemove = confirm(
+        'Are you sure you want to remove your Meta account connection? This will disconnect all linked ad accounts and pages.'
+      );
+
+      if (!confirmRemove) return;
+
+      setLoadingAccounts(true);
+
+      // Call API to remove Meta account from user profile
+      const response = await fetch('/api/meta-auth/remove', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to remove Meta account');
+      }
+
+      // Refresh connected accounts
+      await fetchConnectedAccounts();
+
+      toast.success('Meta account removed successfully', {
+        duration: 3000,
+        style: {
+          background: '#10b981',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
+    } catch (error) {
+      console.error('Error removing Meta account:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to remove Meta account',
+        {
+          duration: 3000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        }
+      );
+    } finally {
+      setLoadingAccounts(false);
+    }
   };
 
   const handleConnectMetaAccount = async () => {
     try {
       // Use a temporary project ID for OAuth flow
       const tempProjectId = 'temp_' + Date.now();
-      const response = await fetch(`/api/meta-auth?action=connect&projectId=${tempProjectId}`);
+      const response = await fetch(
+        `/api/meta-auth?action=connect&projectId=${tempProjectId}`
+      );
       const data = await response.json();
 
       if (data.success && data.oauthUrl) {
         // Redirect to Meta OAuth
         window.location.href = data.oauthUrl;
       } else {
-        alert(`Failed to connect Meta account: ${data.error || 'Unknown error'}`);
+        toast.error(`Failed to connect Meta account: ${data.error || 'Unknown error'}`, {
+          duration: 3000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
       }
     } catch (error) {
       console.error('Error connecting Meta account:', error);
-      alert('An error occurred while connecting Meta account.');
+      toast.error('An error occurred while connecting Meta account.', {
+        duration: 3000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
     }
   };
 
@@ -532,28 +627,25 @@ export default function DashboardLayout({
       {showMetaModal && (
         <div className='modal-overlay' onClick={() => setShowMetaModal(false)}>
           <div className='modal-content' onClick={(e) => e.stopPropagation()}>
-            <div className='modal-header'>
-              <h2>Manage Meta Accounts</h2>
-              <button
-                className='modal-close'
-                onClick={() => setShowMetaModal(false)}
+            <button
+              className='modal-close'
+              onClick={() => setShowMetaModal(false)}
+            >
+              <svg
+                xmlns='http://www.w3.org/2000/svg'
+                width='24'
+                height='24'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+                strokeLinecap='round'
+                strokeLinejoin='round'
               >
-                <svg
-                  xmlns='http://www.w3.org/2000/svg'
-                  width='24'
-                  height='24'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  stroke='currentColor'
-                  strokeWidth='2'
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                >
-                  <path d='M18 6 6 18' />
-                  <path d='m6 6 12 12' />
-                </svg>
-              </button>
-            </div>
+                <path d='M18 6 6 18' />
+                <path d='m6 6 12 12' />
+              </svg>
+            </button>
             <div className='modal-body'>
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Image
@@ -568,61 +660,57 @@ export default function DashboardLayout({
                 Securely link your Meta Business ad account to manage campaigns
                 across brands.
               </p>
-              <div className='connections'>
-                <div className='left'>
-                  <h4>
-                    Meta Accounts <span>Connected</span>
-                  </h4>
-                  <p>Connected: {connectedAccounts.length} accounts</p>
-                  {connectedAccounts.length > 0 && (
-                    <div className='connected-accounts'>
-                      {connectedAccounts.map((account, index) => (
-                        <div key={index} className='account-item'>
-                          <span className='account-name'>{account.name}</span>
-                          <span className='account-email'>{account.email}</span>
-                          <span className='account-date'>
-                            Connected:{' '}
-                            {new Date(
-                              account.connected_at
-                            ).toLocaleDateString()}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className='right'>
-                  {(() => {
-                    const allAdAccounts = getAllAdAccounts(connectedAccounts);
-                    const hasAdAccounts = allAdAccounts.length > 0;
-                    return (
+              <div className='meta-accounts-section'>
+                <div className='meta-accounts-header'>
+                  <div className='meta-accounts-left'>
+                    <span className='meta-accounts-title'>Meta Accounts</span>
+                    <span
+                      className={`meta-status-badge ${
+                        connectedAccounts.length > 0 ? 'connected' : 'pending'
+                      }`}
+                    >
+                      {connectedAccounts.length > 0 ? 'Connected' : 'Pending'}
+                    </span>
+                  </div>
+                  <div className='meta-accounts-right'>
+                    {connectedAccounts.length > 0 ? (
                       <button
-                        onClick={handleConnectMetaAccount}
-                        disabled={hasAdAccounts}
-                        style={{
-                          opacity: hasAdAccounts ? 0.5 : 1,
-                          cursor: hasAdAccounts ? 'not-allowed' : 'pointer',
-                        }}
+                        className='meta-action-button remove'
+                        onClick={handleRemoveMetaAccount}
+                        disabled={loadingAccounts}
                       >
-                        <svg
-                          xmlns='http://www.w3.org/2000/svg'
-                          width='24'
-                          height='24'
-                          viewBox='0 0 24 24'
-                          fill='none'
-                          stroke='currentColor'
-                          strokeWidth='2'
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                        >
-                          <path d='M5 12h14' />
-                          <path d='M12 5v14' />
+                        <svg width='20' height='20' viewBox='0 0 20 20' fill='none'>
+                          <path
+                            d='M4 10h12'
+                            stroke='currentColor'
+                            strokeWidth='2'
+                            strokeLinecap='round'
+                          />
                         </svg>
-                        Connect Ad Account
+                        {loadingAccounts ? 'Removing...' : 'Remove'}
                       </button>
-                    );
-                  })()}
+                    ) : (
+                      <button
+                        className='meta-action-button connect'
+                        onClick={handleConnectMetaAccount}
+                        disabled={loadingAccounts}
+                      >
+                        <svg width='20' height='20' viewBox='0 0 20 20' fill='none'>
+                          <path
+                            d='M4 10h12M10 4v12'
+                            stroke='currentColor'
+                            strokeWidth='2'
+                            strokeLinecap='round'
+                          />
+                        </svg>
+                        {loadingAccounts ? 'Connecting...' : 'Connect Ad Account'}
+                      </button>
+                    )}
+                  </div>
                 </div>
+                <p className='meta-accounts-count'>
+                  Connected: {connectedAccounts.length} accounts
+                </p>
               </div>
               <div className='note'>
                 <svg
@@ -633,13 +721,31 @@ export default function DashboardLayout({
                   xmlns='http://www.w3.org/2000/svg'
                 >
                   <path
-                    d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'
-                    fill='#3b82f6'
+                    d='M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z'
+                    stroke='#343438'
+                    strokeWidth='2'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                  />
+                  <path
+                    d='M12 16V12'
+                    stroke='#343438'
+                    strokeWidth='2'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                  />
+                  <path
+                    d='M12 8H12.01'
+                    stroke='#343438'
+                    strokeWidth='2'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
                   />
                 </svg>
                 <p>
-                  Connect your Meta ad account to publish and manage campaigns
-                  directly from AdSparker. Your credentials are securely stored.
+                  All your brands and projects will connect to the same Facebook
+                  account. <span>Upgrade to Enterprise </span> to use multiple
+                  Meta accounts.
                 </p>
               </div>
             </div>

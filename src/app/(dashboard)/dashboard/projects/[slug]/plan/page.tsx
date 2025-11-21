@@ -1201,6 +1201,9 @@ export default function BudgetPage() {
       const profileData = profileResponse.ok ? await profileResponse.json() : null;
       const currentProfile = profileData?.profile || userProfile;
       
+      // SUBSCRIPTION CHECK TEMPORARILY DISABLED FOR TESTING
+      // TODO: Re-enable subscription check for production
+      /*
       // Check if subscription is valid (not expired)
       const isSubscribedRaw = currentProfile?.is_subscribed || false;
       const expiryDate = currentProfile?.expiry_subscription;
@@ -1252,6 +1255,28 @@ export default function BudgetPage() {
         setShowSubscriptionModal(true);
         return;
       }
+      */
+
+      // TEMPORARY: Direct publish flow - only check Meta account connection
+      const hasFacebookAccount = connectedAccounts.length > 0;
+      
+      if (!hasFacebookAccount) {
+        toast.error('Please connect your Meta account first', {
+          duration: 4000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
+        return;
+      }
+
+      // If Meta account is connected, show publish modal directly
+      setShowModal(true);
     } catch (error) {
       console.error('Error checking subscription:', error);
       toast.error('An error occurred. Please try again.', {
@@ -1273,6 +1298,64 @@ export default function BudgetPage() {
     // Refresh ad accounts from Meta before opening modal
     await refreshAdAccounts();
     setShowModal(true);
+  };
+
+  const handleRemoveMetaAccount = async () => {
+    try {
+      const confirmRemove = confirm('Are you sure you want to remove your Meta account connection? This will disconnect all linked ad accounts and pages.');
+      
+      if (!confirmRemove) return;
+
+      setLoadingAccounts(true);
+
+      // Call API to remove Meta account from user profile
+      const response = await fetch('/api/meta-auth/remove', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to remove Meta account');
+      }
+
+      // Refresh connected accounts
+      await fetchConnectedAccounts();
+      
+      // Reset selections
+      setSelectedAdAccountId('');
+      setSelectedPageId('');
+      
+      toast.success('Meta account removed successfully', {
+        duration: 3000,
+        style: {
+          background: '#10b981',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
+    } catch (error) {
+      console.error('Error removing Meta account:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to remove Meta account', {
+        duration: 3000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
+    } finally {
+      setLoadingAccounts(false);
+    }
   };
 
   const handleConnectMetaAccount = async () => {
@@ -1351,6 +1434,9 @@ export default function BudgetPage() {
         return;
       }
 
+      // SUBSCRIPTION AND USAGE CHECKS TEMPORARILY DISABLED FOR TESTING
+      // TODO: Re-enable for production
+      /*
       // Check subscription and usage limits
       const usageCheckResponse = await fetch('/api/subscriptions/check-usage', {
         method: 'POST',
@@ -1463,6 +1549,7 @@ export default function BudgetPage() {
         setPublishingAds(false);
         return;
       }
+      */
 
       // Get selected ad account
       if (!selectedAdAccountId) {
@@ -1542,6 +1629,9 @@ export default function BudgetPage() {
       if (!metaPublishResponse.ok) {
         const errorData = await metaPublishResponse.json();
    
+        // SUBSCRIPTION EXPIRED CHECK TEMPORARILY DISABLED FOR TESTING
+        // TODO: Re-enable for production
+        /*
         // Check if subscription has expired
         if (metaPublishResponse.status === 403 && (errorData.expired || errorData.message?.includes('expired'))) {
           toast.error(
@@ -1563,6 +1653,7 @@ export default function BudgetPage() {
           setShowSubscriptionModal(true);
           return;
         }
+        */
 
         // Check if it's a Facebook page error
         if (errorData.error === 'Facebook Page is required' || errorData.message?.includes('Facebook Page')) {
@@ -2423,27 +2514,25 @@ export default function BudgetPage() {
       {showModal && (
         <div className='modal-overlay' onClick={() => setShowModal(false)}>
           <div className='modal-content' onClick={e => e.stopPropagation()}>
-            <div className='modal-header'>
-              <button
-                className='close-button'
-                onClick={() => setShowModal(false)}
+            <button
+              className='close-button'
+              onClick={() => setShowModal(false)}
+            >
+              <svg
+                xmlns='http://www.w3.org/2000/svg'
+                width='24'
+                height='24'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                stroke-width='2'
+                stroke-linecap='round'
+                strokeLinejoin='round'
               >
-                <svg
-                  xmlns='http://www.w3.org/2000/svg'
-                  width='24'
-                  height='24'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  stroke='currentColor'
-                  stroke-width='2'
-                  stroke-linecap='round'
-                  strokeLinejoin='round'
-                >
-                  <path d='M18 6 6 18' />
-                  <path d='m6 6 12 12' />
-                </svg>
-              </button>
-            </div>
+                <path d='M18 6 6 18' />
+                <path d='m6 6 12 12' />
+              </svg>
+            </button>
             <div className='modal-body'>
               <h3>
                 <Image
@@ -2458,61 +2547,61 @@ export default function BudgetPage() {
                 Securely link your Meta Business ad account to manage campaigns
                 across brands.
               </p>
-              <div className='connections'>
-                <div className='left'>
-                  <h4>
-                    Meta Accounts <span>Connected</span>
-                  </h4>
-                  <p>Connected: {connectedAccounts.length} accounts</p>
-                  {connectedAccounts.length > 0 && (
-                    <div className='connected-accounts'>
-                      {connectedAccounts.map((account, index) => (
-                        <div key={index} className='account-item'>
-                          <span className='account-name'>{account.name}</span>
-                          <span className='account-email'>{account.email}</span>
-                          <span className='account-date'>
-                            Connected:{' '}
-                            {new Date(
-                              account.connected_at
-                            ).toLocaleDateString()}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className='right'>
-                  {(() => {
-                    const allAdAccounts = getAllAdAccounts(connectedAccounts);
-                    const hasAdAccounts = allAdAccounts.length > 0;
-                    return (
+              <div className='meta-accounts-section'>
+                <div className='meta-accounts-header'>
+                  <div className='meta-accounts-left'>
+                    <span className='meta-accounts-title'>Meta Accounts</span>
+                    <span className={`meta-status-badge ${connectedAccounts.length > 0 ? 'connected' : 'pending'}`}>
+                      {connectedAccounts.length > 0 ? 'Connected' : 'Pending'}
+                    </span>
+                  </div>
+                  <div className='meta-accounts-right'>
+                    {connectedAccounts.length > 0 ? (
                       <button
-                        onClick={handleConnectMetaAccount}
-                        disabled={hasAdAccounts}
-                        style={{
-                          opacity: hasAdAccounts ? 0.5 : 1,
-                          cursor: hasAdAccounts ? 'not-allowed' : 'pointer',
-                        }}
+                        className='meta-action-button remove'
+                        onClick={handleRemoveMetaAccount}
+                        disabled={loadingAccounts}
                       >
                         <svg
-                          xmlns='http://www.w3.org/2000/svg'
-                          width='24'
-                          height='24'
-                          viewBox='0 0 24 24'
+                          width='20'
+                          height='20'
+                          viewBox='0 0 20 20'
                           fill='none'
-                          stroke='currentColor'
-                          stroke-width='2'
-                          stroke-linecap='round'
-                          strokeLinejoin='round'
                         >
-                          <path d='M5 12h14' />
-                          <path d='M12 5v14' />
+                          <path
+                            d='M4 10h12'
+                            stroke='currentColor'
+                            strokeWidth='2'
+                            strokeLinecap='round'
+                          />
                         </svg>
-                        Connect Ad Account
+                        {loadingAccounts ? 'Removing...' : 'Remove'}
                       </button>
-                    );
-                  })()}
+                    ) : (
+                      <button
+                        className='meta-action-button connect'
+                        onClick={handleConnectMetaAccount}
+                        disabled={loadingAccounts}
+                      >
+                        <svg
+                          width='20'
+                          height='20'
+                          viewBox='0 0 20 20'
+                          fill='none'
+                        >
+                          <path
+                            d='M4 10h12M10 4v12'
+                            stroke='currentColor'
+                            strokeWidth='2'
+                            strokeLinecap='round'
+                          />
+                        </svg>
+                        {loadingAccounts ? 'Connecting...' : 'Connect Ad Account'}
+                      </button>
+                    )}
+                  </div>
                 </div>
+                <p className='meta-accounts-count'>Connected: {connectedAccounts.length} accounts</p>
               </div>
               <div className='note'>
                 <svg
@@ -2553,203 +2642,145 @@ export default function BudgetPage() {
 
 
 
-              {/* Ad Account Selector */}
+              {/* Form Fields Section - Only show when Meta is connected */}
               {connectedAccounts.length > 0 && (() => {
                 const allAdAccounts = getAllAdAccounts(connectedAccounts);
                 return allAdAccounts.length > 0 ? (
-                  <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '10px',
-                      fontSize: '15px',
-                      fontWeight: '600',
-                      color: '#343438',
-                      letterSpacing: '0.01em'
-                    }}>
-                      Ad Account
-                    </label>
-                    <Dropdown
-                      menu={{
-                        items: allAdAccounts.map((adAccount) => ({
-                          key: adAccount.id,
-                          label: `${adAccount.name} (${adAccount.id}) ${adAccount.currency ? `- ${adAccount.currency}` : ''}${adAccount.account_status === 1 ? ' ✓' : ' ⚠'}`,
-                        })),
-                        onClick: (e) => {
-                          setSelectedAdAccountId(e.key);
-                        },
-                        style: {
-                          maxHeight: '300px',
-                          overflowY: 'auto',
-                        },
-                      }}
-                      placement="bottomLeft"
-                      arrow
-                      trigger={['click']}
-                    >
-                      <div className="dropdown_input" style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        height: '48px',
-                        borderRadius: '6px',
-                        border: '1px solid #d9d9d9',
-                        paddingInline: '16px',
-                        backgroundColor: 'white',
-                        color: '#343438',
-                        fontWeight: '400',
-                        cursor: 'pointer',
-                      }}>
-                        <span style={{ color: selectedAdAccountId ? 'inherit' : '#999' }}>
-                          {selectedAdAccountId
-                            ? (() => {
-                              const selected = allAdAccounts.find(acc => acc.id === selectedAdAccountId);
-                              return selected
-                                ? `${selected.name} (${selected.id}) ${selected.currency ? `- ${selected.currency}` : ''}${selected.account_status === 1 ? ' ✓' : ' ⚠'}`
-                                : 'Select Ad Account';
-                            })()
-                            : 'Select Ad Account'}
-                        </span>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                  <div style={{ marginTop: '24px' }}>
+                    {/* Ad Account */}
+                    <div className="meta-form-field">
+                      <label className="meta-form-label">
+                        Ad Account<span className="required-asterisk">*</span>
+                      </label>
+                      <Dropdown
+                        menu={{
+                          items: allAdAccounts.map((adAccount) => ({
+                            key: adAccount.id,
+                            label: `${adAccount.name} (${adAccount.id})`,
+                          })),
+                          onClick: (e) => {
+                            setSelectedAdAccountId(e.key);
+                          },
+                          style: {
+                            maxHeight: '250px',
+                            overflowY: 'auto',
+                            borderRadius: '8px',
+                          },
+                        }}
+                        placement="bottomLeft"
+                        trigger={['click']}
+                      >
+                        <div className="meta-custom-dropdown">
+                          <span className="dropdown-value">
+                            {selectedAdAccountId
+                              ? allAdAccounts.find(acc => acc.id === selectedAdAccountId)?.name || 'Select'
+                              : 'Select'}
+                          </span>
+                          <svg
+                            className="dropdown-arrow"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                          >
+                            <path
+                              d="M4 6L8 10L12 6"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </div>
+                      </Dropdown>
+                    </div>
+
+                    {/* Facebook Page */}
+                    {pages.length > 0 && (
+                      <div className="meta-form-field">
+                        <label className="meta-form-label">
+                          Facebook Page<span className="required-asterisk">*</span>
+                        </label>
+                        <Dropdown
+                          menu={{
+                            items: pages.map((page) => ({
+                              key: page.id,
+                              label: page.name,
+                            })),
+                            onClick: (e) => {
+                              setSelectedPageId(e.key);
+                            },
+                            style: {
+                              maxHeight: '250px',
+                              overflowY: 'auto',
+                              borderRadius: '8px',
+                            },
+                          }}
+                          placement="bottomLeft"
+                          trigger={['click']}
                         >
-                          <path d="m6 9 6 6 6-6" />
+                          <div className="meta-custom-dropdown">
+                            <span className="dropdown-value">
+                              {selectedPageId
+                                ? pages.find(p => p.id === selectedPageId)?.name || 'Select'
+                                : 'Select'}
+                            </span>
+                            <svg
+                              className="dropdown-arrow"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                            >
+                              <path
+                                d="M4 6L8 10L12 6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </div>
+                        </Dropdown>
+                      </div>
+                    )}
+
+                    {/* Instagram Account */}
+                    <div className="meta-form-field">
+                      <label className="meta-form-label">
+                        Instagram Account
+                      </label>
+                      <div className="meta-custom-dropdown">
+                        <span className="dropdown-value">Select</span>
+                        <svg
+                          className="dropdown-arrow"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                        >
+                          <path
+                            d="M4 6L8 10L12 6"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                       </div>
-                    </Dropdown>
-                    {selectedAdAccountId && (() => {
-                      const selected = allAdAccounts.find(acc => acc.id === selectedAdAccountId);
-                      return selected && selected.account_status !== 1 ? (
-                        <p style={{
-                          marginTop: '8px',
-                          fontSize: '12px',
-                          color: '#dc2626'
-                        }}>
-                          ⚠ This ad account may be disabled or restricted. Please check your Meta Ads Manager.
-                        </p>
-                      ) : null;
-                    })()}
+                    </div>
+
+                    {/* Save Button */}
+                    <button
+                      className='meta-save-btn'
+                      onClick={handlePublishAds}
+                      disabled={publishingAds || subscriptionLoading || !selectedAdAccountId || (pages.length > 0 && !selectedPageId)}
+                    >
+                      {publishingAds ? 'Saving...' : 'Save'}
+                    </button>
                   </div>
                 ) : null;
               })()}
-
-              {/* Facebook Page Selector */}
-              {pages.length > 0 && (
-                <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '10px',
-                    fontSize: '15px',
-                    fontWeight: '600',
-                    color: '#343438',
-                    letterSpacing: '0.01em'
-                  }}>
-                    Facebook Page
-                  </label>
-                  <Dropdown
-                    menu={{
-                      items: pages.map((page) => ({
-                        key: page.id,
-                        label: `${page.name}${page.category ? ` (${page.category})` : ''}`,
-                      })),
-                      onClick: (e) => {
-                        setSelectedPageId(e.key);
-                      },
-                      style: {
-                        maxHeight: '300px',
-                        overflowY: 'auto',
-                      },
-                    }}
-                    placement="bottomLeft"
-                    arrow
-                    trigger={['click']}
-                  >
-                    <div className="dropdown_input" style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      height: '48px',
-                      borderRadius: '6px',
-                      border: '1px solid #d9d9d9',
-                      paddingInline: '16px',
-                      backgroundColor: 'white',
-                      color: '#343438',
-                      fontWeight: '400',
-                      cursor: 'pointer',
-                    }}>
-                      <span style={{ color: selectedPageId ? 'inherit' : '#999' }}>
-                        {selectedPageId
-                          ? (() => {
-                            const selected = pages.find(p => p.id === selectedPageId);
-                            return selected
-                              ? `${selected.name}${selected.category ? ` (${selected.category})` : ''}`
-                              : 'Select Facebook Page';
-                          })()
-                          : 'Select Facebook Page'}
-                      </span>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="m6 9 6 6 6-6" />
-                      </svg>
-                    </div>
-                  </Dropdown>
-                </div>
-              )}
-
-              {/* Publish Ads Button */}
-              {connectedAccounts.length > 0 && (
-                <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
-                  <button
-                    className='publish_modal_btn'
-                    onClick={handlePublishAds}
-                    disabled={publishingAds || subscriptionLoading || !selectedAdAccountId || (pages.length > 0 && !selectedPageId)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 24px',
-                      backgroundColor: '#7e52e0',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '16px',
-                      fontWeight: '600',
-                      cursor: publishingAds || subscriptionLoading ? 'not-allowed' : 'pointer',
-                      opacity: publishingAds || subscriptionLoading ? 0.6 : 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    {publishingAds ? (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M4 11a9 9 0 0 1 9 9" /><path d="M4 4a16 16 0 0 1 16 16" /><circle cx="5" cy="19" r="1" /></svg>
-                        Publishing Ads...
-                      </>
-                    ) : (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M4 11a9 9 0 0 1 9 9" /><path d="M4 4a16 16 0 0 1 16 16" /><circle cx="5" cy="19" r="1" /></svg>
-                        Publish Ads
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -3052,8 +3083,9 @@ export default function BudgetPage() {
         </div>
       )}
 
-      {/* Subscription Plans Modal */}
-      {showSubscriptionModal && (
+      {/* SUBSCRIPTION PLANS MODAL TEMPORARILY DISABLED FOR TESTING */}
+      {/* TODO: Re-enable for production */}
+      {/* {showSubscriptionModal && (
         <SubscriptionPlansModal
           onClose={() => setShowSubscriptionModal(false)}
           onSelectPlan={async (planType, priceId) => {
@@ -3068,7 +3100,7 @@ export default function BudgetPage() {
           }}
           projectId={projectId}
         />
-      )}
+      )} */}
     </div>
   );
 }
