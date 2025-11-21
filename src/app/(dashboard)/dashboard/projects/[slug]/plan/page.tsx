@@ -87,11 +87,11 @@ export default function BudgetPage() {
   // Calculate number of ad sets to show based on budget
   const getAdSetLimit = (budget: number): number => {
     if (budget < 50) {
-      return 3;
+      return 3; // Budget $2-49 → Publish 3 ads only
     } else if (budget >= 50 && budget <= 125) {
-      return 6;
+      return 6; // Budget $50-125 → Publish 6 ads only
     } else {
-      return 10; // All ad sets for budget > $125
+      return 10; // Budget >$125 → Publish 10 ads
     }
   };
 
@@ -101,7 +101,7 @@ export default function BudgetPage() {
     return adSets.slice(0, limit);
   };
 
-  // Calculate budget per ad set
+  // Calculate budget per ad set (divide budget among filtered ad sets)
   const getBudgetPerAdSet = (): number => {
     const filteredCount = getFilteredAdSets().length;
     return filteredCount > 0 ? dailyBudget / filteredCount : dailyBudget;
@@ -314,6 +314,7 @@ export default function BudgetPage() {
       console.error('Error fetching user profile:', error);
     }
   };
+
 
   // Fetch subscription status (keeping for backward compatibility)
   const fetchSubscription = async () => {
@@ -683,7 +684,7 @@ export default function BudgetPage() {
   const handleSliderChange = (value: number) => {
     setDailyBudget(value);
 
-    // Update selected ad set index if current selection is beyond limit
+    // Update selected ad set index if current selection is beyond the new limit
     const newLimit = getAdSetLimit(value);
     if (selectedAdSetIndex >= newLimit) {
       setSelectedAdSetIndex(0);
@@ -1605,6 +1606,14 @@ export default function BudgetPage() {
 
       const finalCampaignName = getCampaignName();
 
+      // Log budget information for debugging
+      console.log('💰 Publishing with budget:', {
+        totalDailyBudget: `$${dailyBudget} USD`,
+        budgetPerAdSet: `$${getBudgetPerAdSet().toFixed(2)} USD`,
+        numberOfAds: getFilteredAdSets().length,
+        calculation: `$${dailyBudget} ÷ ${getFilteredAdSets().length} = $${getBudgetPerAdSet().toFixed(2)} per ad`,
+        note: 'Backend will convert to ad account currency using live exchange rates'
+      });
 
       const metaPublishResponse = await fetch('/api/meta/publish-ads', {
         method: 'POST',
@@ -1616,11 +1625,11 @@ export default function BudgetPage() {
           campaignName: finalCampaignName,
           adSets: getFilteredAdSets().map(adSet => ({
             ...adSet,
-            daily_budget: getBudgetPerAdSet(), // Set budget per ad set based on filtered count
+            daily_budget: getBudgetPerAdSet(), // Set budget per ad set (in account's currency)
           })),
           adAccountId: adAccountId,
           pageId: selectedPageId || null,
-          dailyBudget: dailyBudget,
+          dailyBudget: dailyBudget, // Total budget in USD (will be converted by backend)
           objective: campaignProposal?.ad_goal === 'Leads' ? 'OUTCOME_LEADS' : 'OUTCOME_TRAFFIC',
           websiteUrl: websiteUrl || campaignProposal?.website_url || null,
         }),
@@ -1920,8 +1929,11 @@ export default function BudgetPage() {
             </div>
             <div style={{ marginTop: '12px', fontSize: '14px', color: '#666', textAlign: 'center' }}>
               <strong>{getFilteredAdSets().length}</strong> ad{getFilteredAdSets().length !== 1 ? 's' : ''} will be published
+              <span> (${getBudgetPerAdSet().toFixed(2)} per ad)</span>
               {getFilteredAdSets().length < adSets.length && (
-                <span> ({adSets.length - getFilteredAdSets().length} hidden due to budget)</span>
+                <div style={{ marginTop: '4px', fontSize: '12px', color: '#999' }}>
+                  {adSets.length - getFilteredAdSets().length} hidden due to budget
+                </div>
               )}
             </div>
           </div>

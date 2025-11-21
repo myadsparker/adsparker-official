@@ -34,6 +34,8 @@ export default function CampaignDashboard() {
     const [showImpressions, setShowImpressions] = useState(true);
     const [hoveredPoint, setHoveredPoint] = useState<{ date: string; value: number; type: string } | null>(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [accountCurrency, setAccountCurrency] = useState<string>('USD');
+    const [exchangeRate, setExchangeRate] = useState<number>(1.0);
 
     useEffect(() => {
         fetchProjectData();
@@ -98,12 +100,12 @@ export default function CampaignDashboard() {
 
     const fetchCampaignInsights = async (campaignId: string) => {
         try {
-          
+            console.log('📊 Fetching campaign insights for dashboard...');
             
             // Fetch user's Meta access token
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
- 
+                console.log('❌ No session found');
                 return;
             }
 
@@ -114,7 +116,7 @@ export default function CampaignDashboard() {
                 .single();
 
             if (!profile?.meta_accounts || profile.meta_accounts.length === 0) {
-             
+                console.log('❌ No Meta accounts found');
                 return;
             }
 
@@ -124,16 +126,68 @@ export default function CampaignDashboard() {
 
             const accessToken = metaAccount.access_token;
             if (!accessToken) {
-       
+                console.log('❌ No access token found');
                 return;
             }
 
-            // Fetch campaign details
+            // Fetch campaign details to get ad account ID
             const campaignResponse = await fetch(
-                `https://graph.facebook.com/v18.0/${campaignId}?fields=id,name,status,objective,start_time,stop_time,daily_budget&access_token=${accessToken}`
+                `https://graph.facebook.com/v18.0/${campaignId}?fields=id,name,status,objective,start_time,stop_time,daily_budget,account_id&access_token=${accessToken}`
             );
             const campaign = await campaignResponse.json();
             setCampaignData(campaign);
+
+            // Get ad account currency from meta_accounts
+            let detectedCurrency = 'USD';
+            if (campaign.account_id && metaAccount.ad_accounts) {
+                const adAccount = metaAccount.ad_accounts.find((acc: any) => 
+                    acc.account_id === campaign.account_id || acc.id === `act_${campaign.account_id}`
+                );
+                if (adAccount && adAccount.currency) {
+                    detectedCurrency = adAccount.currency;
+                    console.log(`✅ Detected ad account currency: ${detectedCurrency}`);
+                }
+            }
+            setAccountCurrency(detectedCurrency);
+
+            // Fetch exchange rate if not USD
+            let currentExchangeRate = 1.0;
+            if (detectedCurrency !== 'USD') {
+                try {
+                    console.log(`💱 Fetching exchange rate: ${detectedCurrency} → USD`);
+                    const exchangeResponse = await fetch(
+                        `https://api.exchangerate-api.com/v4/latest/${detectedCurrency}`
+                    );
+                    const exchangeData = await exchangeResponse.json();
+                    
+                    if (exchangeResponse.ok && exchangeData.rates && exchangeData.rates.USD) {
+                        currentExchangeRate = exchangeData.rates.USD;
+                        console.log(`✅ Live rate: 1 ${detectedCurrency} = ${currentExchangeRate} USD`);
+                    } else {
+                        // Fallback rates (currency to USD)
+                        const fallbackRates: { [key: string]: number } = {
+                            'INR': 0.012,   // 1 INR = 0.012 USD
+                            'EUR': 1.09,    // 1 EUR = 1.09 USD
+                            'GBP': 1.27,    // 1 GBP = 1.27 USD
+                            'AUD': 0.65,    // 1 AUD = 0.65 USD
+                            'CAD': 0.74,    // 1 CAD = 0.74 USD
+                        };
+                        currentExchangeRate = fallbackRates[detectedCurrency] || 1.0;
+                        console.log(`📊 Using fallback rate: 1 ${detectedCurrency} = ${currentExchangeRate} USD`);
+                    }
+                } catch (error) {
+                    console.log('⚠️ Failed to fetch exchange rate, using fallback');
+                    const fallbackRates: { [key: string]: number } = {
+                        'INR': 0.012,
+                        'EUR': 1.09,
+                        'GBP': 1.27,
+                        'AUD': 0.65,
+                        'CAD': 0.74,
+                    };
+                    currentExchangeRate = fallbackRates[detectedCurrency] || 1.0;
+                }
+            }
+            setExchangeRate(currentExchangeRate);
 
             // Fetch campaign insights (aggregated)
             const insightsResponse = await fetch(
@@ -142,8 +196,36 @@ export default function CampaignDashboard() {
             const insightsData = await insightsResponse.json();
 
             if (insightsData.data && insightsData.data.length > 0) {
-                setInsights(insightsData.data[0]);
+                const rawInsights = insightsData.data[0];
+                
+                // Convert currency values to USD
+                const convertedInsights = {
+                    ...rawInsights,
+                    spend: (parseFloat(rawInsights.spend || '0') * currentExchangeRate).toFixed(2),
+                    cpc: (parseFloat(rawInsights.cpc || '0') * currentExchangeRate).toFixed(2),
+                    cpm: (parseFloat(rawInsights.cpm || '0') * currentExchangeRate).toFixed(2),
+                    cpp: rawInsights.cpp ? (parseFloat(rawInsights.cpp) * currentExchangeRate).toFixed(2) : undefined,
+                };
+
+                console.log(`💵 Converted insights to USD:`, {
+                    original: {
+                        spend: rawInsights.spend,
+                        cpc: rawInsights.cpc,
+                        cpm: rawInsights.cpm,
+                        currency: detectedCurrency
+                    },
+                    converted: {
+                        spend: convertedInsights.spend,
+                        cpc: convertedInsights.cpc,
+                        cpm: convertedInsights.cpm,
+                        currency: 'USD'
+                    },
+                    exchangeRate: currentExchangeRate
+                });
+
+                setInsights(convertedInsights);
             } else {
+                console.log('⚠️ No insights data available');
             }
 
             // Fetch time-series insights (daily breakdown for last 7 days)
@@ -478,7 +560,21 @@ export default function CampaignDashboard() {
             <div className="dashboard-grid">
                 {/* Lead - Performance Card */}
                 <div className="dashboard-card performance-card">
-                    <h2 className="card-title">Lead - Performance</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h2 className="card-title" style={{ margin: 0 }}>Lead - Performance</h2>
+                        {accountCurrency !== 'USD' && (
+                            <span style={{
+                                fontSize: '11px',
+                                color: '#7e52e0',
+                                background: '#f5f3ff',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontWeight: '500'
+                            }}>
+                                {accountCurrency} → USD
+                            </span>
+                        )}
+                    </div>
                     <div className="metrics-row">
                         <div className="metric-item">
                             <div className="metric-label">RESULTS</div>

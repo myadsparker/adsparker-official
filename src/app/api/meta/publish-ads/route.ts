@@ -37,11 +37,23 @@ export async function POST(request: NextRequest) {
       adSets,
       adAccountId,
       pageId = null, // Optional: Facebook Page ID from user selection
-      dailyBudget = 10,
+      dailyBudget = 10, // Budget in USD from frontend                                                                                                  
       objective = 'OUTCOME_TRAFFIC',
       specialAdCategories = [],
       websiteUrl = null // Optional: URL for promoted_object in traffic campaigns
     } = body;
+
+    // Log received budget information
+    console.log('📊 API received budget data:', {
+      dailyBudgetUSD: `$${dailyBudget} USD`,
+      numberOfAdSets: adSets?.length || 0,
+      firstAdSetBudget: adSets?.[0]?.daily_budget || 'not set',
+      note: 'Budget in USD - will be converted to ad account currency',
+      allAdSetBudgets: adSets?.map((a: any, i: number) => ({ 
+        index: i, 
+        budget: a.daily_budget || 'not set' 
+      })) || []
+    });
 
     if (!projectId || !campaignName || !adSets || !Array.isArray(adSets) || adSets.length === 0 || !adAccountId) {
       return NextResponse.json(
@@ -79,6 +91,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // SUBSCRIPTION CHECK DISABLED FOR TESTING
+    // TODO: Re-enable for production
+    /*
     // Check subscription status (including expiry date)
     const isSubscribedRaw = userProfile.is_subscribed || false;
     const expiryDate = userProfile.expiry_subscription;
@@ -105,6 +120,7 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+    */
 
     if (!userProfile.meta_connected || !userProfile.meta_accounts || userProfile.meta_accounts.length === 0) {
       return NextResponse.json(
@@ -169,26 +185,103 @@ export async function POST(request: NextRequest) {
     } catch (error) {
     }
 
-    // Get ad account details to determine currency and minimum budget
+    // Get currency from selected ad account (from meta_accounts data in user profile)
     let accountCurrency = 'USD'; // Default
     let minDailyBudget = 1.00; // Default minimum in USD
-    try {
-      const accountResponse = await fetch(
-        `https://graph.facebook.com/v18.0/${formattedAdAccountId}?fields=currency,min_daily_budget&access_token=${accessToken}`
-      );
-      const accountData = await accountResponse.json();
-      if (accountResponse.ok && accountData.currency) {
-        accountCurrency = accountData.currency;
-        // Set minimum budgets based on currency (in local currency units)
-        const minBudgets: { [key: string]: number } = {
-          'INR': 89.19,  // ₹89.19 minimum for INR
-          'USD': 1.00,   // $1.00 minimum for USD
-          'EUR': 1.00,   // €1.00 minimum for EUR
-          'GBP': 1.00,   // £1.00 minimum for GBP
-        };
-        minDailyBudget = minBudgets[accountCurrency] || minBudgets['USD'];
+    
+    console.log(`🔍 Looking for currency in ad account: ${formattedAdAccountId}`);
+    
+    // Get currency from meta_accounts.ad_accounts array
+    if (userProfile.meta_accounts && Array.isArray(userProfile.meta_accounts)) {
+      const metaAccount = userProfile.meta_accounts[0]; // First meta account
+      if (metaAccount.ad_accounts && Array.isArray(metaAccount.ad_accounts)) {
+        // Find the selected ad account
+        const selectedAccount = metaAccount.ad_accounts.find((acc: any) => 
+          acc.id === formattedAdAccountId || acc.account_id === adAccountId.replace('act_', '')
+        );
+        
+        if (selectedAccount && selectedAccount.currency) {
+          accountCurrency = selectedAccount.currency;
+          console.log(`✅ Found currency in meta_accounts: ${accountCurrency}`);
+        } else {
+          console.log(`⚠️ Selected ad account not found in meta_accounts, fetching from Meta API...`);
+          
+          // Fallback: Fetch from Meta API
+          try {
+            const accountResponse = await fetch(
+              `https://graph.facebook.com/v18.0/${formattedAdAccountId}?fields=currency&access_token=${accessToken}`
+            );
+            const accountData = await accountResponse.json();
+            if (accountResponse.ok && accountData.currency) {
+              accountCurrency = accountData.currency;
+              console.log(`✅ Fetched currency from Meta API: ${accountCurrency}`);
+            }
+          } catch (error) {
+            console.log('⚠️ Failed to fetch currency from Meta API, using USD');
+          }
+        }
       }
-    } catch (error) {
+    }
+    
+    console.log(`🌍 Ad Account Currency: ${accountCurrency}`);
+    
+    // Set minimum budgets based on currency
+    const minBudgets: { [key: string]: number } = {
+      'INR': 40.00,  // ₹40 minimum for INR
+      'USD': 1.00,   // $1.00 minimum for USD
+      'EUR': 1.00,   // €1.00 minimum for EUR
+      'GBP': 1.00,   // £1.00 minimum for GBP
+      'AUD': 1.50,   // A$1.50 minimum for AUD
+      'CAD': 1.50,   // C$1.50 minimum for CAD
+    };
+    minDailyBudget = minBudgets[accountCurrency] || minBudgets['USD'];
+    console.log(`💰 Minimum daily budget for ${accountCurrency}: ${minDailyBudget}`);
+    
+    // Convert USD budget to account currency using live exchange rates
+    let exchangeRate = 1.0; // Default for USD to USD
+    
+    if (accountCurrency !== 'USD') {
+      try {
+        console.log(`💱 Fetching live exchange rate: USD → ${accountCurrency}`);
+        
+        // Using free ExchangeRate-API (no API key needed for basic usage)
+        const exchangeResponse = await fetch(
+          `https://api.exchangerate-api.com/v4/latest/USD`
+        );
+        
+        const exchangeData = await exchangeResponse.json();
+        
+        if (exchangeResponse.ok && exchangeData.rates && exchangeData.rates[accountCurrency]) {
+          exchangeRate = exchangeData.rates[accountCurrency];
+          console.log(`✅ Live exchange rate: 1 USD = ${exchangeRate} ${accountCurrency}`);
+        } else {
+          console.log(`⚠️ Could not fetch live rate, using fallback rates`);
+          // Fallback exchange rates
+          const fallbackRates: { [key: string]: number } = {
+            'INR': 83.00,
+            'EUR': 0.92,
+            'GBP': 0.79,
+            'AUD': 1.53,
+            'CAD': 1.36,
+            'SGD': 1.35,
+          };
+          exchangeRate = fallbackRates[accountCurrency] || 1.0;
+          console.log(`📊 Using fallback rate: 1 USD = ${exchangeRate} ${accountCurrency}`);
+        }
+      } catch (error) {
+        console.log(`⚠️ Exchange rate API error, using fallback rates`);
+        // Fallback exchange rates
+        const fallbackRates: { [key: string]: number } = {
+          'INR': 83.00,
+          'EUR': 0.92,
+          'GBP': 0.79,
+          'AUD': 1.53,
+          'CAD': 1.36,
+          'SGD': 1.35,
+        };
+        exchangeRate = fallbackRates[accountCurrency] || 1.0;
+        console.log(`📊 Using fallback rate: 1 USD = ${exchangeRate} ${accountCurrency}`);
+      }
     }
 
     // Get user's Facebook page (required for link ads)
@@ -247,8 +340,8 @@ export async function POST(request: NextRequest) {
     } else {
       }
 
-    // For testing: limit to only the first ad set
-    const adSetsLimited = Array.isArray(adSets) && adSets.length > 0 ? adSets.slice(0, 1) : adSets;
+    // Publish ALL ad sets (no limit)
+    const adSetsLimited = Array.isArray(adSets) && adSets.length > 0 ? adSets : [];
 
     // Normalize scheduling fields
     // Start immediately (no start_time)
@@ -427,17 +520,34 @@ export async function POST(request: NextRequest) {
       const adSet: any = adSetsLimited[i];
 
       try {
-        // Get the budget for this ad set
-        let adSetBudget = adSet.daily_budget || dailyBudget;
+        // Get the budget for this ad set (in USD from frontend)
+        let budgetInUSD = adSet.daily_budget || dailyBudget;
+        
+        // Convert USD to account currency using live exchange rate
+        let budgetInAccountCurrency = budgetInUSD * exchangeRate;
 
-        // Ensure budget meets minimum requirement
-        if (adSetBudget < minDailyBudget) {
-          adSetBudget = minDailyBudget;
+        console.log(`💱 Ad Set ${i + 1} conversion:`, {
+          inputUSD: `$${budgetInUSD.toFixed(2)}`,
+          exchangeRate: `1 USD = ${exchangeRate} ${accountCurrency}`,
+          converted: `${budgetInAccountCurrency.toFixed(2)} ${accountCurrency}`
+        });
+
+        // Ensure budget meets minimum requirement for this currency
+        if (budgetInAccountCurrency < minDailyBudget) {
+          console.log(`⚠️ Ad Set ${i + 1}: Budget ${budgetInAccountCurrency.toFixed(2)} ${accountCurrency} is below minimum ${minDailyBudget} ${accountCurrency}, adjusting to minimum`);
+          budgetInAccountCurrency = minDailyBudget;
         }
 
         // Convert daily budget to smallest currency unit (cents/paise)
         // Meta API uses the smallest currency unit (100 cents = $1, 100 paise = ₹1)
-        const budgetInSmallestUnit = Math.round(adSetBudget * 100);
+        const budgetInSmallestUnit = Math.round(budgetInAccountCurrency * 100);
+
+        console.log(`💵 Ad Set ${i + 1} (${adSet.ad_set_title}):`, {
+          originalUSD: `$${budgetInUSD.toFixed(2)}`,
+          convertedTo: `${budgetInAccountCurrency.toFixed(2)} ${accountCurrency}`,
+          budgetInSmallestUnit: budgetInSmallestUnit,
+          calculation: `${budgetInAccountCurrency.toFixed(2)} ${accountCurrency} × 100 = ${budgetInSmallestUnit} ${accountCurrency === 'INR' ? 'paise' : accountCurrency === 'USD' ? 'cents' : 'smallest unit'}`
+        });
 
 
         // Build targeting object for Meta API
@@ -690,7 +800,7 @@ export async function POST(request: NextRequest) {
                 createdAdSets.push({
                   id: adSetId,
                   name: adSet.ad_set_title,
-                  daily_budget: adSetBudget,
+                  daily_budget: budgetInAccountCurrency,
                   status: 'PAUSED',
                   creative_id: creativeId,
                   ad_id: null, // Ad not created yet
@@ -735,7 +845,7 @@ export async function POST(request: NextRequest) {
               createdAdSets.push({
                 id: adSetId,
                 name: adSet.ad_set_title,
-                daily_budget: adSetBudget,
+                daily_budget: budgetInAccountCurrency,
                 status: 'ACTIVE',
                 creative_id: creativeId,
                 ad_id: adData.id,

@@ -76,6 +76,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // RATE LIMITING: Check if we fetched data recently (within last 15 minutes)
+    const { data: existingCampaign } = await supabase
+      .from('running_campaigns')
+      .select('logs, updated_at')
+      .eq('user_id', user.id)
+      .eq('project_id', projectId)
+      .single();
+
+    if (existingCampaign && existingCampaign.logs && Array.isArray(existingCampaign.logs)) {
+      const lastLog = existingCampaign.logs[existingCampaign.logs.length - 1];
+      if (lastLog && lastLog.timestamp) {
+        const lastFetchTime = new Date(lastLog.timestamp);
+        const now = new Date();
+        const minutesSinceLastFetch = (now.getTime() - lastFetchTime.getTime()) / (1000 * 60);
+        
+        // If fetched within last 15 minutes, return cached data
+        if (minutesSinceLastFetch < 15) {
+          console.log(`⚡ Using cached insights (fetched ${minutesSinceLastFetch.toFixed(1)} minutes ago)`);
+          return NextResponse.json({
+            success: true,
+            cached: true,
+            project_id: projectId,
+            campaign_id: campaignId,
+            logs_saved_for: lastLog.date,
+            adset_count: Object.keys(lastLog.adsets || {}).length,
+            logs: lastLog,
+            message: `Using cached data from ${minutesSinceLastFetch.toFixed(1)} minutes ago. Refresh after 15 minutes to fetch new data.`
+          });
+        }
+      }
+    }
+
+    console.log('🔄 Fetching fresh insights from Meta API...');
+
     // Get user's Meta access token
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
@@ -116,6 +150,20 @@ export async function POST(request: NextRequest) {
       `https://graph.facebook.com/v18.0/${campaignId}/insights?fields=impressions,clicks,spend,reach,ctr,cpc,cpm,cpp,actions,action_values,cost_per_action_type,frequency,unique_clicks&access_token=${accessToken}`
     );
     const campaignInsightsJson = await campaignInsightsResp.json();
+
+    // Check for rate limit error on campaign-level fetch
+    if (campaignInsightsJson.error && campaignInsightsJson.error.code === 17) {
+      console.error('⚠️ Rate limit reached while fetching campaign insights');
+      return NextResponse.json(
+        { 
+          error: 'Rate limit reached',
+          message: 'Meta API rate limit exceeded. Please wait 15-30 minutes before refreshing insights.',
+          error_code: 17,
+          retry_after_minutes: 15
+        },
+        { status: 429 }
+      );
+    }
 
     let campaignLevelData: any = null;
     if (campaignInsightsResp.ok && campaignInsightsJson.data && campaignInsightsJson.data.length > 0) {
@@ -173,6 +221,20 @@ export async function POST(request: NextRequest) {
     );
     const adsetsJson = await adsetsResp.json();
 
+    // Check for rate limit error when fetching adsets
+    if (adsetsJson.error && adsetsJson.error.code === 17) {
+      console.error('⚠️ Rate limit reached while fetching ad sets');
+      return NextResponse.json(
+        { 
+          error: 'Rate limit reached',
+          message: 'Meta API rate limit exceeded. Please wait 15-30 minutes before refreshing insights.',
+          error_code: 17,
+          retry_after_minutes: 15
+        },
+        { status: 429 }
+      );
+    }
+
     if (!adsetsResp.ok || adsetsJson.error) {
       return NextResponse.json(
         { error: 'Failed to fetch ad sets', details: adsetsJson.error || adsetsJson },
@@ -192,8 +254,18 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 Fetching insights for ${adsets.length} ad sets...`);
 
-    for (const adset of adsets) {
+    // Helper function to add delay between API calls (rate limiting)
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    for (let i = 0; i < adsets.length; i++) {
+      const adset = adsets[i];
+      
       try {
+        // Add 500ms delay between each API call to avoid rate limits
+        if (i > 0) {
+          await delay(500);
+        }
+
         const insightsUrl =
           `https://graph.facebook.com/v18.0/${adset.id}/insights?` +
           new URLSearchParams({
@@ -206,6 +278,22 @@ export async function POST(request: NextRequest) {
 
         const resp = await fetch(insightsUrl);
         const json = await resp.json();
+
+        // Handle rate limit errors specifically
+        if (json.error && json.error.code === 17) {
+          console.error(`⚠️ Rate limit hit for adset ${adset.id}. Stopping further requests.`);
+          perAdsetInsights[adset.id] = {
+            adset_id: adset.id,
+            adset_name: adset.name || 'Unknown',
+            adset_status: adset.effective_status || 'UNKNOWN',
+            date: dateStr,
+            error: 'Rate limit reached - data not available',
+            error_code: 17,
+            timestamp: new Date().toISOString(),
+          };
+          // Stop fetching more adsets to avoid further rate limiting
+          break;
+        }
 
         if (resp.ok && json?.data && json.data.length > 0) {
           const insightData = json.data[0];
