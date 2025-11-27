@@ -30,11 +30,12 @@ export default function CampaignDashboard() {
     const [insightsTimeSeries, setInsightsTimeSeries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [adsControl, setAdsControl] = useState(true);
+    const [showLeads, setShowLeads] = useState(true);
     const [showClicks, setShowClicks] = useState(true);
     const [showImpressions, setShowImpressions] = useState(true);
     const [hoveredPoint, setHoveredPoint] = useState<{ date: string; value: number; type: string } | null>(null);
     const [refreshing, setRefreshing] = useState(false);
-    const [accountCurrency, setAccountCurrency] = useState<string>('USD');
+    const [originalCurrency, setOriginalCurrency] = useState<string>('USD');
     const [exchangeRate, setExchangeRate] = useState<number>(1.0);
 
     useEffect(() => {
@@ -100,12 +101,10 @@ export default function CampaignDashboard() {
 
     const fetchCampaignInsights = async (campaignId: string) => {
         try {
-            console.log('📊 Fetching campaign insights for dashboard...');
             
             // Fetch user's Meta access token
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                console.log('❌ No session found');
                 return;
             }
 
@@ -116,7 +115,6 @@ export default function CampaignDashboard() {
                 .single();
 
             if (!profile?.meta_accounts || profile.meta_accounts.length === 0) {
-                console.log('❌ No Meta accounts found');
                 return;
             }
 
@@ -126,7 +124,6 @@ export default function CampaignDashboard() {
 
             const accessToken = metaAccount.access_token;
             if (!accessToken) {
-                console.log('❌ No access token found');
                 return;
             }
 
@@ -137,59 +134,43 @@ export default function CampaignDashboard() {
             const campaign = await campaignResponse.json();
             setCampaignData(campaign);
 
-            // Get ad account currency from meta_accounts
-            let detectedCurrency = 'USD';
+            // ALWAYS detect account currency and get LIVE exchange rate
+            let accountCurrency = 'USD';
+            let currentExchangeRate = 1.0;
+            
             if (campaign.account_id && metaAccount.ad_accounts) {
                 const adAccount = metaAccount.ad_accounts.find((acc: any) => 
                     acc.account_id === campaign.account_id || acc.id === `act_${campaign.account_id}`
                 );
+                
                 if (adAccount && adAccount.currency) {
-                    detectedCurrency = adAccount.currency;
-                    console.log(`✅ Detected ad account currency: ${detectedCurrency}`);
-                }
-            }
-            setAccountCurrency(detectedCurrency);
-
-            // Fetch exchange rate if not USD
-            let currentExchangeRate = 1.0;
-            if (detectedCurrency !== 'USD') {
-                try {
-                    console.log(`💱 Fetching exchange rate: ${detectedCurrency} → USD`);
-                    const exchangeResponse = await fetch(
-                        `https://api.exchangerate-api.com/v4/latest/${detectedCurrency}`
-                    );
-                    const exchangeData = await exchangeResponse.json();
+                    accountCurrency = adAccount.currency;
+                    setOriginalCurrency(accountCurrency);
                     
-                    if (exchangeResponse.ok && exchangeData.rates && exchangeData.rates.USD) {
+                    // Get LIVE exchange rate from API (no fallbacks)
+                    if (accountCurrency !== 'USD') {
+                        const exchangeResponse = await fetch(
+                            `https://api.exchangerate-api.com/v4/latest/${accountCurrency}`
+                        );
+                        
+                        if (!exchangeResponse.ok) {
+                            throw new Error(`Failed to fetch exchange rate for ${accountCurrency}`);
+                        }
+                        
+                        const exchangeData = await exchangeResponse.json();
+                        
+                        if (!exchangeData.rates || !exchangeData.rates.USD) {
+                            throw new Error(`USD rate not available for ${accountCurrency}`);
+                        }
+                        
                         currentExchangeRate = exchangeData.rates.USD;
-                        console.log(`✅ Live rate: 1 ${detectedCurrency} = ${currentExchangeRate} USD`);
-                    } else {
-                        // Fallback rates (currency to USD)
-                        const fallbackRates: { [key: string]: number } = {
-                            'INR': 0.012,   // 1 INR = 0.012 USD
-                            'EUR': 1.09,    // 1 EUR = 1.09 USD
-                            'GBP': 1.27,    // 1 GBP = 1.27 USD
-                            'AUD': 0.65,    // 1 AUD = 0.65 USD
-                            'CAD': 0.74,    // 1 CAD = 0.74 USD
-                        };
-                        currentExchangeRate = fallbackRates[detectedCurrency] || 1.0;
-                        console.log(`📊 Using fallback rate: 1 ${detectedCurrency} = ${currentExchangeRate} USD`);
                     }
-                } catch (error) {
-                    console.log('⚠️ Failed to fetch exchange rate, using fallback');
-                    const fallbackRates: { [key: string]: number } = {
-                        'INR': 0.012,
-                        'EUR': 1.09,
-                        'GBP': 1.27,
-                        'AUD': 0.65,
-                        'CAD': 0.74,
-                    };
-                    currentExchangeRate = fallbackRates[detectedCurrency] || 1.0;
                 }
             }
+            
             setExchangeRate(currentExchangeRate);
 
-            // Fetch campaign insights (aggregated)
+            // Fetch campaign insights (aggregated) - Meta returns in account currency
             const insightsResponse = await fetch(
                 `https://graph.facebook.com/v18.0/${campaignId}/insights?fields=impressions,clicks,spend,reach,ctr,cpc,cpm,cost_per_action_type,actions,frequency&access_token=${accessToken}`
             );
@@ -198,7 +179,7 @@ export default function CampaignDashboard() {
             if (insightsData.data && insightsData.data.length > 0) {
                 const rawInsights = insightsData.data[0];
                 
-                // Convert currency values to USD
+                // Convert all monetary values from account currency to USD
                 const convertedInsights = {
                     ...rawInsights,
                     spend: (parseFloat(rawInsights.spend || '0') * currentExchangeRate).toFixed(2),
@@ -206,26 +187,8 @@ export default function CampaignDashboard() {
                     cpm: (parseFloat(rawInsights.cpm || '0') * currentExchangeRate).toFixed(2),
                     cpp: rawInsights.cpp ? (parseFloat(rawInsights.cpp) * currentExchangeRate).toFixed(2) : undefined,
                 };
-
-                console.log(`💵 Converted insights to USD:`, {
-                    original: {
-                        spend: rawInsights.spend,
-                        cpc: rawInsights.cpc,
-                        cpm: rawInsights.cpm,
-                        currency: detectedCurrency
-                    },
-                    converted: {
-                        spend: convertedInsights.spend,
-                        cpc: convertedInsights.cpc,
-                        cpm: convertedInsights.cpm,
-                        currency: 'USD'
-                    },
-                    exchangeRate: currentExchangeRate
-                });
-
+                
                 setInsights(convertedInsights);
-            } else {
-                console.log('⚠️ No insights data available');
             }
 
             // Fetch time-series insights (daily breakdown for last 7 days)
@@ -273,24 +236,42 @@ export default function CampaignDashboard() {
     };
 
     const getResults = () => {
-        if (!insights?.actions) return '0';
-        const leadActions = insights.actions.find((a: any) => a.action_type === 'lead');
-        return leadActions ? formatNumber(leadActions.value) : '0';
+        try {
+            if (!insights?.actions) return '0';
+            const leadActions = insights.actions.find((a: any) => a.action_type === 'lead');
+            return leadActions ? formatNumber(leadActions.value) : '0';
+        } catch (error) {
+            return '0';
+        }
     };
 
-    const getROAS = () => {
-        if (!insights?.spend || !insights?.actions) return '-';
-        const leadActions = insights.actions.find((a: any) => a.action_type === 'lead');
-        if (!leadActions || parseFloat(insights.spend) === 0) return '-';
-        // Simplified ROAS calculation
-        return (parseFloat(leadActions.value) / parseFloat(insights.spend)).toFixed(2);
+    const getLeadsPerDollar = () => {
+        try {
+            if (!insights?.spend || !insights?.actions) return '-';
+            const leadActions = insights.actions.find((a: any) => a.action_type === 'lead');
+            if (!leadActions || parseFloat(insights.spend) === 0) return '-';
+            // Calculate how many leads generated per dollar spent
+            const leads = parseFloat(leadActions.value);
+            const spend = parseFloat(insights.spend);
+            if (isNaN(leads) || isNaN(spend) || spend === 0) return '-';
+            return (leads / spend).toFixed(2);
+        } catch (error) {
+            return '-';
+        }
     };
 
     const getCostPerResult = () => {
-        if (!insights?.spend || !insights?.actions) return '-';
-        const leadActions = insights.actions.find((a: any) => a.action_type === 'lead');
-        if (!leadActions || parseFloat(leadActions.value) === 0) return '-';
-        return formatCurrency(parseFloat(insights.spend) / parseFloat(leadActions.value));
+        try {
+            if (!insights?.spend || !insights?.actions) return '-';
+            const leadActions = insights.actions.find((a: any) => a.action_type === 'lead');
+            if (!leadActions || parseFloat(leadActions.value) === 0) return '-';
+            const spend = parseFloat(insights.spend);
+            const leads = parseFloat(leadActions.value);
+            if (isNaN(spend) || isNaN(leads) || leads === 0) return '-';
+            return formatCurrency(spend / leads);
+        } catch (error) {
+            return '-';
+        }
     };
 
     const getCampaignName = () => {
@@ -348,12 +329,17 @@ export default function CampaignDashboard() {
     };
 
     const getDailyBudget = () => {
-        if (campaignData?.daily_budget) {
-            const budget = parseFloat(campaignData.daily_budget) / 100; // Convert from cents
-            return formatCurrency(budget);
+        try {
+            if (campaignData?.daily_budget) {
+                const budget = parseFloat(campaignData.daily_budget) / 100; // Convert from cents
+                if (isNaN(budget)) return 'Not Set';
+                return formatCurrency(budget);
+            }
+            // No budget set
+            return 'Not Set';
+        } catch (error) {
+            return 'Not Set';
         }
-        // Get from published_ads
-        return '$20 Per Day'; // Default
     };
 
     const getCampaignStartDate = () => {
@@ -380,29 +366,34 @@ export default function CampaignDashboard() {
 
     // Format performance data for chart - NO FALLBACK DATA
     const formatChartData = () => {
-        if (!insightsTimeSeries || insightsTimeSeries.length === 0) {
-            return []; // Return empty array - no fake data
+        try {
+            if (!insightsTimeSeries || insightsTimeSeries.length === 0) {
+                return []; // Return empty array - no fake data
+            }
+
+            const chartData = insightsTimeSeries.map((item: any) => {
+                const date = new Date(item.date_start);
+                const day = date.getDate().toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const leads = item.actions?.find((a: any) => a.action_type === 'lead')?.value || '0';
+
+                return {
+                    day: `${day}-${month}`,
+                    Leads: parseFloat(leads || '0') || 0,
+                    Clicks: parseFloat(item.clicks || '0') || 0,
+                    Impressions: parseFloat(item.impressions || '0') || 0,
+                };
+            }).sort((a, b) => {
+                // Sort by date
+                const dateA = new Date(a.day.split('-').reverse().join('-'));
+                const dateB = new Date(b.day.split('-').reverse().join('-'));
+                return dateA.getTime() - dateB.getTime();
+            });
+
+            return chartData;
+        } catch (error) {
+            return [];
         }
-
-        const chartData = insightsTimeSeries.map((item: any) => {
-            const date = new Date(item.date_start);
-            const day = date.getDate().toString().padStart(2, '0');
-            const month = (date.getMonth() + 1).toString().padStart(2, '0');
-            const leads = item.actions?.find((a: any) => a.action_type === 'lead')?.value || '0';
-
-            return {
-                day: `${day}-${month}`,
-                Clicks: parseFloat(leads) || parseFloat(item.clicks || '0'),
-                Impressions: parseFloat(item.impressions || '0'),
-            };
-        }).sort((a, b) => {
-            // Sort by date
-            const dateA = new Date(a.day.split('-').reverse().join('-'));
-            const dateB = new Date(b.day.split('-').reverse().join('-'));
-            return dateA.getTime() - dateB.getTime();
-        });
-
-        return chartData;
     };
 
 
@@ -562,18 +553,6 @@ export default function CampaignDashboard() {
                 <div className="dashboard-card performance-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <h2 className="card-title" style={{ margin: 0 }}>Lead - Performance</h2>
-                        {accountCurrency !== 'USD' && (
-                            <span style={{
-                                fontSize: '11px',
-                                color: '#7e52e0',
-                                background: '#f5f3ff',
-                                padding: '4px 8px',
-                                borderRadius: '4px',
-                                fontWeight: '500'
-                            }}>
-                                {accountCurrency} → USD
-                            </span>
-                        )}
                     </div>
                     <div className="metrics-row">
                         <div className="metric-item">
@@ -581,8 +560,8 @@ export default function CampaignDashboard() {
                             <div className="metric-value">{getResults()}</div>
                         </div>
                         <div className="metric-item">
-                            <div className="metric-label">ROAS</div>
-                            <div className="metric-value">{getROAS()}</div>
+                            <div className="metric-label">LEADS/DOLLAR</div>
+                            <div className="metric-value">{getLeadsPerDollar()}</div>
                         </div>
                         <div className="metric-item">
                             <div className="metric-label br_word">AMOUNT <br /> SPENT</div>
@@ -617,6 +596,15 @@ export default function CampaignDashboard() {
                     <div className="graph-header">
                         <h2 className="card-title">Performance</h2>
                         <div className="graph-legend">
+                            <label className="legend-item">
+                                <input
+                                    type="checkbox"
+                                    checked={showLeads}
+                                    onChange={(e) => setShowLeads(e.target.checked)}
+                                    className="legend-checkbox leads"
+                                />
+                                <span>Leads</span>
+                            </label>
                             <label className="legend-item">
                                 <input
                                     type="checkbox"
@@ -681,6 +669,15 @@ export default function CampaignDashboard() {
                                             formatter={(value: any) => [formatNumber(value), '']}
                                             labelFormatter={label => `${label}`}
                                         />
+                                        {showLeads && (
+                                            <Line
+                                                type='monotone'
+                                                dataKey='Leads'
+                                                stroke='#f59e0b'
+                                                strokeWidth={2}
+                                                dot={false}
+                                            />
+                                        )}
                                         {showClicks && (
                                             <Line
                                                 type='monotone'

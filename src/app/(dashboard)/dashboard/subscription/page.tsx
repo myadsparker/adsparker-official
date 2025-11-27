@@ -54,7 +54,6 @@ export default function SubscriptionPage() {
         setInvoices(data.invoices || []);
       }
     } catch (error) {
-      console.error('Error fetching invoices:', error);
     } finally {
       setLoadingInvoices(false);
     }
@@ -70,7 +69,6 @@ export default function SubscriptionPage() {
         setPaymentMethod(data.paymentMethod || null);
       }
     } catch (error) {
-      console.error('Error fetching subscription details:', error);
     } finally {
       setLoadingSubscription(false);
     }

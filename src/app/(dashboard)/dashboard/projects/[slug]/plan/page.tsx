@@ -16,6 +16,14 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { RotateCcw } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface AdSet {
   ad_set_id: string;
@@ -38,6 +46,7 @@ interface AdSet {
 export default function BudgetPage() {
   const params = useParams();
   const projectId = params.slug as string;
+  const isMobile = useIsMobile();
   const [adSets, setAdSets] = useState<AdSet[]>([]);
   const [selectedAdSet, setSelectedAdSet] = useState<AdSet | null>(null);
   const [selectedAdSetIndex, setSelectedAdSetIndex] = useState<number>(0);
@@ -81,8 +90,15 @@ export default function BudgetPage() {
   const [pages, setPages] = useState<any[]>([]);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [loadingPages, setLoadingPages] = useState(false);
+  const [pixels, setPixels] = useState<any[]>([]);
+  const [selectedPixelId, setSelectedPixelId] = useState<string | null>(null);
+  const [loadingPixels, setLoadingPixels] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  // Cache flags to prevent unnecessary API calls
+  const [accountsFetched, setAccountsFetched] = useState(false);
+  const [pagesFetched, setPagesFetched] = useState(false);
+  const pixelsCache = useRef<Record<string, any[]>>({}); // Cache pixels per ad account
 
   // Calculate number of ad sets to show based on budget
   const getAdSetLimit = (budget: number): number => {
@@ -114,11 +130,13 @@ export default function BudgetPage() {
       const response = await fetch(`/api/projects/${projectId}`);
       if (response.ok) {
         const data = await response.json();
-        if (data?.campaignproposal) {
+        // Handle both campaign_proposal and campaignproposal (Supabase might return either)
+        const campaignProposalData = data?.campaign_proposal || data?.campaignproposal;
+        if (campaignProposalData) {
           const proposal =
-            typeof data.campaignproposal === 'string'
-              ? JSON.parse(data.campaignproposal)
-              : data.campaignproposal;
+            typeof campaignProposalData === 'string'
+              ? JSON.parse(campaignProposalData)
+              : campaignProposalData;
           setCampaignProposal(proposal);
         }
 
@@ -173,7 +191,7 @@ export default function BudgetPage() {
           setIsMainProduct(analyzingPointsData?.isMainProduct || false);
         }
 
-        // Set website URL from url_analysis or campaignproposal
+        // Set website URL from url_analysis or campaign_proposal
         let foundWebsiteUrl = '';
         if (data?.url_analysis) {
           const urlAnalysis =
@@ -184,12 +202,13 @@ export default function BudgetPage() {
             foundWebsiteUrl = urlAnalysis.website_url;
           }
         }
-        // Fallback to campaignproposal website_url if not found in url_analysis
-        if (!foundWebsiteUrl && data?.campaignproposal) {
+        // Fallback to campaign_proposal website_url if not found in url_analysis
+        const campaignProposalForUrl = data?.campaign_proposal || data?.campaignproposal;
+        if (!foundWebsiteUrl && campaignProposalForUrl) {
           const proposal =
-            typeof data.campaignproposal === 'string'
-              ? JSON.parse(data.campaignproposal)
-              : data.campaignproposal;
+            typeof campaignProposalForUrl === 'string'
+              ? JSON.parse(campaignProposalForUrl)
+              : campaignProposalForUrl;
           if (proposal?.website_url) {
             foundWebsiteUrl = proposal.website_url;
           }
@@ -254,8 +273,13 @@ export default function BudgetPage() {
     return adAccounts;
   };
 
-  // Fetch connected Meta accounts
-  const fetchConnectedAccounts = async () => {
+  // Fetch connected Meta accounts (only if not already fetched)
+  const fetchConnectedAccounts = async (forceRefresh = false) => {
+    // Skip if already fetched and not forcing refresh
+    if (accountsFetched && !forceRefresh) {
+      return;
+    }
+
     try {
       setLoadingAccounts(true);
       const response = await fetch('/api/meta/accounts');
@@ -265,11 +289,14 @@ export default function BudgetPage() {
           ? data.accounts
           : [];
         setConnectedAccounts(accounts);
+        setAccountsFetched(true); // Mark as fetched
 
         // Auto-select first ad account if available
         const allAdAccounts = getAllAdAccounts(accounts);
         if (allAdAccounts.length > 0 && !selectedAdAccountId) {
-          setSelectedAdAccountId(allAdAccounts[0].id);
+          const firstAdAccountId = allAdAccounts[0].id;
+          setSelectedAdAccountId(firstAdAccountId);
+          fetchPixels(firstAdAccountId); // Fetch pixels for first ad account
         }
       }
     } catch (error) {
@@ -278,8 +305,13 @@ export default function BudgetPage() {
     }
   };
 
-  // Fetch Facebook Pages
-  const fetchPages = async () => {
+  // Fetch Facebook Pages (only if not already fetched)
+  const fetchPages = async (forceRefresh = false) => {
+    // Skip if already fetched and not forcing refresh
+    if (pagesFetched && !forceRefresh) {
+      return;
+    }
+
     try {
       setLoadingPages(true);
       const response = await fetch('/api/meta/pages');
@@ -287,6 +319,7 @@ export default function BudgetPage() {
         const data = await response.json();
         const pagesList = Array.isArray(data?.pages) ? data.pages : [];
         setPages(pagesList);
+        setPagesFetched(true); // Mark as fetched
 
         // Auto-select first page if available
         if (pagesList.length > 0 && !selectedPageId) {
@@ -302,6 +335,55 @@ export default function BudgetPage() {
     }
   };
 
+  // Fetch Pixels for selected ad account (cached per ad account)
+  const fetchPixels = async (adAccountId: string, forceRefresh = false) => {
+    if (!adAccountId) {
+      setPixels([]);
+      setSelectedPixelId(null);
+      return;
+    }
+
+    const formattedAdAccountId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
+    
+    // Check cache first
+    if (pixelsCache.current[formattedAdAccountId] && !forceRefresh) {
+      const cachedPixels = pixelsCache.current[formattedAdAccountId];
+      setPixels(cachedPixels);
+      // Auto-select first pixel if available and not already selected
+      if (cachedPixels.length > 0 && !selectedPixelId) {
+        setSelectedPixelId(cachedPixels[0].id);
+      }
+      return;
+    }
+
+    try {
+      setLoadingPixels(true);
+      const response = await fetch(`/api/meta/pixels?ad_account_id=${formattedAdAccountId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const pixelsList = Array.isArray(data?.pixels) ? data.pixels : [];
+        setPixels(pixelsList);
+        // Cache pixels for this ad account
+        pixelsCache.current[formattedAdAccountId] = pixelsList;
+
+        // Auto-select first pixel if available
+        if (pixelsList.length > 0 && !selectedPixelId) {
+          setSelectedPixelId(pixelsList[0].id);
+        }
+      } else {
+        setPixels([]);
+        setSelectedPixelId(null);
+        pixelsCache.current[formattedAdAccountId] = []; // Cache empty array
+      }
+    } catch (error) {
+      setPixels([]);
+      setSelectedPixelId(null);
+      pixelsCache.current[formattedAdAccountId] = []; // Cache empty array
+    } finally {
+      setLoadingPixels(false);
+    }
+  };
+
   // Fetch user profile with subscription info
   const fetchUserProfile = async () => {
     try {
@@ -311,7 +393,6 @@ export default function BudgetPage() {
         setUserProfile(data.profile);
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
     }
   };
 
@@ -630,10 +711,22 @@ export default function BudgetPage() {
 
   // Handle collapsible toggle
   const toggleCollapsible = (key: string) => {
-    setCollapsedStates(prev => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setCollapsedStates(prev => {
+      const newState = { ...prev };
+      const isOpening = !prev[key];
+      
+      // On mobile, if opening a collapsible, close all others
+      if (isMobile && isOpening) {
+        Object.keys(newState).forEach(k => {
+          newState[k] = k === key;
+        });
+      } else {
+        // On desktop or when closing, just toggle the clicked one
+        newState[key] = !prev[key];
+      }
+      
+      return newState;
+    });
   };
 
   // Handle performance API call
@@ -788,7 +881,6 @@ export default function BudgetPage() {
               }
             }
           } catch (thumbnailError) {
-            console.error('Error setting thumbnail:', thumbnailError);
             // Still show success for image generation
             toast.success('AI image generated successfully!', {
               duration: 4000,
@@ -808,7 +900,6 @@ export default function BudgetPage() {
         hasAttemptedImageGen.current = false;
       }
     } catch (error) {
-      console.error('Error auto-generating image:', error);
       // Reset attempt flag on error so user can retry manually
       hasAttemptedImageGen.current = false;
     } finally {
@@ -967,14 +1058,8 @@ export default function BudgetPage() {
 
   // Handle saving thumbnail image
   const handleSaveThumbnail = async () => {
-    console.log('💾 handleSaveThumbnail called');
-    console.log('selectedThumbnailImage:', selectedThumbnailImage);
-    console.log('selectedAdSet:', selectedAdSet);
-    console.log('selectedAdSet?.ad_set_id:', selectedAdSet?.ad_set_id);
-    console.log('adSets:', adSets);
     
     if (!selectedThumbnailImage) {
-      console.error('❌ No thumbnail image selected');
       toast.error('Please select an image first', {
         duration: 4000,
         style: {
@@ -992,15 +1077,11 @@ export default function BudgetPage() {
     // If no adset is selected, try to get the first one
     let currentAdSet = selectedAdSet;
     if (!currentAdSet || !currentAdSet.ad_set_id) {
-      console.log('⚠️ No adset selected, trying to get first available');
       const filteredAdSets = getFilteredAdSets();
       if (filteredAdSets.length > 0) {
         currentAdSet = filteredAdSets[0];
-        console.log('✅ Using first available adset:', currentAdSet);
-        console.log('First adset ID:', currentAdSet.ad_set_id);
         
         if (!currentAdSet.ad_set_id) {
-          console.error('❌ First adset does not have ad_set_id!');
           toast.error('Ad set is missing an ID. Please regenerate ad sets.', {
             duration: 4000,
             style: {
@@ -1022,9 +1103,6 @@ export default function BudgetPage() {
 
     const adsetId = currentAdSet?.ad_set_id;
     if (!adsetId) {
-      console.error('❌ No adset ID available');
-      console.error('currentAdSet:', currentAdSet);
-      console.error('currentAdSet keys:', currentAdSet ? Object.keys(currentAdSet) : 'null');
       toast.error('Ad set is missing an ID. Please regenerate ad sets.', {
         duration: 4000,
         style: {
@@ -1039,8 +1117,6 @@ export default function BudgetPage() {
       return;
     }
 
-    console.log('✅ Proceeding with save - Adset ID:', adsetId);
-
     try {
       setSavingThumbnail(true);
 
@@ -1048,10 +1124,6 @@ export default function BudgetPage() {
         thumbnail_image_url: selectedThumbnailImage,
         adset_id: adsetId,
       };
-
-      console.log('📤 Sending request to save thumbnail:');
-      console.log('Request body:', requestBody);
-      console.log('Project ID:', projectId);
 
       const response = await fetch(
         `/api/projects/${projectId}/save-thumbnail`,
@@ -1063,9 +1135,6 @@ export default function BudgetPage() {
           body: JSON.stringify(requestBody),
         }
       );
-
-      console.log('📥 Response status:', response.status);
-      console.log('Response ok:', response.ok);
 
       if (!response.ok) {
         throw new Error('Failed to save thumbnail');
@@ -1161,7 +1230,6 @@ export default function BudgetPage() {
   const refreshAdAccounts = async () => {
     try {
       setLoadingAccounts(true);
-      console.log('🔄 Refreshing ad accounts from Meta...');
 
       const response = await fetch('/api/meta/refresh-accounts', {
         method: 'POST',
@@ -1172,19 +1240,17 @@ export default function BudgetPage() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Ad accounts refreshed:', data);
 
-        // Refresh the connected accounts list (this will auto-select first account)
-        await fetchConnectedAccounts();
-        // Also fetch pages
-        await fetchPages();
+        // Refresh the connected accounts list (force refresh)
+        await fetchConnectedAccounts(true);
+        await fetchPages(true);
+        // Clear pixels cache to force refresh
+        pixelsCache.current = {};
       } else {
         const errorData = await response.json();
-        console.error('❌ Failed to refresh ad accounts:', errorData);
-        // Don't show alert here, just log - modal will still open
+        // Don't show alert here - modal will still open
       }
     } catch (error) {
-      console.error('Error refreshing ad accounts:', error);
       // Don't block modal opening if refresh fails
     } finally {
       setLoadingAccounts(false);
@@ -1194,8 +1260,8 @@ export default function BudgetPage() {
   // Handle publish ads - check subscription and redirect to payment if needed
   const handlePublishAdsFromButton = async () => {
     try {
-      // Fetch latest user profile and accounts
-      await Promise.all([fetchUserProfile(), refreshAdAccounts()]);
+      // Fetch latest user profile (accounts will be fetched only if not already cached)
+      await Promise.all([fetchUserProfile(), fetchConnectedAccounts(), fetchPages()]);
 
       // Get fresh data after fetching
       const profileResponse = await fetch('/api/user-profile');
@@ -1279,7 +1345,6 @@ export default function BudgetPage() {
       // If Meta account is connected, show publish modal directly
       setShowModal(true);
     } catch (error) {
-      console.error('Error checking subscription:', error);
       toast.error('An error occurred. Please try again.', {
         duration: 5000,
         style: {
@@ -1296,8 +1361,9 @@ export default function BudgetPage() {
 
   // Keep handleNext for modal access (can be used elsewhere)
   const handleNext = async () => {
-    // Refresh ad accounts from Meta before opening modal
-    await refreshAdAccounts();
+    // Only fetch if not already fetched (don't refresh every time modal opens)
+    await fetchConnectedAccounts();
+    await fetchPages();
     setShowModal(true);
   };
 
@@ -1326,9 +1392,14 @@ export default function BudgetPage() {
       // Refresh connected accounts
       await fetchConnectedAccounts();
       
-      // Reset selections
+      // Reset selections and cache flags
       setSelectedAdAccountId('');
       setSelectedPageId('');
+      setSelectedPixelId(null);
+      setPixels([]);
+      setAccountsFetched(false);
+      setPagesFetched(false);
+      pixelsCache.current = {};
       
       toast.success('Meta account removed successfully', {
         duration: 3000,
@@ -1342,7 +1413,6 @@ export default function BudgetPage() {
         },
       });
     } catch (error) {
-      console.error('Error removing Meta account:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to remove Meta account', {
         duration: 3000,
         style: {
@@ -1569,6 +1639,23 @@ export default function BudgetPage() {
         return;
       }
 
+      // Get selected pixel
+      if (!selectedPixelId) {
+        toast.error('Please select a Pixel to publish ads.', {
+          duration: 5000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
+        setPublishingAds(false);
+        return;
+      }
+
       // Get selected page
       if (!selectedPageId && pages.length > 0) {
         toast.error('Please select a Facebook Page to publish ads.', {
@@ -1606,15 +1693,6 @@ export default function BudgetPage() {
 
       const finalCampaignName = getCampaignName();
 
-      // Log budget information for debugging
-      console.log('💰 Publishing with budget:', {
-        totalDailyBudget: `$${dailyBudget} USD`,
-        budgetPerAdSet: `$${getBudgetPerAdSet().toFixed(2)} USD`,
-        numberOfAds: getFilteredAdSets().length,
-        calculation: `$${dailyBudget} ÷ ${getFilteredAdSets().length} = $${getBudgetPerAdSet().toFixed(2)} per ad`,
-        note: 'Backend will convert to ad account currency using live exchange rates'
-      });
-
       const metaPublishResponse = await fetch('/api/meta/publish-ads', {
         method: 'POST',
         headers: {
@@ -1629,8 +1707,13 @@ export default function BudgetPage() {
           })),
           adAccountId: adAccountId,
           pageId: selectedPageId || null,
+          pixelId: selectedPixelId || null,
           dailyBudget: dailyBudget, // Total budget in USD (will be converted by backend)
-          objective: campaignProposal?.ad_goal === 'Leads' ? 'OUTCOME_LEADS' : 'OUTCOME_TRAFFIC',
+          objective: campaignProposal?.ad_goal === 'Leads' 
+            ? 'OUTCOME_LEADS' 
+            : campaignProposal?.ad_goal === 'Engagement' 
+            ? 'OUTCOME_ENGAGEMENT' 
+            : 'OUTCOME_TRAFFIC',
           websiteUrl: websiteUrl || campaignProposal?.website_url || null,
         }),
       });
@@ -1863,15 +1946,30 @@ export default function BudgetPage() {
           <div className='header'>
             <div className='heading'>
               <h3>{campaignProposal?.campaignName || 'Campaign Name'}</h3>
-              <p>
-                Start Date{' '}
-                {campaignProposal?.start_date
-                  ? new Date(campaignProposal.start_date).toLocaleDateString()
-                  : 'N/A'}{' '}
-                - End Date{' '}
-                {campaignProposal?.end_date
-                  ? new Date(campaignProposal.end_date).toLocaleDateString()
-                  : 'N/A'}
+              <p style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+                {campaignProposal?.start_date && 
+                 campaignProposal?.end_date && 
+                 String(campaignProposal.start_date).trim() !== '' && 
+                 String(campaignProposal.end_date).trim() !== '' &&
+                 campaignProposal.start_date !== 'N/A' &&
+                 campaignProposal.end_date !== 'N/A' ? (
+                  <>
+                    Start Date{' '}
+                    {new Date(campaignProposal.start_date).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}{' '}
+                    - End Date{' '}
+                    {new Date(campaignProposal.end_date).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </>
+                ) : (
+                  'Start Date N/A - End Date N/A'
+                )}
               </p>
             </div>
             <span>{campaignProposal?.ad_goal || 'Leads'}</span>
@@ -2143,15 +2241,16 @@ export default function BudgetPage() {
                       />
                     </svg>
                   </button>
-                  <div>
-                    <p
-                      style={{
-                        maxHeight: collapsedStates.audience ? '200px' : '0px',
-                        overflow: 'hidden',
-                        transition: 'max-height 0.3s ease',
-                        margin: collapsedStates.audience ? '10px 0' : '0',
-                      }}
-                    >
+                  <div
+                    style={{
+                      maxHeight: collapsedStates.audience ? '1000px' : '0px',
+                      overflow: 'hidden',
+                      transition: 'max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease',
+                      opacity: collapsedStates.audience ? 1 : 0,
+                      margin: collapsedStates.audience ? '10px 0' : '0',
+                    }}
+                  >
+                    <p>
                       {selectedAdSet.audience_description}
                     </p>
                   </div>
@@ -2183,9 +2282,10 @@ export default function BudgetPage() {
                   </button>
                   <div
                     style={{
-                      maxHeight: collapsedStates.copywriting ? '200px' : '0px',
+                      maxHeight: collapsedStates.copywriting ? '1000px' : '0px',
                       overflow: 'hidden',
-                      transition: 'max-height 0.3s ease',
+                      transition: 'max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease',
+                      opacity: collapsedStates.copywriting ? 1 : 0,
                       margin: collapsedStates.copywriting ? '10px 0' : '0',
                     }}
                   >
@@ -2225,9 +2325,10 @@ export default function BudgetPage() {
                   </button>
                   <div
                     style={{
-                      maxHeight: collapsedStates.tags ? '200px' : '0px',
+                      maxHeight: collapsedStates.tags ? '1000px' : '0px',
                       overflow: 'hidden',
-                      transition: 'max-height 0.3s ease',
+                      transition: 'max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease',
+                      opacity: collapsedStates.tags ? 1 : 0,
                       margin: collapsedStates.tags ? '10px 0' : '0',
                     }}
                   >
@@ -2306,19 +2407,39 @@ export default function BudgetPage() {
               {selectedAdSet ? (
                 <div style={{ position: 'relative' }}>
                   {selectedAdSet.adsparker_gen_creative_asset ? (
-                    <Image
-                      src={selectedAdSet.adsparker_gen_creative_asset}
-                      height={295}
-                      width={380}
-                      alt='Generated Ad Creative'
-                    />
+                    <div 
+                      className='thumbnail-image-container'
+                      onClick={handleOpenImageModal}
+                    >
+                      <Image
+                        src={selectedAdSet.adsparker_gen_creative_asset}
+                        height={295}
+                        width={380}
+                        alt='Generated Ad Creative'
+                      />
+                      <div className='thumbnail-upload-overlay'>
+                        <div className='thumbnail-upload-btn'>
+                          <RotateCcw color='#fff' size={20} />
+                        </div>
+                      </div>
+                    </div>
                   ) : (selectedAdSet.ad_set_id && thumbnailImages[selectedAdSet.ad_set_id]) ? (
-                    <Image
-                      src={thumbnailImages[selectedAdSet.ad_set_id]}
-                      height={295}
-                      width={380}
-                      alt='Thumbnail Ad Creative'
-                    />
+                    <div 
+                      className='thumbnail-image-container'
+                      onClick={handleOpenImageModal}
+                    >
+                      <Image
+                        src={thumbnailImages[selectedAdSet.ad_set_id]}
+                        height={295}
+                        width={380}
+                        alt='Thumbnail Ad Creative'
+                      />
+                      <div className='thumbnail-upload-overlay'>
+                        <div className='thumbnail-upload-btn'>
+                          <RotateCcw color='#fff' size={20} />
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div 
                       className='thumbnail-upload-area'
@@ -2327,48 +2448,13 @@ export default function BudgetPage() {
                       <div className='thumbnail-upload-content'>
                         <p className='thumbnail-upload-text-main'>Click to upload images and videos</p>
                         <div className='thumbnail-upload-icon'>
-                          <svg
-                            width='48'
-                            height='48'
-                            viewBox='0 0 48 48'
-                            fill='none'
-                            xmlns='http://www.w3.org/2000/svg'
-                          >
-                            <circle
-                              cx='24'
-                              cy='24'
-                              r='20'
-                              stroke='white'
-                              strokeWidth='2'
-                            />
-                            <path
-                              d='M18 18L14 14M14 14L18 10M14 14H24C28.4183 14 32 17.5817 32 22M30 30L34 34M34 34L30 38M34 34H24C19.5817 34 16 30.4183 16 26'
-                              stroke='white'
-                              strokeWidth='2.5'
-                              strokeLinecap='round'
-                              strokeLinejoin='round'
-                            />
-                          </svg>
+                        <RotateCcw color='#fff' size={20} />
                         </div>
                         <p className='thumbnail-upload-text-sub'>and see the preview here</p>
                       </div>
                       <div className='thumbnail-upload-overlay'>
                         <div className='thumbnail-upload-btn'>
-                          <svg
-                            width='24'
-                            height='24'
-                            viewBox='0 0 24 24'
-                            fill='none'
-                            xmlns='http://www.w3.org/2000/svg'
-                          >
-                            <path
-                              d='M9 9L5 5M5 5L9 1M5 5H12C16.4183 5 20 8.58172 20 13M15 15L19 19M19 19L15 23M19 19H12C7.58172 19 4 15.4183 4 11'
-                              stroke='white'
-                              strokeWidth='2'
-                              strokeLinecap='round'
-                              strokeLinejoin='round'
-                            />
-                          </svg>
+                        <RotateCcw color='#fff' size={20} />
                         </div>
                       </div>
                     </div>
@@ -2382,49 +2468,13 @@ export default function BudgetPage() {
                   <div className='thumbnail-upload-content'>
                     <p className='thumbnail-upload-text-main'>Click to upload images and videos</p>
                     <div className='thumbnail-upload-icon'>
-                      <svg
-                        width='48'
-                        height='48'
-                        viewBox='0 0 48 48'
-                        fill='none'
-                        xmlns='http://www.w3.org/2000/svg'
-                      >
-                        <path
-                          d='M24 8V40M8 24H40'
-                          stroke='white'
-                          strokeWidth='3'
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                        />
-                        <circle
-                          cx='24'
-                          cy='24'
-                          r='20'
-                          stroke='white'
-                          strokeWidth='2'
-                          strokeDasharray='4 4'
-                        />
-                      </svg>
+                    <RotateCcw color='#fff' size={20} />
                     </div>
                     <p className='thumbnail-upload-text-sub'>and see the preview here</p>
                   </div>
                   <div className='thumbnail-upload-overlay'>
                     <div className='thumbnail-upload-btn'>
-                      <svg
-                        width='24'
-                        height='24'
-                        viewBox='0 0 24 24'
-                        fill='none'
-                        xmlns='http://www.w3.org/2000/svg'
-                      >
-                        <path
-                          d='M12 4V20M4 12H20'
-                          stroke='white'
-                          strokeWidth='2'
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                        />
-                      </svg>
+                    <RotateCcw color='#fff' size={20} />
                     </div>
                   </div>
                 </div>
@@ -2559,100 +2609,6 @@ export default function BudgetPage() {
                 Securely link your Meta Business ad account to manage campaigns
                 across brands.
               </p>
-              <div className='meta-accounts-section'>
-                <div className='meta-accounts-header'>
-                  <div className='meta-accounts-left'>
-                    <span className='meta-accounts-title'>Meta Accounts</span>
-                    <span className={`meta-status-badge ${connectedAccounts.length > 0 ? 'connected' : 'pending'}`}>
-                      {connectedAccounts.length > 0 ? 'Connected' : 'Pending'}
-                    </span>
-                  </div>
-                  <div className='meta-accounts-right'>
-                    {connectedAccounts.length > 0 ? (
-                      <button
-                        className='meta-action-button remove'
-                        onClick={handleRemoveMetaAccount}
-                        disabled={loadingAccounts}
-                      >
-                        <svg
-                          width='20'
-                          height='20'
-                          viewBox='0 0 20 20'
-                          fill='none'
-                        >
-                          <path
-                            d='M4 10h12'
-                            stroke='currentColor'
-                            strokeWidth='2'
-                            strokeLinecap='round'
-                          />
-                        </svg>
-                        {loadingAccounts ? 'Removing...' : 'Remove'}
-                      </button>
-                    ) : (
-                      <button
-                        className='meta-action-button connect'
-                        onClick={handleConnectMetaAccount}
-                        disabled={loadingAccounts}
-                      >
-                        <svg
-                          width='20'
-                          height='20'
-                          viewBox='0 0 20 20'
-                          fill='none'
-                        >
-                          <path
-                            d='M4 10h12M10 4v12'
-                            stroke='currentColor'
-                            strokeWidth='2'
-                            strokeLinecap='round'
-                          />
-                        </svg>
-                        {loadingAccounts ? 'Connecting...' : 'Connect Ad Account'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <p className='meta-accounts-count'>Connected: {connectedAccounts.length} accounts</p>
-              </div>
-              <div className='note'>
-                <svg
-                  width='24'
-                  height='24'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  xmlns='http://www.w3.org/2000/svg'
-                >
-                  <path
-                    d='M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z'
-                    stroke='#343438'
-                    stroke-width='2'
-                    stroke-linecap='round'
-                    strokeLinejoin='round'
-                  />
-                  <path
-                    d='M12 16V12'
-                    stroke='#343438'
-                    stroke-width='2'
-                    stroke-linecap='round'
-                    strokeLinejoin='round'
-                  />
-                  <path
-                    d='M12 8H12.01'
-                    stroke='#343438'
-                    stroke-width='2'
-                    stroke-linecap='round'
-                    strokeLinejoin='round'
-                  />
-                </svg>
-                <p>
-                  All your brands and projects will connect to the same Facebook
-                  account. <span>Upgrade to Enterprise </span> to use multiple
-                  Meta accounts.
-                </p>
-              </div>
-
-
 
               {/* Form Fields Section - Only show when Meta is connected */}
               {connectedAccounts.length > 0 && (() => {
@@ -2663,6 +2619,29 @@ export default function BudgetPage() {
                     <div className="meta-form-field">
                       <label className="meta-form-label">
                         Ad Account<span className="required-asterisk">*</span>
+                        <TooltipProvider>
+                          <UITooltip>
+                            <TooltipTrigger asChild>
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="info-icon"
+                                style={{ marginLeft: '6px', cursor: 'pointer' }}
+                              >
+                                <circle cx="8" cy="8" r="7" stroke="#7e52e0" strokeWidth="1.5" fill="none"/>
+                                <path d="M8 5.5V8M8 10.5H8.01" stroke="#7e52e0" strokeWidth="1.5" strokeLinecap="round"/>
+                              </svg>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-[280px] bg-white text-[#343438] font-normal shadow-lg border border-gray-200">
+                              <p className="text-sm font-normal" style={{ color: '#343438', fontWeight: 400 }}>
+                                An ad account is where your ad campaigns are managed and billed. Choose the account where you want to run your ads and track spending.
+                              </p>
+                            </TooltipContent>
+                          </UITooltip>
+                        </TooltipProvider>
                       </label>
                       <Dropdown
                         menu={{
@@ -2672,6 +2651,7 @@ export default function BudgetPage() {
                           })),
                           onClick: (e) => {
                             setSelectedAdAccountId(e.key);
+                            fetchPixels(e.key, false); // Fetch pixels when ad account is selected (use cache if available)
                           },
                           style: {
                             maxHeight: '250px',
@@ -2707,11 +2687,108 @@ export default function BudgetPage() {
                       </Dropdown>
                     </div>
 
+                    {/* Pixel */}
+                    <div className="meta-form-field">
+                      <label className="meta-form-label">
+                        Pixel<span className="required-asterisk">*</span>
+                        <TooltipProvider>
+                          <UITooltip>
+                            <TooltipTrigger asChild>
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="info-icon"
+                                style={{ marginLeft: '6px', cursor: 'pointer' }}
+                              >
+                                <circle cx="8" cy="8" r="7" stroke="#7e52e0" strokeWidth="1.5" fill="none"/>
+                                <path d="M8 5.5V8M8 10.5H8.01" stroke="#7e52e0" strokeWidth="1.5" strokeLinecap="round"/>
+                              </svg>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-[280px] bg-white text-[#343438] font-normal shadow-lg border border-gray-200">
+                              <p className="text-sm font-normal" style={{ color: '#343438', fontWeight: 400 }}>
+                                A pixel is a code that tracks visitor actions on your website. Choose the pixel associated with your ad account to measure conversions and optimize your ad performance.
+                              </p>
+                            </TooltipContent>
+                          </UITooltip>
+                        </TooltipProvider>
+                      </label>
+                      <Dropdown
+                        menu={{
+                          items: loadingPixels ? [{ key: 'loading', label: 'Loading...', disabled: true }] : pixels.length > 0 ? pixels.map((pixel) => ({
+                            key: pixel.id,
+                            label: pixel.name ? `${pixel.name} (${pixel.id})` : pixel.id,
+                          })) : [{ key: 'no-pixels', label: 'No pixels found', disabled: true }],
+                          onClick: (e) => {
+                            if (e.key !== 'loading' && e.key !== 'no-pixels') {
+                              setSelectedPixelId(e.key);
+                            }
+                          },
+                          style: {
+                            maxHeight: '250px',
+                            overflowY: 'auto',
+                            borderRadius: '8px',
+                          },
+                        }}
+                        placement="bottomLeft"
+                        trigger={['click']}
+                        disabled={!selectedAdAccountId || loadingPixels}
+                      >
+                        <div className="meta-custom-dropdown">
+                          <span className="dropdown-value">
+                            {loadingPixels ? 'Loading...' : selectedPixelId
+                              ? pixels.find(p => p.id === selectedPixelId)?.name || pixels.find(p => p.id === selectedPixelId)?.id || 'Select'
+                              : 'Select'}
+                          </span>
+                          <svg
+                            className="dropdown-arrow"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                          >
+                            <path
+                              d="M4 6L8 10L12 6"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </div>
+                      </Dropdown>
+                    </div>
+
                     {/* Facebook Page */}
                     {pages.length > 0 && (
                       <div className="meta-form-field">
                         <label className="meta-form-label">
                           Facebook Page<span className="required-asterisk">*</span>
+                          <TooltipProvider>
+                            <UITooltip>
+                              <TooltipTrigger asChild>
+                                <svg
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 16 16"
+                                  fill="none"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="info-icon"
+                                  style={{ marginLeft: '6px', cursor: 'pointer' }}
+                                >
+                                  <circle cx="8" cy="8" r="7" stroke="#7e52e0" strokeWidth="1.5" fill="none"/>
+                                  <path d="M8 5.5V8M8 10.5H8.01" stroke="#7e52e0" strokeWidth="1.5" strokeLinecap="round"/>
+                                </svg>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-[280px] bg-white text-[#343438] font-normal shadow-lg border border-gray-200">
+                                <p className="text-sm font-normal" style={{ color: '#343438', fontWeight: 400 }}>
+                                  Your Facebook Page represents your business on Facebook. Choose the page you want to promote and where users will see your ads. This is required for link ads and engagement campaigns.
+                                </p>
+                              </TooltipContent>
+                            </UITooltip>
+                          </TooltipProvider>
                         </label>
                         <Dropdown
                           menu={{
@@ -2757,36 +2834,11 @@ export default function BudgetPage() {
                       </div>
                     )}
 
-                    {/* Instagram Account */}
-                    <div className="meta-form-field">
-                      <label className="meta-form-label">
-                        Instagram Account
-                      </label>
-                      <div className="meta-custom-dropdown">
-                        <span className="dropdown-value">Select</span>
-                        <svg
-                          className="dropdown-arrow"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                        >
-                          <path
-                            d="M4 6L8 10L12 6"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </div>
-                    </div>
-
                     {/* Save Button */}
                     <button
                       className='meta-save-btn'
                       onClick={handlePublishAds}
-                      disabled={publishingAds || subscriptionLoading || !selectedAdAccountId || (pages.length > 0 && !selectedPageId)}
+                      disabled={publishingAds || subscriptionLoading || !selectedAdAccountId || !selectedPixelId || (pages.length > 0 && !selectedPageId)}
                     >
                       {publishingAds ? 'Saving...' : 'Save'}
                     </button>

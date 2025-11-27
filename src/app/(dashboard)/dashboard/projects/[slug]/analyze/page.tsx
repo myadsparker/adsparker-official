@@ -547,17 +547,10 @@ const URLAnalyzerInterface = () => {
     }
   }, [analyzingPoints]);
 
-  // Auto-navigate to confirming page after all animations complete
-  useEffect(() => {
-    if (allAnimationsComplete) {
-      const navigationTimer = setTimeout(() => {
-        router.push(`/dashboard/projects/${projectId}/confirming`);
-      }, 1000); // Reduced to 1 second for faster navigation
-
-      // Cleanup timer if component unmounts
-      return () => clearTimeout(navigationTimer);
-    }
-  }, [allAnimationsComplete, projectId, router]);
+  // Handle navigation to next page via button click
+  const handleNextClick = () => {
+    router.push(`/dashboard/projects/${projectId}/confirming`);
+  };
 
   // Auto-scroll function - only run on client
   const scrollToElement = (element: HTMLElement) => {
@@ -659,6 +652,17 @@ const URLAnalyzerInterface = () => {
             value={url}
             readOnly
           />
+          {/* Next Button - Only show when all animations are complete */}
+          {allAnimationsComplete && (
+            <div className='next_button_container'>
+              <button
+                onClick={handleNextClick}
+                className='next_button'
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
 
         <div className='analyze_container_right' ref={rightContainerRef}>

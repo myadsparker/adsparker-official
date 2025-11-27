@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       adSets,
       adAccountId,
       pageId = null, // Optional: Facebook Page ID from user selection
+      pixelId = null, // Pixel ID for promoted_object
       dailyBudget = 10, // Budget in USD from frontend                                                                                                  
       objective = 'OUTCOME_TRAFFIC',
       specialAdCategories = [],
@@ -180,7 +181,10 @@ export async function POST(request: NextRequest) {
       }
 
       if (!projectError && projectData?.campaign_proposal) {
-        projectCampaignProposal = projectData.campaign_proposal;
+        // Parse campaign_proposal if it's a string
+        projectCampaignProposal = typeof projectData.campaign_proposal === 'string'
+          ? JSON.parse(projectData.campaign_proposal)
+          : projectData.campaign_proposal;
       }
     } catch (error) {
     }
@@ -607,7 +611,64 @@ export async function POST(request: NextRequest) {
           advantage_audience: 1, // 1 = enabled, 0 = disabled
         };
 
+        // Build promoted_object based on campaign goal
+        // Get goal from campaign_proposal (saved from confirming page)
+        const campaignGoal = projectCampaignProposal?.ad_goal || 'Traffic'; // Default to Traffic
+        const isTrafficGoal = campaignGoal === 'Traffic' || objective === 'OUTCOME_TRAFFIC';
+        const isLeadsGoal = campaignGoal === 'Leads' || objective === 'OUTCOME_LEADS';
+        const isEngagementGoal = campaignGoal === 'Engagement' || objective === 'OUTCOME_ENGAGEMENT';
+
+        let promotedObject: any = null;
+        
+        if (isEngagementGoal) {
+          // For Engagement campaigns: use page_id (Meta's recommended approach for Page engagement)
+          // This optimizes for likes, comments, shares, and other page interactions
+          if (finalPageId) {
+            promotedObject = {
+              page_id: finalPageId,
+            };
+          }
+        } else if (pixelId) {
+          if (isTrafficGoal) {
+            // For Traffic campaigns: use pixel_id with PAGE_VIEW event
+            promotedObject = {
+              pixel_id: pixelId,
+              custom_event_type: 'PAGE_VIEW',
+            };
+          } else if (isLeadsGoal) {
+            // For Leads campaigns: use pixel_id with LEAD event and page_id
+            promotedObject = {
+              pixel_id: pixelId,
+              custom_event_type: 'LEAD',
+              ...(finalPageId ? { object_id: finalPageId } : {}),
+            };
+          }
+        }
+
+        // Set optimization_goal based on campaign objective
+        // For engagement campaigns, use POST_ENGAGEMENT to optimize for likes, comments, shares
+        // For traffic/leads campaigns, use LINK_CLICKS
+        let optimizationGoal = 'LINK_CLICKS';
+        if (isEngagementGoal) {
+          optimizationGoal = 'POST_ENGAGEMENT'; // Optimizes for post interactions (likes, comments, shares)
+        }
+
         // Create ad set using Meta Graph API
+        const adSetPayload: any = {
+          name: adSet.ad_set_title || `Ad Set ${i + 1}`,
+          campaign_id: campaignId,
+          daily_budget: budgetInSmallestUnit,
+          billing_event: 'IMPRESSIONS',
+          optimization_goal: optimizationGoal,
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+          targeting: targeting,
+          status: 'ACTIVE',
+          ...(normalizedStartTime ? { start_time: normalizedStartTime } : {}),
+          ...(normalizedEndTime ? { end_time: normalizedEndTime } : {}),
+          ...(promotedObject ? { promoted_object: promotedObject } : {}),
+          access_token: accessToken,
+        };
+
         const adSetResponse = await fetch(
           `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adsets`,
           {
@@ -615,19 +676,7 @@ export async function POST(request: NextRequest) {
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              name: adSet.ad_set_title || `Ad Set ${i + 1}`,
-              campaign_id: campaignId,
-              daily_budget: budgetInSmallestUnit,
-              billing_event: 'IMPRESSIONS',
-              optimization_goal: 'LINK_CLICKS',
-              bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-              targeting: targeting,
-              status: 'ACTIVE',
-              ...(normalizedStartTime ? { start_time: normalizedStartTime } : {}),
-              ...(normalizedEndTime ? { end_time: normalizedEndTime } : {}),
-              access_token: accessToken,
-            }),
+            body: JSON.stringify(adSetPayload),
           }
         );
 

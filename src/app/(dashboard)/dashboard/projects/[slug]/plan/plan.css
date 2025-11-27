@@ -421,7 +421,7 @@
 }
 
 .ad_details .collapsible p {
-  max-height: 80px;
+  /* max-height: 80px; */
   overflow-y: auto;
   padding: 14px;
   padding-top: 2px;
@@ -776,6 +776,8 @@
 }
 
 .meta-form-label {
+  display: flex;
+  align-items: center;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1656,7 +1658,7 @@
 
   .ad_details .collapsible button {
     padding-block: 12px;
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .nav_buttons_wrapper {
@@ -1676,8 +1678,9 @@
 
   .nav_buttons_wrapper button {
     width: 100%;
-    padding: 0;
-    width: max-content;
+    padding: 0 20px;
+    font-size: 14px;
+    height: 40px;
   }
 
   .modal-overlay {
@@ -1697,7 +1700,10 @@
     padding: 12px 20px;
     margin-bottom: 0;
   }
-
+  .ad_details .collapsible p{
+    max-height: max-content;
+    font-size: 13px;
+  }
   /* .meta_ad_post .body img {
     max-height: 200px;
     object-fit: cover;
@@ -1762,8 +1768,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 20px;
+  height: 20px;
 }
 
 .thumbnail-upload-icon svg {
@@ -1787,6 +1793,18 @@
 }
 
 .thumbnail-upload-area:hover .thumbnail-upload-overlay {
+  opacity: 1;
+}
+
+/* Thumbnail image container - clickable to change image */
+.thumbnail-image-container {
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+  overflow: hidden;
+}
+
+.thumbnail-image-container:hover .thumbnail-upload-overlay {
   opacity: 1;
 }
 
@@ -1830,7 +1848,7 @@
   }
 
   .thumbnail-upload-icon {
-    width: 40px;
-    height: 40px;
+    width: 20px;
+    height: 20px;
   }
 }

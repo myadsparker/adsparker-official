@@ -201,6 +201,9 @@ export default function FeaturesSection() {
                   ></path>
                 </svg>
               </button>
+              <div className='start-trial-btn-mobile'>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5.51562 14.6598L14.6613 5.51416M14.6613 5.51416H8.56419M14.6613 5.51416V11.6113" stroke="#8366FF" stroke-width="2.03237" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
             </div>
             <div className='block_item'>
               <h4>Make Every Dollar Count</h4>
@@ -223,6 +226,9 @@ export default function FeaturesSection() {
                   ></path>
                 </svg>
               </button>
+              <div className='start-trial-btn-mobile'>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5.51562 14.6598L14.6613 5.51416M14.6613 5.51416H8.56419M14.6613 5.51416V11.6113" stroke="#8366FF" stroke-width="2.03237" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
             </div>
           </div>
           <div className='blocks_row second_row'>
@@ -247,6 +253,9 @@ export default function FeaturesSection() {
                   ></path>
                 </svg>
               </button>
+              <div className='start-trial-btn-mobile'>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5.51562 14.6598L14.6613 5.51416M14.6613 5.51416H8.56419M14.6613 5.51416V11.6113" stroke="#8366FF" stroke-width="2.03237" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
             </div>
             <div className='block_item'>
               <div>
@@ -273,6 +282,9 @@ export default function FeaturesSection() {
                   ></path>
                 </svg>
               </button>
+              <div className='start-trial-btn-mobile'>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5.51562 14.6598L14.6613 5.51416M14.6613 5.51416H8.56419M14.6613 5.51416V11.6113" stroke="#8366FF" stroke-width="2.03237" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
             </div>
           </div>
         </div>

@@ -2,6 +2,41 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 /**
+ * Helper function to get LIVE exchange rate and convert currency to USD
+ * NO FALLBACKS - will throw error if API fails
+ */
+async function getExchangeRateToUSD(fromCurrency: string): Promise<number> {
+  if (fromCurrency === 'USD') {
+    return 1.0;
+  }
+
+  const response = await fetch(
+    `https://api.exchangerate-api.com/v4/latest/${fromCurrency}`
+  );
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch exchange rate for ${fromCurrency}: HTTP ${response.status}`);
+  }
+  
+  const data = await response.json();
+  
+  if (!data.rates || !data.rates.USD) {
+    throw new Error(`USD rate not available for ${fromCurrency}`);
+  }
+  
+  console.log(`💱 Live rate: 1 ${fromCurrency} = ${data.rates.USD} USD`);
+  return data.rates.USD;
+}
+
+/**
+ * Helper function to convert monetary values to USD
+ */
+function convertToUSD(value: string | number, rate: number): string {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  return (numValue * rate).toFixed(2);
+}
+
+/**
  * POST /api/analytics/insights
  * Body: { project_id: string }
  *
@@ -144,6 +179,34 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 Starting insights fetch for campaign: ${campaignId}`);
 
+    // Detect ad account currency and get exchange rate
+    let accountCurrency = 'USD';
+    let exchangeRate = 1.0;
+    
+    try {
+      // Fetch campaign details to get ad account ID
+      const campaignResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${campaignId}?fields=account_id&access_token=${accessToken}`
+      );
+      const campaignData = await campaignResponse.json();
+      
+      if (campaignData.account_id && metaAccounts[0].ad_accounts) {
+        const adAccount = metaAccounts[0].ad_accounts.find((acc: any) => 
+          acc.account_id === campaignData.account_id || acc.id === `act_${campaignData.account_id}`
+        );
+        
+        if (adAccount && adAccount.currency) {
+          accountCurrency = adAccount.currency;
+          console.log(`🌍 Detected ad account currency: ${accountCurrency}`);
+          
+          // Get exchange rate to USD
+          exchangeRate = await getExchangeRateToUSD(accountCurrency);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to detect currency, using USD:', error);
+    }
+
     // 1) Fetch campaign-level insights (aggregated across all adsets)
     console.log('🔍 Fetching campaign-level insights...');
     const campaignInsightsResp = await fetch(
@@ -169,15 +232,18 @@ export async function POST(request: NextRequest) {
     if (campaignInsightsResp.ok && campaignInsightsJson.data && campaignInsightsJson.data.length > 0) {
       const cData = campaignInsightsJson.data[0];
       campaignLevelData = {
+        currency: 'USD', // All values are converted to USD
+        original_currency: accountCurrency,
+        exchange_rate: exchangeRate,
         impressions: cData.impressions || '0',
         reach: cData.reach || '0',
         clicks: cData.clicks || '0',
         unique_clicks: cData.unique_clicks || '0',
-        spend: cData.spend || '0',
+        spend: convertToUSD(cData.spend || '0', exchangeRate),
         ctr: cData.ctr || '0',
-        cpc: cData.cpc || '0',
-        cpm: cData.cpm || '0',
-        cpp: cData.cpp || '0',
+        cpc: convertToUSD(cData.cpc || '0', exchangeRate),
+        cpm: convertToUSD(cData.cpm || '0', exchangeRate),
+        cpp: cData.cpp ? convertToUSD(cData.cpp, exchangeRate) : '0',
         frequency: cData.frequency || '0',
         actions: cData.actions || [],
         action_values: cData.action_values || [],
@@ -191,13 +257,15 @@ export async function POST(request: NextRequest) {
           if (!cData.actions || !cData.spend) return '0';
           const leadAction = cData.actions.find((a: any) => a.action_type === 'lead');
           if (!leadAction || parseFloat(leadAction.value) === 0) return '0';
-          return (parseFloat(cData.spend) / parseFloat(leadAction.value)).toFixed(2);
+          const spendUSD = parseFloat(convertToUSD(cData.spend, exchangeRate));
+          return (spendUSD / parseFloat(leadAction.value)).toFixed(2);
         })(),
-        roas: (() => {
+        leads_per_dollar: (() => {
           if (!cData.actions || !cData.spend) return '0';
           const leadAction = cData.actions.find((a: any) => a.action_type === 'lead');
           if (!leadAction || parseFloat(cData.spend) === 0) return '0';
-          return (parseFloat(leadAction.value) / parseFloat(cData.spend)).toFixed(2);
+          const spendUSD = parseFloat(convertToUSD(cData.spend, exchangeRate));
+          return (parseFloat(leadAction.value) / spendUSD).toFixed(2);
         })(),
         timestamp: new Date().toISOString(),
       };
@@ -298,21 +366,24 @@ export async function POST(request: NextRequest) {
         if (resp.ok && json?.data && json.data.length > 0) {
           const insightData = json.data[0];
           
-          // Store comprehensive insights with adset metadata
+          // Store comprehensive insights with adset metadata (all monetary values in USD)
           perAdsetInsights[adset.id] = {
             adset_id: adset.id,
             adset_name: adset.name || 'Unknown',
             adset_status: adset.effective_status || 'UNKNOWN',
             date: dateStr,
+            currency: 'USD',
+            original_currency: accountCurrency,
+            exchange_rate: exchangeRate,
             impressions: insightData.impressions || '0',
             reach: insightData.reach || '0',
             clicks: insightData.clicks || '0',
             unique_clicks: insightData.unique_clicks || '0',
-            spend: insightData.spend || '0',
+            spend: convertToUSD(insightData.spend || '0', exchangeRate),
             ctr: insightData.ctr || '0',
-            cpc: insightData.cpc || '0',
-            cpm: insightData.cpm || '0',
-            cpp: insightData.cpp || '0',
+            cpc: convertToUSD(insightData.cpc || '0', exchangeRate),
+            cpm: convertToUSD(insightData.cpm || '0', exchangeRate),
+            cpp: insightData.cpp ? convertToUSD(insightData.cpp, exchangeRate) : '0',
             frequency: insightData.frequency || '0',
             actions: insightData.actions || [],
             action_values: insightData.action_values || [],
@@ -330,13 +401,15 @@ export async function POST(request: NextRequest) {
               if (!insightData.actions || !insightData.spend) return '0';
               const leadAction = insightData.actions.find((a: any) => a.action_type === 'lead');
               if (!leadAction || parseFloat(leadAction.value) === 0) return '0';
-              return (parseFloat(insightData.spend) / parseFloat(leadAction.value)).toFixed(2);
+              const spendUSD = parseFloat(convertToUSD(insightData.spend, exchangeRate));
+              return (spendUSD / parseFloat(leadAction.value)).toFixed(2);
             })(),
-            roas: (() => {
+            leads_per_dollar: (() => {
               if (!insightData.actions || !insightData.spend) return '0';
               const leadAction = insightData.actions.find((a: any) => a.action_type === 'lead');
               if (!leadAction || parseFloat(insightData.spend) === 0) return '0';
-              return (parseFloat(leadAction.value) / parseFloat(insightData.spend)).toFixed(2);
+              const spendUSD = parseFloat(convertToUSD(insightData.spend, exchangeRate));
+              return (parseFloat(leadAction.value) / spendUSD).toFixed(2);
             })(),
             timestamp: new Date().toISOString(),
           };

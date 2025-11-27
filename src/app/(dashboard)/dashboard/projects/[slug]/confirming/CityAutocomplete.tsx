@@ -18,12 +18,6 @@ export default function LocationDropdownMap({
   value = [],
   onChange,
 }: LocationDropdownMapProps) {
-  // Check if API key is available
-  if (!GOOGLE_KEY) {
-    console.error(
-      '❌ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY environment variable is not set!'
-    );
-  }
 
   const isLoaded = useGoogleMaps(GOOGLE_KEY);
 
@@ -37,13 +31,6 @@ export default function LocationDropdownMap({
   const markersRef = useRef<google.maps.Marker[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Debug: Log when Google Maps is loaded
-  useEffect(() => {
-    if (isLoaded) {
-      console.log('✅ Google Maps Places API is loaded and ready');
-    }
-  }, [isLoaded]);
 
   // Sync with external value changes
   useEffect(() => {
@@ -123,17 +110,14 @@ export default function LocationDropdownMap({
 
   const fetchPredictions = async (input: string): Promise<Location[]> => {
     if (!input) {
-      console.log('No input provided');
       return [];
     }
 
     if (!isLoaded) {
-      console.log('Google Maps not loaded yet');
       return [];
     }
 
     if (!window.google?.maps?.places) {
-      console.error('Google Maps Places API not available');
       return [];
     }
 
@@ -148,14 +132,12 @@ export default function LocationDropdownMap({
             types: ['geocode'],
           },
           r => {
-            console.log('Place predictions received:', r?.length || 0);
             resolve(r || []);
           }
         )
       );
 
       if (!preds || preds.length === 0) {
-        console.log('No place predictions found');
         return [];
       }
 
@@ -186,10 +168,8 @@ export default function LocationDropdownMap({
             })
         )
       );
-      console.log('Location results:', results.length);
       return results;
     } catch (error) {
-      console.error('Error fetching predictions:', error);
       return [];
     }
   };
@@ -199,7 +179,6 @@ export default function LocationDropdownMap({
       setSearchValue(value);
 
       if (!isLoaded) {
-        console.log('Waiting for Google Maps to load...');
         setOptions([]);
         setShowDropdown(false);
         return;
@@ -221,7 +200,6 @@ export default function LocationDropdownMap({
           setShowDropdown(true);
         }
       } catch (error) {
-        console.error('Error in handleSearch:', error);
         setOptions([]);
       } finally {
         setIsSearching(false);

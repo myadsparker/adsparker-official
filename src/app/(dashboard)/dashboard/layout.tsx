@@ -79,7 +79,6 @@ export default function DashboardLayout({
           }
         }
       } catch (error) {
-        console.error('Error fetching user profile:', error);
       }
     };
 
@@ -143,7 +142,6 @@ export default function DashboardLayout({
       // This ensures Google OAuth will ask for account selection again
       window.location.href = '/login';
     } catch (error) {
-      console.error('Logout error:', error);
       // Even if API fails, clear local data and redirect
       localStorage.removeItem('sparkr_user');
       localStorage.removeItem('budget-storage');
@@ -211,7 +209,6 @@ export default function DashboardLayout({
         }
       }
     } catch (error) {
-      console.error('Error fetching connected accounts:', error);
       setConnectedAccounts([]);
     } finally {
       setLoadingAccounts(false);
@@ -257,7 +254,6 @@ export default function DashboardLayout({
         },
       });
     } catch (error) {
-      console.error('Error removing Meta account:', error);
       toast.error(
         error instanceof Error ? error.message : 'Failed to remove Meta account',
         {
@@ -303,7 +299,6 @@ export default function DashboardLayout({
         });
       }
     } catch (error) {
-      console.error('Error connecting Meta account:', error);
       toast.error('An error occurred while connecting Meta account.', {
         duration: 3000,
         style: {

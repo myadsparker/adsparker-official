@@ -36,6 +36,7 @@ export default function CampaignDetails({
   const {
     control,
     watch,
+    getValues,
     setValue,
     trigger,
     formState: { errors },
@@ -62,6 +63,11 @@ export default function CampaignDetails({
   );
 
   const watchedValues = watch();
+  // Watch individual fields to ensure proper change detection
+  const selectedGoal = watch('selectedGoal');
+  const selectedCta = watch('selectedCta');
+  const startDate = watch('startDate');
+  const endDate = watch('endDate');
 
   const handleLocationChange = useCallback((locations: Location[]) => {
     setSelectedLocations(locations);
@@ -165,29 +171,41 @@ export default function CampaignDetails({
   };
 
   // Function to notify parent component
-  const notifyParent = () => {
+  const notifyParent = useCallback(() => {
     if (onFormDataChange) {
+      // Use getValues() to get the latest form values synchronously
+      const currentValues = getValues();
       const formErrors: { [key: string]: string } = {};
-      Object.keys(watchedValues).forEach(key => {
+      
+      Object.keys(currentValues).forEach(key => {
         const fieldKey = key as keyof FormData;
-        const error = validateField(fieldKey, watchedValues[fieldKey]);
+        const error = validateField(fieldKey, currentValues[fieldKey]);
         if (error) formErrors[fieldKey] = error;
       });
 
+      // Check if form is valid using current values
+      const allFieldsValid = Object.keys(currentValues).every(key => {
+        const fieldKey = key as keyof FormData;
+        return validateField(fieldKey, currentValues[fieldKey]) === '';
+      });
+
       onFormDataChange({
-        formData: watchedValues,
-        isValid: isFormValid(),
+        formData: currentValues,
+        isValid: allFieldsValid,
         errors: formErrors,
         businessSummary: businessSummary,
       });
     }
-  };
+  }, [onFormDataChange, getValues, businessSummary]);
 
   // Mark field as touched and notify parent
-  const handleFieldChange = (fieldName: keyof FormData) => {
+  const handleFieldChange = useCallback((fieldName: keyof FormData) => {
     setTouched(prev => ({ ...prev, [fieldName]: true }));
-    setTimeout(notifyParent, 0);
-  };
+    // Trigger validation for this field
+    trigger(fieldName);
+    // Notify parent immediately - getValues() will have the latest value
+    notifyParent();
+  }, [notifyParent, trigger]);
 
   // Handle business summary change
   const handleBusinessSummaryChange = (
@@ -203,10 +221,18 @@ export default function CampaignDetails({
     }
   }, [initialBusinessSummary]);
 
-  // Notify parent when businessSummary changes
+  // Watch form values and notify parent whenever they change
+  // This ensures the parent is always updated with the latest form state
   useEffect(() => {
     notifyParent();
-  }, [businessSummary]);
+  }, [
+    selectedGoal,
+    selectedCta,
+    startDate,
+    endDate,
+    businessSummary,
+    notifyParent,
+  ]);
 
   return (
     <>

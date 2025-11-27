@@ -35,10 +35,8 @@ export default function ProjectTabs() {
           throw new Error('Failed to fetch projects');
         }
         const data = await response.json();
-        console.log('Fetched projects:', data.projects);
         setProjects(data.projects || []);
       } catch (error) {
-        console.error('Error fetching projects:', error);
       } finally {
         setLoading(false);
       }
@@ -72,8 +70,6 @@ export default function ProjectTabs() {
   const handleCollapse = () => {
     setVisibleCount(6);
   };
-
-  console.log('Grouped projects:', grouped);
 
   if (loading) {
     return (

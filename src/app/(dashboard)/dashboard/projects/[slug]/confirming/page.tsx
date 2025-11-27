@@ -60,11 +60,9 @@ export default function Confirming() {
         // Navigate to next page after successful save
         router.push(`/dashboard/projects/${projectId}/plan`);
       } else {
-        console.error('Failed to save campaign details');
         alert('Failed to save campaign details. Please try again.');
       }
     } catch (error) {
-      console.error('Error saving campaign details:', error);
       alert('Error saving campaign details. Please try again.');
     }
   };
@@ -86,55 +84,30 @@ export default function Confirming() {
           .single();
 
         if (error) {
-          console.error('Error fetching project:', error);
           return;
         }
 
         setProjectData(project);
 
-        // Debug: Log the analysing_points structure
-        console.log('📋 Analysing points data:', project.analysing_points);
-
         // Check if business name is already available in project data
         if (project.analysing_points?.businessName) {
           setBusinessName(project.analysing_points.businessName);
-          console.log(
-            '✅ Business name found in project data:',
-            project.analysing_points.businessName
-          );
         }
 
         // Check if business summary is already available in project data
         if (project.analysing_points?.businessSummary?.description) {
           setBusinessSummary(project.analysing_points.businessSummary.description);
-          console.log(
-            '✅ Business summary found in project data:',
-            project.analysing_points.businessSummary.description.substring(0, 100) + '...'
-          );
         } else if (project.campaign_proposal?.business_summary) {
           // Fallback: Check if it was previously saved in campaign_proposal
           setBusinessSummary(project.campaign_proposal.business_summary);
-          console.log('✅ Business summary loaded from campaign_proposal');
-        } else {
-          console.log('⚠️ Business summary not found in analysing_points or campaign_proposal');
         }
-
-        // No API calls needed here - all APIs are now called from their respective pages
-        console.log(
-          '✅ Confirming page loaded - all APIs handled by other pages'
-        );
 
         // Extract business name from existing project data (analyzing points should already be completed)
         if (project.analysing_points?.businessName) {
           setBusinessName(project.analysing_points.businessName);
-          console.log(
-            '✅ Business name found in project data:',
-            project.analysing_points.businessName
-          );
         }
 
         // Refresh project data to get the updated campaign_proposal data
-        console.log('🔄 Refreshing project data to show new results...');
         const { data: updatedProject, error: refreshError } = await supabase
           .from('projects')
           .select('*')
@@ -142,18 +115,14 @@ export default function Confirming() {
           .single();
 
         if (refreshError) {
-          console.error('❌ Error refreshing project data:', refreshError);
         } else {
           setProjectData(updatedProject);
-          console.log('✅ Project data refreshed successfully!');
 
           // Update businessSummary from refreshed data
           if (updatedProject?.analysing_points?.businessSummary?.description) {
             setBusinessSummary(updatedProject.analysing_points.businessSummary.description);
-            console.log('✅ Business summary updated from refreshed data');
           } else if (updatedProject?.campaign_proposal?.business_summary) {
             setBusinessSummary(updatedProject.campaign_proposal.business_summary);
-            console.log('✅ Business summary loaded from campaign_proposal (refreshed)');
           }
 
           // Update businessName from refreshed data
@@ -162,7 +131,6 @@ export default function Confirming() {
           }
         }
       } catch (err) {
-        console.error('Failed to load project:', err);
       } finally {
         setLoading(false);
       }

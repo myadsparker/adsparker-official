@@ -130,6 +130,11 @@ html {
   transform: translateX(2px);
 }
 
+/* Mobile start trial button - hidden on desktop */
+.start-trial-btn-mobile {
+  display: none;
+}
+
 /* testimonials */
 .testimonials_section {
   text-align: center;
@@ -506,6 +511,43 @@ html {
     max-width: 100%;
     margin: 20px;
     padding: 40px 30px;
+  }
+  .features_section .block_item .start-trial-btn{
+    font-size: 20px;
+  }
+  .features_section .block_item:hover{
+    background: #fff !important;
+  }
+  .features_section .block_item:hover h4{
+    color: #08080c !important;
+  }
+  .features_section .block_item:hover p{
+    color: #5a5b63 !important;
+  }
+  .features_section .block_item:hover .count{
+    color: #7e52e0 !important;
+  }
+  .features_section .block_item:hover .start-trial-btn{
+    opacity: 0;
+    display: none;
+  }
+  .start-trial-btn-mobile{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    background: rgba(131, 102, 255, 0.1);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .start-trial-btn-mobile:hover {
+    background: rgba(131, 102, 255, 0.2);
+    transform: scale(1.1);
   }
 }
 

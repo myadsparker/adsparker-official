@@ -54,6 +54,8 @@ button span {
   padding-inline: 20px;
   max-width: 1280px;
   margin-inline: auto;
+  position: relative;
+  z-index: 10000;
 }
 
 .dashboard_header_mobile {
@@ -213,7 +215,7 @@ button span {
   border-radius: 12px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
   min-width: 180px;
-  z-index: 1000;
+  z-index: 9999;
   overflow: hidden;
   border: 1px solid #e5e7eb;
 }
