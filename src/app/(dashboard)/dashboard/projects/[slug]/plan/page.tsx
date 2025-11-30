@@ -70,6 +70,7 @@ export default function BudgetPage() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [generatingAiImage, setGeneratingAiImage] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [generatingAdsetImage, setGeneratingAdsetImage] = useState<string | null>(null);
   const [selectedThumbnailImage, setSelectedThumbnailImage] = useState<
     string | null
   >(null);
@@ -913,24 +914,25 @@ export default function BudgetPage() {
     fetchProjectData,
   ]);
 
-  // Auto-generate image when analyzing points are loaded
-  useEffect(() => {
-    if (
-      analyzingPoints &&
-      isMainProduct !== null &&
-      aiImages.length === 0 &&
-      !autoGeneratingImage &&
-      !hasAttemptedImageGen.current
-    ) {
-      handleAutoGenerateImage();
-    }
-  }, [
-    analyzingPoints,
-    isMainProduct,
-    aiImages.length,
-    autoGeneratingImage,
-    handleAutoGenerateImage,
-  ]);
+  // Auto-generate image when analyzing points are loaded - REMOVED
+  // Images will only be generated when user clicks the button for the first 5 adsets
+  // useEffect(() => {
+  //   if (
+  //     analyzingPoints &&
+  //     isMainProduct !== null &&
+  //     aiImages.length === 0 &&
+  //     !autoGeneratingImage &&
+  //     !hasAttemptedImageGen.current
+  //   ) {
+  //     handleAutoGenerateImage();
+  //   }
+  // }, [
+  //   analyzingPoints,
+  //   isMainProduct,
+  //   aiImages.length,
+  //   autoGeneratingImage,
+  //   handleAutoGenerateImage,
+  // ]);
 
   // Handle manual AI image generation (for backward compatibility)
   const handleGenerateAiImage = async () => {
@@ -996,6 +998,123 @@ export default function BudgetPage() {
       });
     } finally {
       setGeneratingAiImage(false);
+    }
+  };
+
+  // Handle adset-specific image generation
+  const handleGenerateAdsetImage = async (adsetId: string) => {
+    if (!adsetId) {
+      toast.error('Adset ID is required', {
+        duration: 4000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
+      return;
+    }
+
+    try {
+      setGeneratingAdsetImage(adsetId);
+      toast.loading('Generating unique image for this adset...', {
+        id: 'generating-adset-image',
+        duration: 30000,
+      });
+
+      const response = await fetch(`/api/image-gen-adset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+          adset_id: adsetId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate image');
+      }
+
+      const data = await response.json();
+      if (data.success && data.generatedImageUrl) {
+        // Preserve current selected adset before refreshing
+        const currentAdSetId = selectedAdSet?.ad_set_id;
+        const currentAdSetIndex = selectedAdSetIndex;
+
+        // Update thumbnail images state
+        setThumbnailImages(prev => ({
+          ...prev,
+          [adsetId]: data.generatedImageUrl,
+        }));
+
+        // Also manually update aiImages state to ensure it's immediately visible
+        if (data.generatedImageUrl) {
+          setAiImages(prev => {
+            // Avoid duplicates
+            if (prev.includes(data.generatedImageUrl)) {
+              return prev;
+            }
+            return [...prev, data.generatedImageUrl];
+          });
+        }
+
+        // Refresh project data to get updated thumbnail and AI images
+        await fetchProjectData();
+
+        // Restore the selected adset after refresh (use setTimeout to ensure state is updated)
+        if (currentAdSetId) {
+          setTimeout(() => {
+            const filteredAdSets = getFilteredAdSets();
+            const adSetIndex = filteredAdSets.findIndex(
+              (ad: AdSet) => ad.ad_set_id === currentAdSetId
+            );
+            if (adSetIndex !== -1) {
+              setSelectedAdSet(filteredAdSets[adSetIndex]);
+              setSelectedAdSetIndex(adSetIndex);
+            } else if (currentAdSetIndex < filteredAdSets.length) {
+              // If exact match not found, try to restore by index
+              setSelectedAdSet(filteredAdSets[currentAdSetIndex]);
+              setSelectedAdSetIndex(currentAdSetIndex);
+            }
+          }, 100); // Small delay to ensure state is updated
+        }
+
+        toast.success('Image generated successfully for this adset!', {
+          id: 'generating-adset-image',
+          duration: 4000,
+          style: {
+            background: '#10b981',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
+      } else {
+        throw new Error('Image generation failed');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to generate image for adset', {
+        id: 'generating-adset-image',
+        duration: 5000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+      });
+    } finally {
+      setGeneratingAdsetImage(null);
     }
   };
 
@@ -2422,6 +2541,46 @@ export default function BudgetPage() {
                           <RotateCcw color='#fff' size={20} />
                         </div>
                       </div>
+                      {/* Generate Image button for first 5 adsets - only show if no image exists */}
+                      {selectedAdSetIndex < 5 && selectedAdSet.ad_set_id && !selectedAdSet.adsparker_gen_creative_asset && !thumbnailImages[selectedAdSet.ad_set_id] && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleGenerateAdsetImage(selectedAdSet.ad_set_id);
+                          }}
+                          disabled={generatingAdsetImage === selectedAdSet.ad_set_id}
+                          style={{
+                            position: 'absolute',
+                            bottom: '16px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            padding: '10px 20px',
+                            backgroundColor: generatingAdsetImage === selectedAdSet.ad_set_id ? '#9ca3af' : '#7a3ff3',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: generatingAdsetImage === selectedAdSet.ad_set_id ? 'not-allowed' : 'pointer',
+                            zIndex: 10,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }}
+                        >
+                          {generatingAdsetImage === selectedAdSet.ad_set_id ? (
+                            <>
+                              <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Generating...
+                            </>
+                          ) : (
+                            '✨ Generate Image'
+                          )}
+                        </button>
+                      )}
                     </div>
                   ) : (selectedAdSet.ad_set_id && thumbnailImages[selectedAdSet.ad_set_id]) ? (
                     <div 
@@ -2439,11 +2598,13 @@ export default function BudgetPage() {
                           <RotateCcw color='#fff' size={20} />
                         </div>
                       </div>
+                      {/* No Generate Image button here - image already exists */}
                     </div>
                   ) : (
                     <div 
                       className='thumbnail-upload-area'
                       onClick={handleOpenImageModal}
+                      style={{ position: 'relative' }}
                     >
                       <div className='thumbnail-upload-content'>
                         <p className='thumbnail-upload-text-main'>Click to upload images and videos</p>
@@ -2457,6 +2618,46 @@ export default function BudgetPage() {
                         <RotateCcw color='#fff' size={20} />
                         </div>
                       </div>
+                      {/* Generate Image button for first 5 adsets - only show if no image exists */}
+                      {selectedAdSetIndex < 5 && selectedAdSet.ad_set_id && !selectedAdSet.adsparker_gen_creative_asset && !thumbnailImages[selectedAdSet.ad_set_id] && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleGenerateAdsetImage(selectedAdSet.ad_set_id);
+                          }}
+                          disabled={generatingAdsetImage === selectedAdSet.ad_set_id}
+                          style={{
+                            position: 'absolute',
+                            bottom: '16px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            padding: '10px 20px',
+                            backgroundColor: generatingAdsetImage === selectedAdSet.ad_set_id ? '#9ca3af' : '#7a3ff3',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: generatingAdsetImage === selectedAdSet.ad_set_id ? 'not-allowed' : 'pointer',
+                            zIndex: 10,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }}
+                        >
+                          {generatingAdsetImage === selectedAdSet.ad_set_id ? (
+                            <>
+                              <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Generating...
+                            </>
+                          ) : (
+                            '✨ Generate Image'
+                          )}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2901,7 +3102,8 @@ export default function BudgetPage() {
               <div className='image-section'>
                 <h4>AI Images</h4>
                 <div className='image-grid'>
-                  {aiImages.map((imageUrl, index) => (
+                  {aiImages && aiImages.length > 0 ? (
+                    aiImages.map((imageUrl, index) => (
                     <div
                       key={`ai-${index}`}
                       className={`image-item ${selectedThumbnailImage === imageUrl ? 'selected' : ''}`}
@@ -2971,7 +3173,17 @@ export default function BudgetPage() {
                         </svg>
                       </div>
                     </div>
-                  ))}
+                    ))
+                  ) : (
+                    <div style={{ 
+                      padding: '40px', 
+                      textAlign: 'center', 
+                      color: '#6b7280',
+                      fontSize: '14px'
+                    }}>
+                      No AI images generated yet. Generate images for your adsets to see them here.
+                    </div>
+                  )}
                   {autoGeneratingImage && aiImages.length === 0 && (
                     <div className='image-item loading-image'>
                       <div className='loading-dots'>

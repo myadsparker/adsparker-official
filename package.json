@@ -16,6 +16,7 @@
     "@ant-design/plots": "^2.6.3",
     "@canvasjs/react-charts": "^1.0.2",
     "@emotion/is-prop-valid": "latest",
+    "@google/genai": "^1.30.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.9.1",
     "@huggingface/inference": "^4.8.0",

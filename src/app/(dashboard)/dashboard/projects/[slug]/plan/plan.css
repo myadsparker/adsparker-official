@@ -511,7 +511,7 @@
   align-items: center;
   padding: 12px 71px;
   gap: 8px;
-
+  width: max-content !important;
   height: 44px;
   background: linear-gradient(
     90deg,
