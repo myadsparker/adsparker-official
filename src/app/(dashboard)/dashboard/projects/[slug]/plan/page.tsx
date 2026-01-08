@@ -124,10 +124,37 @@ export default function BudgetPage() {
     return filteredCount > 0 ? dailyBudget / filteredCount : dailyBudget;
   };
 
-  // Fetch project data including campaign proposal
-  const fetchProjectData = async () => {
+  // Call website-analysis API to generate adsets
+  const callWebsiteAnalysis = async () => {
     try {
-      setLoading(true); // Start loading
+      const response = await fetch('/api/website-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Website analysis failed:', errorText);
+        // Don't throw - allow page to load with existing data if available
+        return false;
+      }
+
+      const result = await response.json();
+      return result.success === true;
+    } catch (error) {
+      console.error('Error calling website-analysis API:', error);
+      // Don't throw - allow page to load with existing data if available
+      return false;
+    }
+  };
+
+  // Fetch project data including campaign proposal
+  const fetchProjectData = async (skipLoading = false) => {
+    try {
+      if (!skipLoading) {
+        setLoading(true); // Start loading
+      }
       const response = await fetch(`/api/projects/${projectId}`);
       if (response.ok) {
         const data = await response.json();
@@ -249,7 +276,9 @@ export default function BudgetPage() {
       }
     } catch (error) {
     } finally {
-      setLoading(false); // End loading
+      if (!skipLoading) {
+        setLoading(false); // End loading
+      }
     }
   };
 
@@ -418,13 +447,30 @@ export default function BudgetPage() {
     if (projectId) {
       // Reset attempt flag when project changes
       hasAttemptedImageGen.current = false;
-      fetchConnectedAccounts(); // Fetch connected accounts
-      fetchPages(); // Fetch Facebook pages
-      fetchProjectData(); // Fetch campaign proposal data and adsets
-      // Fetch initial performance data with default budget
-      fetchPerformanceData(75);
-      fetchSubscription(); // Fetch subscription status
-      fetchUserProfile(); // Fetch user profile with subscription info
+      
+      // First call website-analysis API to generate adsets, then load everything else
+      const initializePage = async () => {
+        setLoading(true);
+        try {
+          // Call website-analysis API first to generate adsets
+          await callWebsiteAnalysis();
+          
+          // After website-analysis completes, fetch all other data
+          fetchConnectedAccounts(); // Fetch connected accounts
+          fetchPages(); // Fetch Facebook pages
+          await fetchProjectData(true); // Fetch campaign proposal data and adsets (skip loading management)
+          // Fetch initial performance data with default budget
+          fetchPerformanceData(75);
+          fetchSubscription(); // Fetch subscription status
+          fetchUserProfile(); // Fetch user profile with subscription info
+        } catch (error) {
+          console.error('Error initializing page:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      initializePage();
     }
   }, [projectId]);
 
@@ -447,6 +493,23 @@ export default function BudgetPage() {
           'Facebook requires manual authentication. Please log in to Facebook, confirm your identity, and approve the app access. Then try connecting again.',
           {
             duration: 8000,
+            style: {
+              background: '#dc2626',
+              color: '#fff',
+              padding: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          }
+        );
+      } else if (metaError === 'app_config_error') {
+        const errorDesc = urlParams.get('error_description') || '';
+        toast.error(
+          'Facebook App Configuration Issue',
+          {
+            description: 'Facebook Login is temporarily unavailable. This usually happens when: (1) The app is in Development Mode and you\'re not added as a test user, (2) The app needs verification/review, or (3) Facebook is reviewing app details. Please check your Facebook App settings in Meta Developer Console and ensure the app is properly configured with the correct redirect URI.',
+            duration: 12000,
             style: {
               background: '#dc2626',
               color: '#fff',

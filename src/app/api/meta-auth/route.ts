@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     // Get the current user
     const {
@@ -29,10 +29,25 @@ export async function GET(request: NextRequest) {
     if (action === 'connect') {
       // Generate OAuth URL for Meta/Facebook
       // Use our own callback route - Supabase callback doesn't work for custom OAuth flows
-      const baseUrl =
+      let baseUrl =
         process.env.NEXT_PUBLIC_SITE_URL ||
         `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:3000'}`;
+      
+      // Normalize base URL (remove trailing slash, ensure proper protocol)
+      baseUrl = baseUrl.trim().replace(/\/+$/, '');
+      if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+        baseUrl = `https://${baseUrl}`;
+      }
+      
       const redirectUri = `${baseUrl}/api/meta-auth/callback`;
+      
+      // Log redirect URI for debugging (always log to help debug production issues)
+      console.log('🔗 OAuth Redirect URI:', redirectUri);
+      console.log('🔗 Base URL:', baseUrl);
+      console.log('🔗 NEXT_PUBLIC_SITE_URL:', process.env.NEXT_PUBLIC_SITE_URL || 'Not set');
+      console.log('🔗 Host header:', request.headers.get('host'));
+      console.log('🔗 X-Forwarded-Proto:', request.headers.get('x-forwarded-proto'));
+      console.log('🔗 META_APP_ID:', process.env.META_APP_ID ? 'Set' : 'Missing');
 
       // Meta OAuth parameters with essential permissions only
       // Removed redundant: pages_manage_ads (covered by ads_management), manage_pages (not needed for ad management)
@@ -52,6 +67,9 @@ export async function GET(request: NextRequest) {
       });
 
       const oauthUrl = `https://www.facebook.com/v18.0/dialog/oauth?${oauthParams.toString()}`;
+      
+      // Log OAuth URL (sanitized for security)
+      console.log('🔗 Generated OAuth URL (sanitized):', oauthUrl.replace(/access_token=[^&]*/g, 'access_token=***').substring(0, 200) + '...');
 
       return NextResponse.json({
         success: true,
@@ -72,7 +90,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     // Get the current user
     const {

@@ -476,29 +476,6 @@ const URLAnalyzerInterface = () => {
       setAnalysisSuccess(true);
       const actualDuration = Date.now() - startTime;
       setAnalysisDuration(actualDuration);
-
-      // Step 2: Call website-analysis API after analyzing-points completes (with timeout)
-      try {
-        const websiteAnalysisFetchPromise = fetch('/api/website-analysis', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ project_id: projectId }),
-        });
-
-        const websiteAnalysisResponse = (await Promise.race([
-          websiteAnalysisFetchPromise,
-          timeoutPromise,
-        ])) as Response;
-
-        if (!websiteAnalysisResponse.ok) {
-          // Don't throw error here - UI can still work with analyzing points data
-            const errorText = await websiteAnalysisResponse.text();
-        } else {
-          const websiteAnalysisResult = await websiteAnalysisResponse.json();
-        }
-      } catch (websiteAnalysisError: any) {
-        // Don't fail the entire process - analyzing points is already done
-      }
     } catch (err: any) {
       setError(
         err.message ||

@@ -4,8 +4,20 @@ import { createServerSupabaseClient } from '@/lib/supabase-server';
 export async function GET(request: NextRequest) {
   try {
     // Build base URL from request if NEXT_PUBLIC_SITE_URL is not set
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+    let baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
       `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:3000'}`;
+    
+    // Normalize base URL (remove trailing slash, ensure proper protocol)
+    baseUrl = baseUrl.trim().replace(/\/+$/, '');
+    if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+      baseUrl = `https://${baseUrl}`;
+    }
+    
+    // Log for debugging
+    console.log('🔗 Callback - Base URL:', baseUrl);
+    console.log('🔗 Callback - NEXT_PUBLIC_SITE_URL:', process.env.NEXT_PUBLIC_SITE_URL || 'Not set');
+    console.log('🔗 Callback - Host header:', request.headers.get('host'));
+    console.log('🔗 Callback - X-Forwarded-Proto:', request.headers.get('x-forwarded-proto'));
     
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
@@ -29,6 +41,15 @@ export async function GET(request: NextRequest) {
         // Ignore parse errors
       }
 
+      // Check for specific "updating additional details" error (app configuration issue)
+      if (errorDescription.toLowerCase().includes('updating additional details') ||
+          errorDescription.toLowerCase().includes('unavailable for this app')) {
+        console.error('⚠️ Facebook app configuration error:', errorDescription);
+        return NextResponse.redirect(
+          `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=app_config_error&error_description=${encodeURIComponent(errorDescription)}`
+        );
+      }
+
       // Check if this is a manual authentication requirement
       if (error === 'access_denied' || 
           errorDescription.toLowerCase().includes('authentication') ||
@@ -40,7 +61,7 @@ export async function GET(request: NextRequest) {
       }
       
       return NextResponse.redirect(
-        `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=oauth_failed&error=${error}`
+        `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=oauth_failed&error=${error}&error_description=${encodeURIComponent(errorDescription)}`
       );
     }
 
@@ -76,7 +97,17 @@ export async function GET(request: NextRequest) {
 
     // 1️⃣ Exchange code for access token
     // Use our own callback route (must match the redirect_uri used in initial OAuth request)
-    const redirectUri = `${baseUrl}/api/meta-auth/callback`;
+    let normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, '');
+    if (!normalizedBaseUrl.startsWith('http://') && !normalizedBaseUrl.startsWith('https://')) {
+      normalizedBaseUrl = `https://${normalizedBaseUrl}`;
+    }
+    const redirectUri = `${normalizedBaseUrl}/api/meta-auth/callback`;
+    
+    // Log redirect URI for debugging
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔗 Callback Redirect URI:', redirectUri);
+      console.log('🔗 Base URL:', normalizedBaseUrl);
+    }
     
     const tokenResponse = await fetch(
       `https://graph.facebook.com/v18.0/oauth/access_token?` +
@@ -338,7 +369,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 3️⃣ Save Meta authentication data to user_profiles table
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     // Get current user profile
     const { data: userProfile, error: profileError } = await supabase
