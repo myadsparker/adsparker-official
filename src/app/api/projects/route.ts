@@ -4,7 +4,8 @@ import { NextResponse } from 'next/server';
 
 // create the project from entering url in the search
 export async function POST(req: Request) {
-  const supabase = createServerSupabaseClient();
+  try {
+    const supabase = await createServerSupabaseClient();
 
   // Parse request body with better error handling
   let body;
@@ -56,18 +57,39 @@ export async function POST(req: Request) {
     .select()
     .single();
 
-  if (error) {
-    console.error('Insert error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    if (error) {
+      console.error('❌ Insert error:', error);
+      return NextResponse.json(
+        { 
+          error: error.message || 'Failed to create project',
+          details: error,
+        }, 
+        { status: 500 }
+      );
+    }
 
-  return NextResponse.json({ id: data.project_id });
+    console.log('✅ Project created successfully:', data.project_id);
+    return NextResponse.json({ id: data.project_id });
+  } catch (error: any) {
+    console.error('❌ CRITICAL ERROR in POST /api/projects:', {
+      error: error.message,
+      stack: error.stack,
+      fullError: error,
+    });
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
+        details: error.message,
+      },
+      { status: 500 }
+    );
+  }
 }
 
 // get all projects for the authenticated user
 export async function GET(request: Request) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     // Get current user
     const {
@@ -89,15 +111,29 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching projects:', error);
-      throw error;
+      console.error('❌ Error fetching projects:', error);
+      return NextResponse.json(
+        { 
+          error: error.message || 'Failed to fetch projects',
+          details: error,
+        },
+        { status: 500 }
+      );
     }
 
+    console.log(`✅ Fetched ${data?.length || 0} projects successfully`);
     return NextResponse.json({ projects: data || [] });
   } catch (error: any) {
-    console.error('Error fetching projects:', error);
+    console.error('❌ CRITICAL ERROR in GET /api/projects:', {
+      error: error.message,
+      stack: error.stack,
+      fullError: error,
+    });
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch projects' },
+      { 
+        error: error.message || 'Internal server error',
+        details: error.message,
+      },
       { status: error.status || 500 }
     );
   }

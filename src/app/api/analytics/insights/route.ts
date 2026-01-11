@@ -67,7 +67,7 @@ function convertToUSD(value: string | number, rate: number): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     const {
       data: { user },

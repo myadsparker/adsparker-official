@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     // Get subscription ID from metadata
     const subscriptionId = session.metadata?.subscription_id;

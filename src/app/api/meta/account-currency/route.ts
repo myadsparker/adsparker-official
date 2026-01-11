@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
 async function handleRequest() {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     const {
       data: { user },

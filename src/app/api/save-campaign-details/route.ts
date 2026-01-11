@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     // Get existing campaign_analysis data
     const { data: existingData, error: fetchError } = await supabase

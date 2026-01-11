@@ -7,7 +7,8 @@ export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createServerSupabaseClient();
+  try {
+    const supabase = await createServerSupabaseClient();
 
   const {
     data: { session },
@@ -27,9 +28,29 @@ export async function GET(
     .eq('user_id', user_id)
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    if (error) {
+      console.error('❌ Error fetching project:', error);
+      return NextResponse.json(
+        { 
+          error: error.message || 'Failed to fetch project',
+          details: error,
+        }, 
+        { status: 500 }
+      );
+    }
 
-  return NextResponse.json(data);
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error('❌ CRITICAL ERROR in GET /api/projects/[id]:', {
+      error: error.message,
+      stack: error.stack,
+    });
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
+        details: error.message,
+      },
+      { status: 500 }
+    );
+  }
 }

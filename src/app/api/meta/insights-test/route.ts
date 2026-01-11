@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     if (!accessToken) {
       // Try to get from logged-in user
-      const supabase = createServerSupabaseClient();
+      const supabase = await createServerSupabaseClient();
       const {
         data: { user },
         error: userError,
@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
 
     if (!accessToken) {
       // Try to get from logged-in user
-      const supabase = createServerSupabaseClient();
+      const supabase = await createServerSupabaseClient();
       const {
         data: { user },
         error: userError,

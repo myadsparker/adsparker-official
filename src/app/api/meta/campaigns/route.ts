@@ -7,7 +7,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     // Get current user
     const {
