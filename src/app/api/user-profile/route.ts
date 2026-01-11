@@ -26,12 +26,23 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (profileError) {
-      console.error('Error fetching user profile:', profileError);
+      console.error('❌ Error fetching user profile in /api/user-profile:', {
+        error: profileError,
+        message: profileError.message,
+        code: profileError.code,
+        details: profileError.details,
+        hint: profileError.hint,
+      });
       return NextResponse.json(
-        { error: 'Failed to fetch profile' },
+        { 
+          error: 'Failed to fetch profile',
+          details: profileError.message,
+        },
         { status: 500 }
       );
     }
+
+    console.log('✅ User profile fetched successfully');
 
     return NextResponse.json({
       profile: {
@@ -43,9 +54,16 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching user profile:', error);
+    console.error('❌ CRITICAL ERROR in /api/user-profile:', {
+      error: error.message,
+      stack: error.stack,
+      fullError: error,
+    });
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error.message,
+      },
       { status: 500 }
     );
   }
