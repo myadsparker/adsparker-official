@@ -2006,12 +2006,38 @@ export default function BudgetPage() {
 
       // Show errors for failed ad sets
       if (metaPublishData.errors && metaPublishData.errors.length > 0) {
+        console.error('❌ Ad publishing errors:', metaPublishData.errors);
         metaPublishData.errors.forEach((error: any) => {
-          const errorMessage = error.error || error.details?.error_user_msg || error.details?.message || 'Failed to create ad set';
+          // Build comprehensive error message
+          let errorMessage = error.error || error.errorMessage || error.details?.error_user_msg || error.details?.message || 'Failed to create ad set';
+          
+          // Add error type and subcode if available for debugging
+          if (error.errorType || error.errorSubcode) {
+            const errorDetails = [];
+            if (error.errorType && error.errorType !== 'Unknown') {
+              errorDetails.push(`Type: ${error.errorType}`);
+            }
+            if (error.errorSubcode) {
+              errorDetails.push(`Code: ${error.errorSubcode}`);
+            }
+            if (errorDetails.length > 0) {
+              errorMessage += ` (${errorDetails.join(', ')})`;
+            }
+          }
+
+          console.error(`Error for "${error.adSetTitle || 'Ad Set'}":`, {
+            errorMessage: errorMessage,
+            errorType: error.errorType,
+            errorSubcode: error.errorSubcode,
+            errorCode: error.errorCode,
+            fbtraceId: error.fbtraceId,
+            fullError: error,
+          });
+
           toast.error(
             `${error.adSetTitle || 'Ad Set'}: ${errorMessage}`,
             {
-              duration: 6000,
+              duration: 8000, // Increased duration to show more details
               style: {
                 background: '#dc2626',
                 color: '#fff',
@@ -2028,6 +2054,19 @@ export default function BudgetPage() {
           );
         });
       }
+
+      // Log summary for debugging
+      console.log('📊 Publishing Summary:', {
+        success: metaPublishData.success,
+        campaign: metaPublishData.campaign,
+        totalRequested: metaPublishData.totalRequested,
+        totalCreated: metaPublishData.totalCreated,
+        adsCreated: metaPublishData.adsCreated,
+        adsNotCreated: metaPublishData.adsNotCreated,
+        totalFailed: metaPublishData.totalFailed,
+        errors: metaPublishData.errors,
+        warnings: metaPublishData.warnings,
+      });
 
       // Track each created ad set
       for (const createdAdSet of createdAdSets) {
@@ -2058,23 +2097,51 @@ export default function BudgetPage() {
       // Refresh subscription status
       await fetchSubscription();
 
+      // Check if ads were actually created
+      const adsCreated = metaPublishData.adsCreated || 0;
+      const adsNotCreated = metaPublishData.adsNotCreated || 0;
+      const hasAdsNotCreated = adsNotCreated > 0;
+
       // Show success message
-      const successMessage = `Campaign created successfully in Meta! Campaign: ${metaPublishData.campaign.name}, Ad Sets Created: ${createdAdSets.length} out of ${metaPublishData.totalRequested}. All ad sets are PAUSED - activate them in Meta Ads Manager to start running.`;
+      let successMessage = `Campaign created successfully in Meta! Campaign: ${metaPublishData.campaign.name}, Ad Sets Created: ${createdAdSets.length} out of ${metaPublishData.totalRequested}.`;
+      
+      if (hasAdsNotCreated) {
+        console.warn(`⚠️ WARNING: ${adsNotCreated} ad set(s) created but ads were NOT created. Check console logs for details.`);
+        successMessage += ` ⚠️ Note: ${adsNotCreated} ad set(s) created but ads were not created. Check browser console for error details.`;
+      } else if (adsCreated > 0) {
+        successMessage += ` ${adsCreated} ad(s) created successfully.`;
+      }
+
       const trialMessage = subscription?.plan_type === 'free_trial'
         ? ' Your free trial is active. You will be billed $199/month after 7 days unless cancelled.'
         : '';
 
-      toast.success(successMessage + trialMessage, {
-        duration: 6000,
-        style: {
-          background: '#10b981',
-          color: '#fff',
-          padding: '16px',
-          borderRadius: '8px',
-          fontSize: '14px',
-          fontWeight: '500',
-        },
-      });
+      // Use warning toast if ads weren't created, success otherwise
+      if (hasAdsNotCreated) {
+        toast.warning(successMessage + trialMessage, {
+          duration: 10000, // Longer duration for warnings
+          style: {
+            background: '#f59e0b',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
+      } else {
+        toast.success(successMessage + trialMessage, {
+          duration: 6000,
+          style: {
+            background: '#10b981',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        });
+      }
 
       // Close modal
       setShowModal(false);

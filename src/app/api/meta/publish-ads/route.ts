@@ -369,6 +369,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1: Create Campaign
+    console.log(`🚀 Step 1: Creating Campaign...`, {
+      campaignName: campaignName,
+      objective: objective,
+      adAccountId: formattedAdAccountId,
+      status: 'ACTIVE',
+      specialAdCategories: specialAdCategories,
+    });
+
     const campaignResponse = await fetch(
       `https://graph.facebook.com/v18.0/${formattedAdAccountId}/campaigns`,
       {
@@ -390,7 +398,41 @@ export async function POST(request: NextRequest) {
 
     const campaignData = await campaignResponse.json();
 
+    console.log(`📥 Campaign creation response:`, {
+      status: campaignResponse.status,
+      statusText: campaignResponse.statusText,
+      ok: campaignResponse.ok,
+      hasError: !!campaignData.error,
+      campaignId: campaignData.id,
+      error: campaignData.error ? {
+        message: campaignData.error.message,
+        type: campaignData.error.type,
+        code: campaignData.error.code,
+        error_subcode: campaignData.error.error_subcode,
+        error_user_title: campaignData.error.error_user_title,
+        error_user_msg: campaignData.error.error_user_msg,
+        fbtrace_id: campaignData.error.fbtrace_id,
+      } : null,
+    });
+
     if (!campaignResponse.ok || campaignData.error) {
+      console.error(`❌ Campaign creation FAILED:`, {
+        campaignName: campaignName,
+        errorDetails: {
+          message: campaignData.error?.message,
+          type: campaignData.error?.type,
+          code: campaignData.error?.code,
+          error_subcode: campaignData.error?.error_subcode,
+          error_user_title: campaignData.error?.error_user_title,
+          error_user_msg: campaignData.error?.error_user_msg,
+          fbtrace_id: campaignData.error?.fbtrace_id,
+          fullError: campaignData.error,
+        },
+        httpStatus: campaignResponse.status,
+        httpStatusText: campaignResponse.statusText,
+        responseBody: campaignData,
+      });
+
       return NextResponse.json(
         {
           error: 'Failed to create Meta campaign',
@@ -402,6 +444,10 @@ export async function POST(request: NextRequest) {
     }
 
     const campaignId = campaignData.id;
+    console.log(`✅ Campaign created successfully:`, {
+      campaignId: campaignId,
+      campaignName: campaignName,
+    });
 
     // Helper function to upload image and get hash
     const uploadImageToMeta = async (imageUrl: string): Promise<string> => {
@@ -669,6 +715,13 @@ export async function POST(request: NextRequest) {
           access_token: accessToken,
         };
 
+        console.log(`📤 Creating Ad Set ${i + 1}/${adSetsLimited.length} for "${adSet.ad_set_title}"...`, {
+          campaignId: campaignId,
+          budgetInSmallestUnit: budgetInSmallestUnit,
+          budgetInAccountCurrency: `${budgetInAccountCurrency.toFixed(2)} ${accountCurrency}`,
+          optimizationGoal: optimizationGoal,
+        });
+
         const adSetResponse = await fetch(
           `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adsets`,
           {
@@ -682,16 +735,62 @@ export async function POST(request: NextRequest) {
 
         const adSetData = await adSetResponse.json();
 
+        console.log(`📥 Ad Set creation response for "${adSet.ad_set_title}":`, {
+          status: adSetResponse.status,
+          statusText: adSetResponse.statusText,
+          ok: adSetResponse.ok,
+          hasError: !!adSetData.error,
+          adSetId: adSetData.id,
+          error: adSetData.error ? {
+            message: adSetData.error.message,
+            type: adSetData.error.type,
+            code: adSetData.error.code,
+            error_subcode: adSetData.error.error_subcode,
+            error_user_title: adSetData.error.error_user_title,
+            error_user_msg: adSetData.error.error_user_msg,
+            fbtrace_id: adSetData.error.fbtrace_id,
+          } : null,
+        });
+
         if (!adSetResponse.ok || adSetData.error) {
+          console.error(`❌ Ad Set creation FAILED for "${adSet.ad_set_title}":`, {
+            errorDetails: {
+              message: adSetData.error?.message,
+              type: adSetData.error?.type,
+              code: adSetData.error?.code,
+              error_subcode: adSetData.error?.error_subcode,
+              error_user_title: adSetData.error?.error_user_title,
+              error_user_msg: adSetData.error?.error_user_msg,
+              fbtrace_id: adSetData.error?.fbtrace_id,
+              fullError: adSetData.error,
+            },
+            httpStatus: adSetResponse.status,
+            httpStatusText: adSetResponse.statusText,
+            responseBody: adSetData,
+          });
+
           errors.push({
             adSetTitle: adSet.ad_set_title,
             error: adSetData.error?.message || 'Unknown error',
             details: adSetData.error,
+            errorType: adSetData.error?.error_user_title || 'Unknown',
+            errorSubcode: adSetData.error?.error_subcode,
+            errorCode: adSetData.error?.code,
+            errorMessage: adSetData.error?.error_user_msg || adSetData.error?.message,
+            fbtraceId: adSetData.error?.fbtrace_id,
           });
         } else {
           const adSetId = adSetData.id;
+          console.log(`✅ Ad Set created successfully for "${adSet.ad_set_title}":`, {
+            adSetId: adSetId,
+            campaignId: campaignId,
+          });
 
           // Step 3: Create Ad Creative
+          console.log(`🚀 Step 3: Creating Ad Creative for "${adSet.ad_set_title}"...`, {
+            adSetId: adSetId,
+            pageId: finalPageId,
+          });
 
           // Get ad copy
           const headline = adSet.ad_copywriting_title || campaignName;
@@ -754,6 +853,12 @@ export async function POST(request: NextRequest) {
             access_token: accessToken,
           };
 
+          console.log(`📤 Creating creative for "${adSet.ad_set_title}"...`, {
+            pageId: finalPageId,
+            imageHash: imageHash,
+            headline: headline.substring(0, 50) + '...',
+          });
+
           const creativeResponse = await fetch(
             `https://graph.facebook.com/v18.0/${formattedAdAccountId}/adcreatives`,
             {
@@ -767,13 +872,56 @@ export async function POST(request: NextRequest) {
 
           const creativeData = await creativeResponse.json();
 
+          console.log(`📥 Creative creation response for "${adSet.ad_set_title}":`, {
+            status: creativeResponse.status,
+            statusText: creativeResponse.statusText,
+            ok: creativeResponse.ok,
+            hasError: !!creativeData.error,
+            creativeId: creativeData.id,
+            error: creativeData.error ? {
+              message: creativeData.error.message,
+              type: creativeData.error.type,
+              code: creativeData.error.code,
+              error_subcode: creativeData.error.error_subcode,
+              error_user_title: creativeData.error.error_user_title,
+              error_user_msg: creativeData.error.error_user_msg,
+              fbtrace_id: creativeData.error.fbtrace_id,
+            } : null,
+          });
+
           if (!creativeResponse.ok || creativeData.error) {
+            console.error(`❌ Creative creation FAILED for "${adSet.ad_set_title}":`, {
+              adSetId: adSetId,
+              errorDetails: {
+                message: creativeData.error?.message,
+                type: creativeData.error?.type,
+                code: creativeData.error?.code,
+                error_subcode: creativeData.error?.error_subcode,
+                error_user_title: creativeData.error?.error_user_title,
+                error_user_msg: creativeData.error?.error_user_msg,
+                fbtrace_id: creativeData.error?.fbtrace_id,
+                fullError: creativeData.error,
+              },
+              httpStatus: creativeResponse.status,
+              httpStatusText: creativeResponse.statusText,
+              responseBody: creativeData,
+            });
+
             errors.push({
               adSetTitle: adSet.ad_set_title,
               error: `Creative creation failed: ${creativeData.error?.message || 'Unknown error'}`,
               details: creativeData.error,
+              errorType: creativeData.error?.error_user_title || 'Unknown',
+              errorSubcode: creativeData.error?.error_subcode,
+              errorCode: creativeData.error?.code,
+              errorMessage: creativeData.error?.error_user_msg || creativeData.error?.message,
+              fbtraceId: creativeData.error?.fbtrace_id,
             });
           } else {
+            console.log(`✅ Creative created successfully for "${adSet.ad_set_title}":`, {
+              creativeId: creativeData.id,
+              adSetId: adSetId,
+            });
 
             // Verify the creative was created with the image
             if (creativeData.id) {
@@ -782,13 +930,29 @@ export async function POST(request: NextRequest) {
                   `https://graph.facebook.com/v18.0/${creativeData.id}?fields=object_story_spec&access_token=${accessToken}`
                 );
                 const verifyData = await verifyCreativeResponse.json();
+                if (verifyCreativeResponse.ok) {
+                  console.log(`✅ Creative verified for "${adSet.ad_set_title}"`);
+                } else {
+                  console.warn(`⚠️ Creative verification failed for "${adSet.ad_set_title}":`, verifyData);
+                }
               } catch (verifyError) {
+                console.warn(`⚠️ Error verifying creative for "${adSet.ad_set_title}":`, verifyError);
               }
             }
 
             const creativeId = creativeData.id;
 
+            console.log(`✅ Creative created for "${adSet.ad_set_title}":`, {
+              creativeId: creativeId,
+              adSetId: adSetId,
+            });
+
             // Step 4: Create Ad
+            console.log(`🚀 Step 4: Creating Ad for "${adSet.ad_set_title}"...`, {
+              adSetId: adSetId,
+              creativeId: creativeId,
+              adAccountId: formattedAdAccountId,
+            });
 
             // Try creating ad without status first (Facebook may allow this without payment method)
             // Then update status to ACTIVE after creation
@@ -800,6 +964,14 @@ export async function POST(request: NextRequest) {
               },
               access_token: accessToken,
             };
+
+            console.log(`📤 Attempting ad creation (without status) for "${adSet.ad_set_title}":`, {
+              payload: {
+                name: adPayload.name,
+                adset_id: adPayload.adset_id,
+                creative_id: adPayload.creative.creative_id,
+              },
+            });
 
             let adResponse = await fetch(
               `https://graph.facebook.com/v18.0/${formattedAdAccountId}/ads`,
@@ -814,8 +986,26 @@ export async function POST(request: NextRequest) {
 
             let adData = await adResponse.json();
 
+            console.log(`📥 Ad creation response (attempt 1) for "${adSet.ad_set_title}":`, {
+              status: adResponse.status,
+              statusText: adResponse.statusText,
+              ok: adResponse.ok,
+              hasError: !!adData.error,
+              adId: adData.id,
+              error: adData.error ? {
+                message: adData.error.message,
+                type: adData.error.type,
+                code: adData.error.code,
+                error_subcode: adData.error.error_subcode,
+                error_user_title: adData.error.error_user_title,
+                error_user_msg: adData.error.error_user_msg,
+                fbtrace_id: adData.error.fbtrace_id,
+              } : null,
+            });
+
             // If creation without status fails, try with ACTIVE status as fallback
             if (!adResponse.ok || adData.error) {
+              console.log(`⚠️ First ad creation attempt failed, retrying with ACTIVE status for "${adSet.ad_set_title}"...`);
 
               adPayload.status = 'ACTIVE';
               adResponse = await fetch(
@@ -829,9 +1019,43 @@ export async function POST(request: NextRequest) {
                 }
               );
               adData = await adResponse.json();
+
+              console.log(`📥 Ad creation response (attempt 2 with ACTIVE status) for "${adSet.ad_set_title}":`, {
+                status: adResponse.status,
+                statusText: adResponse.statusText,
+                ok: adResponse.ok,
+                hasError: !!adData.error,
+                adId: adData.id,
+                error: adData.error ? {
+                  message: adData.error.message,
+                  type: adData.error.type,
+                  code: adData.error.code,
+                  error_subcode: adData.error.error_subcode,
+                  error_user_title: adData.error.error_user_title,
+                  error_user_msg: adData.error.error_user_msg,
+                  fbtrace_id: adData.error.fbtrace_id,
+                } : null,
+              });
             }
 
             if (!adResponse.ok || adData.error) {
+              console.error(`❌ Ad creation FAILED for "${adSet.ad_set_title}":`, {
+                adSetId: adSetId,
+                creativeId: creativeId,
+                errorDetails: {
+                  message: adData.error?.message,
+                  type: adData.error?.type,
+                  code: adData.error?.code,
+                  error_subcode: adData.error?.error_subcode,
+                  error_user_title: adData.error?.error_user_title,
+                  error_user_msg: adData.error?.error_user_msg,
+                  fbtrace_id: adData.error?.fbtrace_id,
+                  fullError: adData.error,
+                },
+                httpStatus: adResponse.status,
+                httpStatusText: adResponse.statusText,
+                responseBody: adData,
+              });
 
               // Check for specific error types and provide better error messages
               let errorMessage = `Ad creation failed: ${adData.error?.message || 'Unknown error'}`;
@@ -842,6 +1066,7 @@ export async function POST(request: NextRequest) {
                 adData.error?.error_user_title === 'No payment method') {
                 errorMessage = `Ad creation skipped: Payment method required. Campaign, Ad Set, and Creative are ready. Add a payment method in Facebook Ads Manager to create the ad.`;
                 isPaymentMethodError = true;
+                console.log(`💳 Payment method error detected for "${adSet.ad_set_title}" - treating as warning`);
               }
 
               // For payment method errors, still add to createdAdSets since campaign/ad set/creative are ready
@@ -856,6 +1081,7 @@ export async function POST(request: NextRequest) {
                   warning: errorMessage,
                   requiresPaymentMethod: true,
                 });
+                console.log(`⚠️ Added "${adSet.ad_set_title}" to createdAdSets with payment method warning`);
               } else {
                 // For other errors, add to errors list
                 errors.push({
@@ -864,13 +1090,24 @@ export async function POST(request: NextRequest) {
                   details: adData.error,
                   errorType: adData.error?.error_user_title || 'Unknown',
                   errorSubcode: adData.error?.error_subcode,
+                  errorCode: adData.error?.code,
+                  errorMessage: adData.error?.error_user_msg || adData.error?.message,
+                  fbtraceId: adData.error?.fbtrace_id,
                 });
+                console.log(`❌ Added "${adSet.ad_set_title}" to errors list`);
               }
             } else {
+              console.log(`✅ Ad created successfully for "${adSet.ad_set_title}":`, {
+                adId: adData.id,
+                adSetId: adSetId,
+                creativeId: creativeId,
+                status: adPayload.status || 'no status set',
+              });
 
               // If ad was created without status, update it to ACTIVE
               if (!adPayload.status && adData.id) {
                 try {
+                  console.log(`🔄 Updating ad status to ACTIVE for "${adSet.ad_set_title}" (ad ID: ${adData.id})...`);
                   const updateResponse = await fetch(
                     `https://graph.facebook.com/v18.0/${adData.id}`,
                     {
@@ -886,8 +1123,12 @@ export async function POST(request: NextRequest) {
                   );
                   const updateData = await updateResponse.json();
                   if (updateResponse.ok) {
+                    console.log(`✅ Ad status updated to ACTIVE for "${adSet.ad_set_title}"`);
+                  } else {
+                    console.error(`⚠️ Failed to update ad status for "${adSet.ad_set_title}":`, updateData);
                   }
                 } catch (updateError) {
+                  console.error(`❌ Error updating ad status for "${adSet.ad_set_title}":`, updateError);
                 }
               }
 
@@ -899,16 +1140,50 @@ export async function POST(request: NextRequest) {
                 creative_id: creativeId,
                 ad_id: adData.id,
               });
+              console.log(`✅ Added "${adSet.ad_set_title}" to createdAdSets with ad ID: ${adData.id}`);
             }
           }
         }
       } catch (error: any) {
+        console.error(`❌ Unexpected error processing ad set "${adSet.ad_set_title}":`, {
+          error: error.message,
+          stack: error.stack,
+          fullError: error,
+        });
+
         errors.push({
           adSetTitle: adSet.ad_set_title,
           error: error.message,
+          errorType: 'UnexpectedError',
+          details: {
+            message: error.message,
+            stack: error.stack,
+          },
         });
       }
     }
+
+    // Log summary
+    console.log(`📊 Publishing Summary:`, {
+      totalRequested: adSetsLimited.length,
+      totalCreated: createdAdSets.length,
+      totalFailed: errors.length,
+      campaignId: campaignId,
+      campaignName: campaignName,
+      createdAdSets: createdAdSets.map((as: any) => ({
+        name: as.name,
+        id: as.id,
+        adId: as.ad_id,
+        hasAd: !!as.ad_id,
+        requiresPaymentMethod: as.requiresPaymentMethod || false,
+      })),
+      errors: errors.map((e: any) => ({
+        adSetTitle: e.adSetTitle,
+        error: e.error,
+        errorType: e.errorType,
+        errorSubcode: e.errorSubcode,
+      })),
+    });
 
     // Update project with campaign info - only if campaign was created AND at least one ad set was created
     if (campaignId && createdAdSets.length > 0) {
@@ -997,6 +1272,10 @@ export async function POST(request: NextRequest) {
     }
 
 
+    // Count how many ads were actually created (have ad_id)
+    const adsCreated = createdAdSets.filter((as: any) => as.ad_id).length;
+    const adsNotCreated = createdAdSets.length - adsCreated;
+
     const response: any = {
       success: createdAdSets.length > 0,
       campaign: {
@@ -1008,6 +1287,8 @@ export async function POST(request: NextRequest) {
       totalRequested: adSets.length,
       totalCreated: createdAdSets.length,
       totalFailed: errors.length,
+      adsCreated: adsCreated,
+      adsNotCreated: adsNotCreated,
     };
 
     // Check if any ad sets have payment method warnings
@@ -1016,6 +1297,7 @@ export async function POST(request: NextRequest) {
     if (errors.length > 0) {
       response.errors = errors;
       response.message = `Campaign created with ${createdAdSets.length} out of ${adSets.length} ad sets. ${errors.length} failed.`;
+      console.log(`⚠️ Response includes ${errors.length} errors`);
     } else if (hasPaymentMethodWarnings) {
       response.message = `Campaign, Ad Sets, and Creatives created successfully! Note: Ads require a payment method. Add a payment method in Facebook Ads Manager, then create the ads manually or they will be created automatically when you activate the ad sets.`;
       response.warnings = createdAdSets
@@ -1024,18 +1306,40 @@ export async function POST(request: NextRequest) {
           adSetName: adSet.name,
           message: adSet.warning,
         }));
+      console.log(`⚠️ Response includes payment method warnings`);
     } else {
-      response.message = `Successfully created campaign with ${createdAdSets.length} ad set(s). All ad sets are ACTIVE.`;
+      response.message = `Successfully created campaign with ${createdAdSets.length} ad set(s). ${adsCreated} ad(s) created. All ad sets are ACTIVE.`;
+      console.log(`✅ All ads created successfully`);
     }
 
+    console.log(`📤 Sending response:`, {
+      success: response.success,
+      campaignId: response.campaign.id,
+      totalCreated: response.totalCreated,
+      adsCreated: response.adsCreated,
+      adsNotCreated: response.adsNotCreated,
+      totalFailed: response.totalFailed,
+      hasErrors: errors.length > 0,
+      hasWarnings: hasPaymentMethodWarnings,
+    });
 
     return NextResponse.json(response, {
       status: createdAdSets.length > 0 ? 200 : 400
     });
 
   } catch (error: any) {
+    console.error(`❌ CRITICAL ERROR in publish-ads API:`, {
+      error: error.message,
+      stack: error.stack,
+      fullError: error,
+    });
+
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { 
+        error: 'Internal server error', 
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      },
       { status: 500 }
     );
   }
