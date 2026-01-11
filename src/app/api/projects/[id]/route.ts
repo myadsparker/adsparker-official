@@ -3,11 +3,26 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
+    // Validate that id is a valid UUID
+    if (!UUID_REGEX.test(params.id)) {
+      console.error('❌ Invalid project ID format (not a UUID):', params.id);
+      return NextResponse.json(
+        { 
+          error: 'Invalid project ID format',
+          details: 'Project ID must be a valid UUID. Received: ' + params.id,
+        },
+        { status: 400 }
+      );
+    }
+
     const supabase = await createServerSupabaseClient();
 
   const {

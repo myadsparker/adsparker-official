@@ -205,6 +205,9 @@ function extractDomain(url: string): string {
 /**
  * Main API route handler
  */
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -216,6 +219,21 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Validate that project_id is a valid UUID
+    if (!UUID_REGEX.test(project_id)) {
+      console.error('❌ Invalid project_id format (not a UUID):', project_id);
+      return NextResponse.json(
+        { 
+          error: 'Invalid project_id format',
+          details: 'project_id must be a valid UUID. Received: ' + project_id,
+          hint: 'Please ensure you are using a valid project ID from the database'
+        },
+        { status: 400 }
+      );
+    }
+
+    console.log('✅ Valid UUID project_id:', project_id);
 
     // Step 1: Fetch project from Supabase
     const { data: project, error: fetchError } = await supabase

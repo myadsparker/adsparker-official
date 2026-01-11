@@ -13,15 +13,43 @@ export default function Create() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    const res = await fetch('/api/projects', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ url }),
-    });
-    const { id } = await res.json();
-    router.push(`/dashboard/projects/${id}/analyze`);
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('Failed to create project:', errorData);
+        alert(`Failed to create project: ${errorData.error || 'Unknown error'}`);
+        return;
+      }
+
+      const data = await res.json();
+      
+      if (!data.id) {
+        console.error('No project ID returned from API:', data);
+        alert('Failed to create project: No project ID returned');
+        return;
+      }
+
+      // Validate that we got a valid UUID
+      const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!UUID_REGEX.test(data.id)) {
+        console.error('Invalid project ID format:', data.id);
+        alert('Failed to create project: Invalid project ID format');
+        return;
+      }
+
+      router.push(`/dashboard/projects/${data.id}/analyze`);
+    } catch (error: any) {
+      console.error('Error creating project:', error);
+      alert(`Error creating project: ${error.message || 'Unknown error'}`);
+    }
   };
 
   return (
