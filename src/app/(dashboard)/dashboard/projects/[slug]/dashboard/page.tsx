@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from '@/lib/supabase';
 import {
     LineChart,
     Line,
@@ -13,11 +13,6 @@ import {
     ResponsiveContainer,
 } from 'recharts';
 import './dashboard.css';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export default function CampaignDashboard() {
     const params = useParams();
@@ -47,6 +42,7 @@ export default function CampaignDashboard() {
             setLoading(true);
 
             // Fetch project data
+            const supabase = getSupabaseClient();
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 router.push('/login');
@@ -61,7 +57,9 @@ export default function CampaignDashboard() {
                 .single();
 
             if (projectError || !projectData) {
-          
+                console.error('Error fetching project:', projectError);
+                // Redirect to projects page if project not found
+                router.push('/dashboard/projects');
                 setLoading(false);
                 return;
             }
@@ -103,6 +101,7 @@ export default function CampaignDashboard() {
         try {
             
             // Fetch user's Meta access token
+            const supabase = getSupabaseClient();
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 return;

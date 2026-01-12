@@ -128,6 +128,14 @@ export default function BudgetPage() {
   const checkAdSetsAvailable = async (): Promise<boolean> => {
     try {
       const response = await fetch(`/api/projects/${projectId}`);
+      
+      // Handle authentication errors
+      if (response.status === 401 || response.status === 403) {
+        // Redirect to login if unauthorized
+        window.location.href = '/login';
+        return false;
+      }
+      
       if (response.ok) {
         const data = await response.json();
         if (data?.ad_set_proposals) {
@@ -156,6 +164,13 @@ export default function BudgetPage() {
         body: JSON.stringify({ project_id: projectId }),
       });
 
+      // Handle authentication errors
+      if (response.status === 401 || response.status === 403) {
+        // Redirect to login if unauthorized
+        window.location.href = '/login';
+        return false;
+      }
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Website analysis failed:', errorText);
@@ -179,6 +194,14 @@ export default function BudgetPage() {
         setLoading(true); // Start loading
       }
       const response = await fetch(`/api/projects/${projectId}`);
+      
+      // Handle authentication errors
+      if (response.status === 401 || response.status === 403) {
+        // Redirect to login if unauthorized
+        window.location.href = '/login';
+        return;
+      }
+      
       if (response.ok) {
         const data = await response.json();
         // Handle both campaign_proposal and campaignproposal (Supabase might return either)
@@ -336,6 +359,14 @@ export default function BudgetPage() {
     try {
       setLoadingAccounts(true);
       const response = await fetch('/api/meta/accounts');
+      
+      // Handle authentication errors
+      if (response.status === 401 || response.status === 403) {
+        // Redirect to login if unauthorized
+        window.location.href = '/login';
+        return;
+      }
+      
       if (response.ok) {
         const data = await response.json();
         const accounts = Array.isArray(data?.accounts)
@@ -368,6 +399,14 @@ export default function BudgetPage() {
     try {
       setLoadingPages(true);
       const response = await fetch('/api/meta/pages');
+      
+      // Handle authentication errors
+      if (response.status === 401 || response.status === 403) {
+        // Redirect to login if unauthorized
+        window.location.href = '/login';
+        return;
+      }
+      
       if (response.ok) {
         const data = await response.json();
         const pagesList = Array.isArray(data?.pages) ? data.pages : [];
@@ -412,6 +451,14 @@ export default function BudgetPage() {
     try {
       setLoadingPixels(true);
       const response = await fetch(`/api/meta/pixels?ad_account_id=${formattedAdAccountId}`);
+      
+      // Handle authentication errors
+      if (response.status === 401 || response.status === 403) {
+        // Redirect to login if unauthorized
+        window.location.href = '/login';
+        return;
+      }
+      
       if (response.ok) {
         const data = await response.json();
         const pixelsList = Array.isArray(data?.pixels) ? data.pixels : [];
