@@ -29,24 +29,30 @@ export async function GET(request: NextRequest) {
       const errorDescription = searchParams.get('error_description') || '';
       const errorReason = searchParams.get('error_reason') || '';
       
-      // Extract projectId from state if available
+      // Extract projectId and returnUrl from state if available
       let projectId = 'unknown';
+      let returnUrl = null;
       try {
         const state = searchParams.get('state');
         if (state) {
           const parsedState = JSON.parse(state);
           projectId = parsedState.projectId || 'unknown';
+          returnUrl = parsedState.returnUrl || null;
         }
       } catch (e) {
         // Ignore parse errors
       }
+
+      // Determine redirect URL - use returnUrl if available, otherwise default to plan page
+      // Decode returnUrl if it was URL-encoded
+      const redirectPath = returnUrl ? decodeURIComponent(returnUrl) : `/dashboard/projects/${projectId}/plan`;
 
       // Check for specific "updating additional details" error (app configuration issue)
       if (errorDescription.toLowerCase().includes('updating additional details') ||
           errorDescription.toLowerCase().includes('unavailable for this app')) {
         console.error('⚠️ Facebook app configuration error:', errorDescription);
         return NextResponse.redirect(
-          `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=app_config_error&error_description=${encodeURIComponent(errorDescription)}`
+          `${baseUrl}${redirectPath}?meta_error=app_config_error&error_description=${encodeURIComponent(errorDescription)}`
         );
       }
 
@@ -56,38 +62,55 @@ export async function GET(request: NextRequest) {
           errorDescription.toLowerCase().includes('confirm') ||
           errorReason === 'user_denied') {
         return NextResponse.redirect(
-          `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=manual_auth_required&error=${error}`
+          `${baseUrl}${redirectPath}?meta_error=manual_auth_required&error=${error}`
         );
       }
       
       return NextResponse.redirect(
-        `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=oauth_failed&error=${error}&error_description=${encodeURIComponent(errorDescription)}`
+        `${baseUrl}${redirectPath}?meta_error=oauth_failed&error=${error}&error_description=${encodeURIComponent(errorDescription)}`
       );
     }
 
     if (!code || !state) {
       console.error('❌ Missing code or state in callback:', { code: !!code, state: !!state });
-      // Try to extract projectId from URL or default redirect
+      // Try to extract projectId and returnUrl from URL or default redirect
       const urlParams = new URL(request.url);
       const projectId = urlParams.searchParams.get('projectId') || 'unknown';
+      let returnUrl = null;
+      
+      try {
+        const stateParam = urlParams.searchParams.get('state');
+        if (stateParam) {
+          const parsedState = JSON.parse(stateParam);
+          returnUrl = parsedState.returnUrl || null;
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+      
+      const redirectPath = returnUrl || `/dashboard/projects/${projectId}/plan`;
       
       return NextResponse.redirect(
-        `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=missing_params`
+        `${baseUrl}${redirectPath}?meta_error=missing_params`
       );
     }
 
     let parsedState;
     let projectId;
     let userId;
+    let returnUrl;
     
     try {
       parsedState = JSON.parse(state);
       projectId = parsedState.projectId;
       userId = parsedState.userId;
+      returnUrl = parsedState.returnUrl; // Get return URL from state
       
       if (!projectId || !userId) {
         throw new Error('Missing projectId or userId in state');
       }
+      
+      console.log('🔗 Return URL from state:', returnUrl || 'Not provided');
     } catch (parseError) {
       console.error('❌ Failed to parse state:', parseError, 'State:', state);
       return NextResponse.redirect(
@@ -128,6 +151,10 @@ export async function GET(request: NextRequest) {
       const errorCode = tokenData.error.code;
       const errorMessage = tokenData.error.message || '';
       
+      // Determine redirect URL - use returnUrl if available, otherwise default to plan page
+      // Decode returnUrl if it was URL-encoded
+      const redirectPath = returnUrl ? decodeURIComponent(returnUrl) : `/dashboard/projects/${projectId}/plan`;
+      
       // Error codes that indicate manual authentication needed
       if ([190, 200, 102, 10].includes(errorCode) || 
           errorMessage.toLowerCase().includes('authentication') ||
@@ -135,18 +162,19 @@ export async function GET(request: NextRequest) {
           errorMessage.toLowerCase().includes('verify')) {
         console.error('⚠️ Manual authentication required:', tokenData.error);
         return NextResponse.redirect(
-          `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=manual_auth_required&error_code=${errorCode}`
+          `${baseUrl}${redirectPath}?meta_error=manual_auth_required&error_code=${errorCode}`
         );
       }
       
       return NextResponse.redirect(
-        `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=oauth_failed&error_code=${errorCode}`
+        `${baseUrl}${redirectPath}?meta_error=oauth_failed&error_code=${errorCode}`
       );
     }
 
     if (!tokenData.access_token) {
+      const redirectPath = returnUrl || `/dashboard/projects/${projectId}/plan`;
       return NextResponse.redirect(
-        `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=no_token`
+        `${baseUrl}${redirectPath}?meta_error=no_token`
       );
     }
 
@@ -196,8 +224,9 @@ export async function GET(request: NextRequest) {
     if (profile.error) {
       const errorCode = profile.error.code;
       if ([190, 200, 102, 10].includes(errorCode)) {
+        const redirectPath = returnUrl || `/dashboard/projects/${projectId}/plan`;
         return NextResponse.redirect(
-          `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=manual_auth_required&error_code=${errorCode}`
+          `${baseUrl}${redirectPath}?meta_error=manual_auth_required&error_code=${errorCode}`
         );
       }
     }
@@ -279,8 +308,9 @@ export async function GET(request: NextRequest) {
       adAccounts = await fetchAdAccounts();
     } catch (firstError: any) {
       if (firstError.message === 'MANUAL_AUTH_REQUIRED') {
+        const redirectPath = returnUrl || `/dashboard/projects/${projectId}/plan`;
         return NextResponse.redirect(
-          `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=manual_auth_required`
+          `${baseUrl}${redirectPath}?meta_error=manual_auth_required`
         );
       }
       
@@ -290,8 +320,9 @@ export async function GET(request: NextRequest) {
         adAccounts = await fetchAdAccounts();
       } catch (secondError: any) {
         if (secondError.message === 'MANUAL_AUTH_REQUIRED') {
+          const redirectPath = returnUrl || `/dashboard/projects/${projectId}/plan`;
           return NextResponse.redirect(
-            `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=manual_auth_required`
+            `${baseUrl}${redirectPath}?meta_error=manual_auth_required`
           );
         }
         console.error('Failed to fetch ad accounts after retry:', secondError);
@@ -380,8 +411,9 @@ export async function GET(request: NextRequest) {
 
     if (profileError) {
       console.error('User profile fetch error:', profileError);
+      const redirectPath = returnUrl || `/dashboard/projects/${projectId}/plan`;
       return NextResponse.redirect(
-        `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=user_profile_not_found`
+        `${baseUrl}${redirectPath}?meta_error=user_profile_not_found`
       );
     }
 
@@ -467,16 +499,20 @@ export async function GET(request: NextRequest) {
 
     if (updateError) {
       console.error('Database update error:', updateError);
+      const redirectPath = returnUrl || `/dashboard/projects/${projectId}/plan`;
       return NextResponse.redirect(
-        `${baseUrl}/dashboard/projects/${projectId}/plan?meta_error=save_failed`
+        `${baseUrl}${redirectPath}?meta_error=save_failed`
       );
     }
 
     console.log('💾 Meta data saved successfully to user_profiles');
 
-    // 4️⃣ Redirect back to plan page with success indicator
+    // 4️⃣ Redirect back to the original page (or plan page if no returnUrl) with success indicator
+    const redirectPath = returnUrl || `/dashboard/projects/${projectId}/plan`;
+    console.log('🔗 Redirecting to:', redirectPath);
+    
     return NextResponse.redirect(
-      `${baseUrl}/dashboard/projects/${projectId}/plan?meta_connected=true`
+      `${baseUrl}${redirectPath}?meta_connected=true`
     );
   } catch (err) {
     console.error('Callback error:', err);

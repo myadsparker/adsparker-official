@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
     const action = searchParams.get('action');
+    const returnUrl = searchParams.get('returnUrl'); // Get return URL from query params
 
     if (!projectId) {
       return NextResponse.json(
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
       // Log redirect URI for debugging (always log to help debug production issues)
       console.log('🔗 OAuth Redirect URI:', redirectUri);
       console.log('🔗 Base URL:', baseUrl);
+      console.log('🔗 Return URL:', returnUrl || 'Not provided (will default to plan page)');
       console.log('🔗 NEXT_PUBLIC_SITE_URL:', process.env.NEXT_PUBLIC_SITE_URL || 'Not set');
       console.log('🔗 Host header:', request.headers.get('host'));
       console.log('🔗 X-Forwarded-Proto:', request.headers.get('x-forwarded-proto'));
@@ -55,6 +57,7 @@ export async function GET(request: NextRequest) {
         projectId,
         userId: user.id,
         action: 'connect',
+        returnUrl: returnUrl || null, // Store return URL in state
       });
       
       const oauthParams = new URLSearchParams({

@@ -277,8 +277,12 @@ export default function DashboardLayout({
     try {
       // Use a temporary project ID for OAuth flow
       const tempProjectId = 'temp_' + Date.now();
+      // Get current page URL to return to after OAuth
+      const currentPath = window.location.pathname;
+      const returnUrl = encodeURIComponent(currentPath);
+      
       const response = await fetch(
-        `/api/meta-auth?action=connect&projectId=${tempProjectId}`
+        `/api/meta-auth?action=connect&projectId=${tempProjectId}&returnUrl=${returnUrl}`
       );
       const data = await response.json();
 

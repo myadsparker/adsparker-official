@@ -1613,9 +1613,12 @@ export default function BudgetPage() {
 
   const handleConnectMetaAccount = async () => {
     try {
+      // Get current page URL to return to after OAuth
+      const currentPath = window.location.pathname;
+      const returnUrl = encodeURIComponent(currentPath);
      
       const response = await fetch(
-        `/api/meta-auth?action=connect&projectId=${projectId}`
+        `/api/meta-auth?action=connect&projectId=${projectId}&returnUrl=${returnUrl}`
       );
 
  
