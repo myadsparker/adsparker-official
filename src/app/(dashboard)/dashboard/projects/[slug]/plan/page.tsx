@@ -1824,22 +1824,7 @@ export default function BudgetPage() {
         return;
       }
 
-      // Get selected pixel
-      if (!selectedPixelId) {
-        toast.error('Please select a Pixel to publish ads.', {
-          duration: 5000,
-          style: {
-            background: '#dc2626',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: '500',
-          },
-        });
-        setPublishingAds(false);
-        return;
-      }
+      // Get selected pixel (optional - no validation needed)
 
       // Get selected page
       if (!selectedPageId && pages.length > 0) {
@@ -3024,7 +3009,7 @@ export default function BudgetPage() {
                     {/* Pixel */}
                     <div className="meta-form-field">
                       <label className="meta-form-label">
-                        Pixel<span className="required-asterisk">*</span>
+                        Pixel
                         <TooltipProvider>
                           <UITooltip>
                             <TooltipTrigger asChild>
@@ -3172,7 +3157,7 @@ export default function BudgetPage() {
                     <button
                       className='meta-save-btn'
                       onClick={handlePublishAds}
-                      disabled={publishingAds || subscriptionLoading || !selectedAdAccountId || !selectedPixelId || (pages.length > 0 && !selectedPageId)}
+                      disabled={publishingAds || subscriptionLoading || !selectedAdAccountId || (pages.length > 0 && !selectedPageId)}
                     >
                       {publishingAds ? 'Saving...' : 'Save'}
                     </button>
