@@ -124,6 +124,29 @@ export default function BudgetPage() {
     return filteredCount > 0 ? dailyBudget / filteredCount : dailyBudget;
   };
 
+  // Check if adsets are available in the project
+  const checkAdSetsAvailable = async (): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.ad_set_proposals) {
+          const adsets = Array.isArray(data.ad_set_proposals)
+            ? data.ad_set_proposals
+            : typeof data.ad_set_proposals === 'string'
+              ? JSON.parse(data.ad_set_proposals)
+              : [];
+          // Return true if adsets exist and have at least one item
+          return Array.isArray(adsets) && adsets.length > 0;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking adsets:', error);
+      return false;
+    }
+  };
+
   // Call website-analysis API to generate adsets
   const callWebsiteAnalysis = async () => {
     try {
@@ -448,14 +471,22 @@ export default function BudgetPage() {
       // Reset attempt flag when project changes
       hasAttemptedImageGen.current = false;
       
-      // First call website-analysis API to generate adsets, then load everything else
+      // Check if adsets exist first, then call website-analysis API only if needed
       const initializePage = async () => {
         setLoading(true);
         try {
-          // Call website-analysis API first to generate adsets
-          await callWebsiteAnalysis();
+          // First, check if adsets are already available
+          const adsetsAvailable = await checkAdSetsAvailable();
           
-          // After website-analysis completes, fetch all other data
+          // Only call website-analysis API if adsets are not available
+          if (!adsetsAvailable) {
+            console.log('No adsets found, calling website-analysis API to generate adsets...');
+            await callWebsiteAnalysis();
+          } else {
+            console.log('Adsets already available, skipping website-analysis API call');
+          }
+          
+          // After checking/calling website-analysis, fetch all other data
           fetchConnectedAccounts(); // Fetch connected accounts
           fetchPages(); // Fetch Facebook pages
           await fetchProjectData(true); // Fetch campaign proposal data and adsets (skip loading management)
